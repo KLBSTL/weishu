@@ -2,9 +2,9 @@
 
 Stronghold Protocol's own code is licensed under **GPL-3.0-or-later** (see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md)).
 The components below are **not** part of that grant: each stays under its own licence, reproduced at the end of this
-file. Nothing here is committed to the repository except `tools/local-extract/aklz4.py`; the client libraries are
-installed by npm and copied into `public/vendor/` by `tools/vendor.mjs` (postinstall), and the release bundle carries
-them (with `node_modules/`, which keeps each package's own licence file).
+file. This fork commits production npm packages in `node_modules/`, retaining each package's own licence files,
+and browser libraries in `public/vendor/` so a clone can run without installing dependencies. The table below
+describes upstream packaging; its six runtime npm components are also included in this fork's repository.
 
 本项目自己的代码采用 GPL-3.0-or-later；下列第三方组件各自保留原许可证，不受 GPL 约束。
 

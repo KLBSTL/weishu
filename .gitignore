@@ -1,17 +1,15 @@
 # --- dependencies & generated client libs -------------------------------------------------------
+# Production packages are tracked deliberately in this fork; keep new development packages ignored.
 node_modules/
 # a local npm cache (npm_config_cache=./.npm-cache, npm ci --cache .npm-cache — GitHub #258)
 .npm-cache/
-# copied from node_modules by tools/vendor.mjs (postinstall); never commit third-party builds
-public/vendor/
+# public/vendor is committed for clone-ready startup (refresh with npm run vendor).
 
-# --- game assets: (c) Hypergryph / Yostar, fetched or extracted locally, NEVER committed ----------
-# tools/fetch-assets.mjs → public/assets/** (~270 MB) and public/fonts/** (+ fonts.css)
-public/assets/
-public/fonts/
+# --- this fork distributes downloaded game assets and fonts; preserve NOTICE.md -----------------
 # tools/local-extract/extract.py → public/assets/local/** and this per-machine manifest
 # (optional: the client and the tests work without it; docs/DEPLOY.md §6 lists what falls back)
 data/local-assets.json
+public/assets/local/
 # download caches, upstream tables, ledgers, reports, setup state
 .cache/
 

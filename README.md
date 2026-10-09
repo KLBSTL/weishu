@@ -2,7 +2,7 @@
 
 本仓库为 [sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol) 0.2.2 的扩展版本，加入萨卡兹、哥伦比亚干员与盟约、两支固定回合检索分队和战斗统计面板。当前常规招募池108名、分队42支；扩展内容与原版规则的差异见 [本分支说明](docs/LOCAL-EXPANSION.md)。
 
-首次使用请按下方“从源码运行”安装依赖并下载素材。本仓库当前发布源码，下面保留的整合包介绍属于上游使用说明，不代表本仓库已经提供对应 Releases。
+本仓库已附带游戏素材、字体、前端库和生产运行依赖。安装 **Node.js 22+** 后，克隆即可启动，无需 `npm install` 或另行下载素材。下面保留的整合包介绍属于上游使用说明，不代表本仓库已经提供对应 Releases。
 
 《明日方舟》季节性自走棋塔防玩法「卫戍协议：盟约」的**非官方同人复刻**：浏览器即开即玩，单人或 1–4 人联机合作。
 
@@ -16,7 +16,7 @@
 > - 本项目是玩家自制的**非官方同人作品**，与上海鹰角网络科技有限公司（Hypergryph）、Yostar 及其关联方**没有任何关系**，未获其授权或认可。
 > - 《明日方舟》及「卫戍协议」相关的名称、角色、美术、音乐、音效、文本与数据等素材，版权归原权利人所有。这些素材**不适用**本项目的 GPL-3.0 许可证；GPL 只覆盖本项目自己编写的代码。
 > - 仅供学习交流与个人非商业使用。**严禁任何形式的盈利**，包括但不限于：售卖本项目或整合包、付费下载或付费分发、收费服务器或收费代开、广告 / 打赏 / 会员等变现方式，以及其他任何商业用途。
-> - 仓库源码不包含游戏的美术与音频素材（只有由官方数据表生成的数据和几张游戏截图，同样不适用 GPL）；[Releases](../../releases/latest) 中的完整包为了方便玩家附带了素材（精简包不带，首次启动时从公开镜像下载），下载即视为同意本声明。请勿将素材用于本项目以外的用途或单独再分发。完整条款见 [NOTICE.md](NOTICE.md)。
+> - 本分支为方便克隆后运行，附带下载的游戏美术、模型、音频与字体；素材与游戏数据同样不适用 GPL。请勿将素材用于本项目以外的用途或单独再分发。完整条款见 [NOTICE.md](NOTICE.md)。
 > - 权利人如认为本项目侵犯其权益，请通过 Issue 联系，我们会**立即删除**相关内容。
 > - 本项目按「现状」提供，**不提供任何担保**，使用风险自负。
 
@@ -89,12 +89,10 @@ English summary: [below](#english).
 ```bash
 git clone https://github.com/KLBSTL/weishu.git
 cd weishu
-npm install        # 安装依赖（postinstall 会把 pixi / preact / three 复制到 public/vendor）
-npm run setup      # 检查环境，并从公开镜像下载约 550 MB 美术 / 音频（可中断，再次运行会续传）
-npm start          # 启动服务器：http://localhost:3000
+node server/index.js  # 启动服务器：http://localhost:3000（也可 npm start）
 ```
 
-也可以直接运行启动脚本（Windows `scripts\start-windows.bat`，macOS / Linux `scripts/start.sh`）：首次会自动安装依赖、下载素材，然后启动服务器并打开浏览器。
+也可以直接运行启动脚本（Windows 双击 `scripts\start-windows.bat`，macOS / Linux 运行 `bash scripts/start.sh`）：检查已有依赖和素材后，启动服务器并打开浏览器。普通游玩不需要安装 Python、游戏客户端或开发工具；开发与测试时再执行 `npm ci`。仓库附带约560 MiB素材，首次可用 `git clone --depth 1` 减少历史下载。未附带可选的本地客户端提取素材，默认使用2D棋盘和已有替代模型。
 
 - **本地客户端素材（可选）**：官方 3D 棋盘、部分官方界面图标（交流按钮与表情面板的边框、模组类型图标等）、灼热 / 炽焰源石虫和 39 个召唤物（多数自选召唤物）的官方模型需要从本机的《明日方舟》PC 客户端提取（Windows 原生客户端、macOS 的 CrossOver 或 PlayCover）。`npm run setup` 检测到客户端时会询问是否提取（需要 Python 3.8+，依赖装在项目内的 `.venv-extract`，不影响系统）；之后可以用 `node tools/setup.mjs --local` 重新提取，或用 `--game "<…/StreamingAssets/AB/Windows>"` 指定路径。没有客户端时游戏照常运行，这几样换成替代样式：2D 棋盘、样式相近的图标、染色的普通源石虫、召唤物头像。表情和「玩法说明」的教程图随上面的素材一起从公开镜像下载，不需要客户端。没有客户端的服务器（例如 Linux VPS）也可以从**同一版本**的整合包（完整包；精简包没有）里复制 `public/assets/local/` 和 `data/local-assets.json`，见 [docs/DEPLOY.md](docs/DEPLOY.md) 的「本地客户端素材」。
 - 素材下载优先使用 GitHub，失败时自动改用 jsDelivr 镜像。
@@ -244,7 +242,7 @@ node tools/perfbench.mjs --cpu 1,4,6 --profile             # 真实战斗的帧�
 - 准备环境、运行测试、忠实原则和提交约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 - 提交前请运行 `node --test`，并同步更新相关文档；文档使用简体中文，代码与注释使用英文。
 - 提交的代码将以 GPL-3.0-or-later 发布。
-- 请不要提交任何游戏素材文件（`public/assets/` 等目录已被 `.gitignore` 排除）。
+- 本分支按维护者要求附带运行素材与生产依赖；更新时保留第三方声明，勿提交机器配置、缓存或开发依赖。见 [本分支说明](docs/LOCAL-EXPANSION.md)。
 - 本项目坚持非商业：请不要提交广告、付费、打赏等任何形式的变现功能。
 
 ---
@@ -253,7 +251,7 @@ node tools/perfbench.mjs --cpu 1,4,6 --profile             # 真实战斗的帧�
 
 An **unofficial, non-commercial fan remake** of Arknights' seasonal auto-chess tower-defense mode *Stronghold Protocol: Alliance*, played in the browser: solo, or 1–4 player co-op (AI teammates can fill seats). Combat is simulated in each player's browser, so a low-power PC can host.
 
-- **Run:** download the full bundle `Stronghold-Protocol-v<version>.zip` (~505 MB, all the art inside, the Chinese and Japanese operator voices included) from [Releases](../../releases/latest) — or the lite one, `…-lite.zip` (~22 MB), which downloads the art (~550 MB) on its first start; from 0.2.1 on, `…-update.zip` holds only the files changed since the earlier 0.2.x releases: stop the server, extract it over an existing 0.2.x folder and start again (the first start deletes the files the new version dropped and verifies the install) — install Node.js 22 or 24, then double-click `scripts\start-windows.bat` (Windows) or run `./scripts/start.sh` (macOS / Linux) and open <http://localhost:3000>. From source: `npm install && npm run setup && npm start` (setup downloads ~550 MB of art from public mirrors, the emotes and the how-to-play pages included; the official 3D board, some official HUD icons, two enemy models and 39 summon models are extracted from a local Arknights client — without one the game uses the 2D board and look-alike stand-ins (the summons show their avatars), and a server can copy `public/assets/local/` and `data/local-assets.json` from the full bundle of the same version).
+- **Run this fork:** install Node.js 22+, clone `https://github.com/KLBSTL/weishu.git`, then run `node server/index.js` and open <http://localhost:3000>. Downloaded art, fonts, browser libraries and production npm dependencies are included; no `npm install` or asset download is needed to play. Windows users can double-click `scripts/start-windows.bat`; macOS/Linux users can run `bash scripts/start.sh`. Optional local-client art is not included: the game uses a 2D board and fallback models. Developers can run `npm ci` to install development dependencies. The release-bundle instructions above describe upstream packaging, not published releases of this fork.
 - **Languages:** Chinese (the default), English, 日本語, 한국어 and 繁體中文 — switch on the title screen or in Settings. Game texts come from the official clients; the Japanese, Korean and Traditional Chinese interface strings are machine translations (corrections welcome: [docs/I18N.md](docs/I18N.md)).
 - **Play with friends:** create a co-op room and share the 4-letter key or the `?room=KEY` link. On a LAN, use the address printed at start; otherwise use a virtual-LAN tool, a tunnel or a VPS — see [docs/DEPLOY.md](docs/DEPLOY.md).
 - **Disclaimer:** not affiliated with or endorsed by Hypergryph or Yostar. All Arknights names, art, audio, text and data are © their respective owners and are **not** covered by this project's GPL licence. For study and personal non-commercial use only — no selling, paid distribution, paid servers or monetisation of any kind. Content will be removed on request of the rights holders. Provided "as is", without warranty.

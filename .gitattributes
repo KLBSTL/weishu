@@ -1,6 +1,8 @@
 # Normalise line endings in the repository; check out Windows scripts with CRLF (cmd.exe needs it for labels/goto)
 # and shell scripts with LF, whatever core.autocrlf says on the cloning machine.
 * text=auto
+# Keep vendored npm package contents byte-for-byte across platforms.
+node_modules/** -text
 *.bat text eol=crlf
 *.cmd text eol=crlf
 *.ps1 text eol=crlf

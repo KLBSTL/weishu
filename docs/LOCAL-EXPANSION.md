@@ -15,19 +15,25 @@
 
 ## 安装与启动
 
-需要 Node.js 22或24。仓库包含源码、生成的数据、依赖锁文件、原创SVG、文档和测试。下载的立绘/音频/模型、依赖目录、缓存、机器配置和日志不上传。
+需要 Node.js 22+（建议22或24）。仓库包含源码、生成的数据、依赖锁文件、原创SVG、文档、测试，以及下载的立绘/音频/模型、字体、前端库和完整生产依赖。普通游玩无需执行 `npm install`，启动不依赖外部素材站。
 
 ```bash
 git clone https://github.com/KLBSTL/weishu.git
 cd weishu
-npm ci
-npm run setup
-npm start
+node server/index.js
 ```
 
 浏览器进入 `http://localhost:3000`。局域网队友通过主机局域网IP的3000端口进入同一房间。也可以使用仓库内的 `scripts/start-windows.bat` 或 `scripts/start.sh`。GitHub仓库地址本身不是可直接游玩的游戏地址。
 
-素材可由安装工具下载；本地客户端提取是可选项，详见 [素材说明](ASSETS.md)。当前下载源缺少磐蟹及中继器的专用模型时使用占位表现，机制仍可运行。
+下载素材约560 MiB，可用 `git clone --depth 1` 只克隆最新版本。Node.js运行时本身需单独安装；没有上传开发依赖、浏览器、Python环境、缓存、机器配置和日志。开发测试时执行 `npm ci`，会按锁文件补齐开发依赖。
+
+本地客户端提取是可选项，未附带3D棋盘等提取内容，详见 [素材说明](ASSETS.md)。当前下载源缺少磐蟹及中继器的专用模型时使用占位表现，机制仍可运行。
+
+## 素材与依赖维护
+
+本分支按维护者要求，将 `public/assets/`、`public/fonts/`、`public/vendor/` 及锁文件标记为生产依赖的包随仓库分发。每个npm包保留原始文件和许可证；开发依赖仍忽略。更新依赖时先执行 `npm ci` 和 `npm run vendor`，再按 `package-lock.json` 中非 `dev` 的包审核更新生产依赖（忽略目录中的新文件需显式加入），不要直接提交整个本机 `node_modules/`。不更改上游的许可证适用范围。
+
+完整性检查：`node tools/setup.mjs --check --no-local`。无下载启动：`node scripts/launch.mjs --no-setup`，或直接运行 `node server/index.js`。
 
 ## 验证记录
 

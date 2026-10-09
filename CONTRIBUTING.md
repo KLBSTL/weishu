@@ -60,7 +60,7 @@ SIM_E2E=1 node --test 'test/sim/*.browser.test.js'               # 浏览器里�
   “the owner's decision of YYYY-MM-DD”。有意和官方不同的规则只能由维护者决定，并写进设计文档（[docs/DESIGN.md](docs/DESIGN.md)
   是索引：现行规则在 `docs/design/`，各版本的修订与依据在 `docs/history/`）。
 - **版权**：不要把技能描述、剧情等受版权保护的文本大段复制进代码、文档或 PR，引一小句并注明出处即可。不要提交任何游戏
-  素材文件（`public/assets/` 已被 `.gitignore` 排除）。
+  无关素材文件；本分支按维护者要求附带运行素材与生产依赖，范围见 [本分支说明](docs/LOCAL-EXPANSION.md)。
 - **数据**：不要手改 `data/*.json`。改 `tools/build-data.mjs`，用 `node tools/build-data.mjs --offline` 重新生成，再比较
   JSON，确认只变了想改的部分。
 
@@ -114,7 +114,7 @@ SIM_E2E=1 node --test 'test/sim/*.browser.test.js'               # 浏览器里�
   numbers come from the blackboards. Anything no source settles is marked `[ASSUMED]` in the code and the pull
   request; owner decisions are cited with their date; deliberate deviations are the owner's call and go into the design
   document (docs/DESIGN.md is its index: the rules in `docs/design/`, the per-release revisions in `docs/history/`).
-  Do not paste copyrighted game text at length (quote briefly, cite) and never commit game assets.
+  Do not paste copyrighted game text at length (quote briefly, cite). This fork bundles runtime assets and production dependencies at the maintainer's request; see [the fork notes](docs/LOCAL-EXPANSION.md).
   Never hand-edit `data/*.json`: change `tools/build-data.mjs`, rebuild with `--offline`, compare the JSON.
 - **Commits and pull requests**: one change per pull request, one operator per kit pull request. A one-line commit
   message saying what changed, with the issue number; no attribution trailers such as `Co-Authored-By:` or
