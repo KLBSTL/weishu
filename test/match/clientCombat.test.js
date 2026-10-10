@@ -151,6 +151,11 @@ test('validation: implausible client results are rejected and replaced by the se
   const spec = buildBattleSpec({ battleId: 'x', fieldId: 'n:p', kind: 'normal', round: 3, stageId: 's', timeLimit: 120, players: [{ playerId: 'p', units: [{ uid: 5, kind: 'chess', chessId: 'chess_char_1_a', row: 9, col: 3 }] }], spawns: [{ enemyKey: 'enemy_1007_slime', count: 3, time: 0, bounty: { coins: 2, ownerPlayerId: 'p' } }], flags: { layerGainsEnabled: true } });
   const ok = { reason: 'timeout', time: 120, perPlayer: { p: { killed: 2, total: 3, leaked: [{ enemyKey: 'enemy_1007_slime', counted: true }], perfect: false, layerGains: { yanShip: 3 }, coins: 4, unitsEnd: [{ uid: 5, hpPct: 0.5, sp: 2, alive: true }] } } };
   assert.equal(validateClientResult(spec, ok, {}).ok, true);
+  const withUsage = structuredClone(ok);
+  withUsage.perPlayer.p.sarkazTyphonUsed = { 5: 28, 999: 56 };
+  assert.deepEqual(compactResult(withUsage).perPlayer.p.sarkazTyphonUsed, { 5: 28, 999: 56 });
+  assert.deepEqual(validateClientResult(spec, compactResult(withUsage), {}).result.perPlayer.p.sarkazTyphonUsed,
+    { 5: 28 }, 'retain own UID allowance; discard a foreign UID');
   const bad = (edit) => { const r = JSON.parse(JSON.stringify(ok)); edit(r); return validateClientResult(spec, r, {}); };
   assert.equal(bad((r) => { r.perPlayer.p.coins = 7; }).reason, 'coins');
   assert.equal(bad((r) => { r.perPlayer.p.leaked.push(...Array(3).fill({ enemyKey: 'enemy_1007_slime', counted: true })); }).reason, 'leak multiset');

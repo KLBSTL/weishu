@@ -5,6 +5,7 @@
 
 import { FORCED_EXIT, MAX_BATTLE_TIME } from '../constants.js';
 import { extensionStats } from '../../../shared/combatStats.js';
+import { typhonUsage } from '../../../shared/typhonUsage.js';
 import { updateAlly, updateEnemy } from '../ai.js';
 
 export class BattleLifecycle {
@@ -230,8 +231,11 @@ export class BattleLifecycle {
         ...extensionStats(u.stats),
       }));
       if (ps.input?.contentInfo?.sarkazShiningUsed || ps.units.some((u) => u.mem.sarkazShiningUsed)) pp.sarkazShiningUsed = true;
-      const typhonUsed = Math.max(ps.input?.contentInfo?.sarkazTyphonUsed ?? 0, ...ps.units.map(u => u.mem.sarkazTyphonUsed ?? 0));
-      if (typhonUsed > 0) pp.sarkazTyphonUsed = typhonUsed;
+      const used = typhonUsage(ps.input?.contentInfo?.sarkazTyphonUsed);
+      for (const u of ps.units) if (Number.isInteger(u.uid) && u.mem.sarkazTyphonUsed > 0) {
+        used[u.uid] = Math.max(used[u.uid] ?? 0, u.mem.sarkazTyphonUsed);
+      }
+      if (Object.keys(used).length) pp.sarkazTyphonUsed = typhonUsage(used);
       perPlayer[ps.playerId] = pp;
     }
     const res = { time: Math.round(this.time * 1000) / 1000, reason: this.reason, perPlayer, killed: this.killed, total: this.total, resolved: this.resolved, errors: this.errorCount };

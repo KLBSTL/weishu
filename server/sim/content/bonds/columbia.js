@@ -95,7 +95,7 @@ export function registerMeta(registry) {
       if (ev.bondId !== BOND || !(ev.to > ev.from)) return;
       const before = ctx.counter('columbia:earnedLayers'), after = before + ev.to - ev.from;
       ctx.setCounter('columbia:earnedLayers', after);
-      for (let n = Math.floor(before / 15); n < Math.floor(after / 15); n++) ctx.grantItem(IDENTITY_CARD);
+      for (let n = Math.floor(before / 25); n < Math.floor(after / 25); n++) ctx.grantItem(IDENTITY_CARD);
     },
   });
 }

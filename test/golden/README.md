@@ -36,6 +36,8 @@ battles of the normal records, the first 自选 battle of the operator kits and 
 
 ## Workflow
 
+Latest Typhon allowance and bond-tag update: [scenario audit](../../docs/typhon-independent-golden.md), compared with 04cc838.
+
 Latest numeric-only Columbia update: [scenario audit](../../docs/columbia-numeric-golden.md), compared with fa3c798.
 
 Local Sarkaz and Columbia expansion: the corpus currently has 47 roster, 50 bond, 22 field, 18 match, 11 stand-in and 138 DIY scenarios (286 total). Revised traits, equipment and shop priority intentionally change combat and recruitment outcomes. All 138 DIY baselines remain unchanged. The extra stand-in case carries full SP to exercise reserve guard S2 independently of its survival in regrouped teams; the stand-in match marks all NORMAL entries unowned. [Equipment and covenant audit](../../docs/sarkaz-equipment-golden.md) lists every baseline move and its reason; [Columbia scenario audit](../../docs/columbia-golden.md) and [earlier Sarkaz audit](../../docs/sarkaz-golden.md) are retained as history.

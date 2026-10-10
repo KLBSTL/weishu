@@ -950,15 +950,18 @@ test('Astgenne: prep-start only, each active bond gains 2 / 4; Ptilopsis copies 
 
 test('Typhon budget survives sub-battles, never decreases, and resets on the next formal round', () => {
   const s = setup();
-  s.m.dispatch(s.ps, 'onBattleResult', { result: { sarkazTyphonUsed: 28 } });
-  s.m.dispatch(s.ps, 'onBattleResult', { result: { sarkazTyphonUsed: 4 }, unite: { sarkazTyphonUsed: 32 } });
+  const a = give(s.m, s.ps, 'chess_char_5_sarkaz_typhon_a', 'board', [10, 4]);
+  const b = give(s.m, s.ps, 'chess_char_5_sarkaz_typhon_b', 'board', [10, 5]);
+  s.m.dispatch(s.ps, 'onBattleResult', { result: { sarkazTyphonUsed: { [a.uid]: 28, [b.uid]: 12 } } });
+  s.m.dispatch(s.ps, 'onBattleResult', { result: { sarkazTyphonUsed: { [a.uid]: 4 } }, unite: { sarkazTyphonUsed: { [b.uid]: 32 } } });
+  s.ps.promote(a);
   const ev = { input: {}, kind: 'normal' };
   s.m.dispatch(s.ps, 'onBattleStart', ev);
-  assert.equal(ev.input.contentInfo.sarkazTyphonUsed, 32);
+  assert.deepEqual(ev.input.contentInfo.sarkazTyphonUsed, { [a.uid]: 28, [b.uid]: 32 });
   s.m.round++;
   const next = { input: {}, kind: 'normal' };
   s.m.dispatch(s.ps, 'onBattleStart', next);
-  assert.equal(next.input.contentInfo.sarkazTyphonUsed, undefined);
+  assert.equal(next.input.contentInfo?.sarkazTyphonUsed, undefined);
   s.m.dispose();
 });
 
@@ -1018,8 +1021,10 @@ test('Columbia new prep traits, identity rewards and two-tile elite Saria copy',
     t.m.dispose();
   }
   const s = setup();
-  s.ps.addLayers('columbiaShip', 14); assert.equal(itemUnits(s.ps, card), 0);
-  s.ps.addLayers('columbiaShip', 17); assert.equal(itemUnits(s.ps, card), 2);
+  s.ps.addLayers('columbiaShip', 24); assert.equal(itemUnits(s.ps, card), 0);
+  s.ps.addLayers('columbiaShip', 1); assert.equal(itemUnits(s.ps, card), 1);
+  s.m.round++;
+  s.ps.addLayers('columbiaShip', 26); assert.equal(itemUnits(s.ps, card), 2);
   s.ps.addLayers('arcaneShip', 30); assert.equal(itemUnits(s.ps, card), 2);
   s.m.dispose();
   const t = setup();

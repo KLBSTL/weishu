@@ -33,6 +33,7 @@
 //   syntheticResult(players, progress)     stand-in when a boss field's client never reported
 import { TICK, SNAPSHOT_EVERY } from '../sim/constants.js';
 import { extensionStats } from '../../shared/combatStats.js';
+import { typhonUsage } from '../../shared/typhonUsage.js';
 import { layerGainRoom } from '../../shared/constants.js';
 import { uniteLeft } from '../sim/spec.js';
 import { diyTokenOwner } from '../../shared/diy.js';
@@ -892,7 +893,8 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
       // teammate UI then falls back to `killed`, never to a fabricated 0); clamped to the denominator
       if (Number.isInteger(p.resolved) && p.resolved >= 0) perPlayer[pid].resolved = Math.min(p.total, p.resolved);
       if (p.sarkazShiningUsed === true) perPlayer[pid].sarkazShiningUsed = true;
-      if (Number.isInteger(p.sarkazTyphonUsed)) perPlayer[pid].sarkazTyphonUsed = Math.max(0, Math.min(56, p.sarkazTyphonUsed));
+      const used = typhonUsage(p.sarkazTyphonUsed, own.all);
+      if (Object.keys(used).length) perPlayer[pid].sarkazTyphonUsed = used;
     }
     if (coinsSum > B.bountyCoins + 1e-6) return bad('coins');
     const result = { time: raw.time, reason: raw.reason, perPlayer, killed: 0, total: 0, errors: Math.max(0, Math.trunc(Number(raw.errors) || 0)) };

@@ -160,19 +160,37 @@ test('Sarkaz rider ignores source multipliers, accepts target vulnerability, and
   close(numericShieldTotal(u), u.s.maxHp * .5);
 });
 
-test('Typhon shared 28/56 budget, only actual skill starts while an owner is on field', () => {
-  for (const [form, cap] of [['a', 28], ['b', 56]]) {
-    const { h, ops } = setup(6, 0, { 0: [`garrison_sarkaz_typhon_${form}`], 1: [`garrison_sarkaz_typhon_${form}`] });
+test('Typhon independent 28/56 budgets survive redeployment, including mixed qualities', () => {
+  for (const [a, b, capA, capB] of [['a', 'a', 28, 28], ['a', 'b', 28, 56], ['b', 'b', 56, 56]]) {
+    const { h, ops } = setup(6, 0, { 0: [`garrison_sarkaz_typhon_${a}`], 1: [`garrison_sarkaz_typhon_${b}`] });
     const cast = () => { ops[2].skill.end('test'); ops[2].skill.activate('test', { free: true }); };
-    cast(); close(h.b.players[0].bonds.sarkazShip.layers, 2);
-    const r = compactResult(h.result()); assert.equal(r.perPlayer.p1.sarkazTyphonUsed, 2);
-    const copy = structuredClone(r); copy.perPlayer.p1.sarkazTyphonUsed = 4;
+    cast(); close(h.b.players[0].bonds.sarkazShip.layers, 4);
+    const r = compactResult(h.result());
+    assert.deepEqual(r.perPlayer.p1.sarkazTyphonUsed, { [ops[0].uid]: 2, [ops[1].uid]: 2 });
+    const copy = structuredClone(r); copy.perPlayer.p1.sarkazTyphonUsed[ops[0].uid] = 4;
     assert.notEqual(resultDigest(r).hash, resultDigest(copy).hash);
-    h.b.kill(ops[0], { reason: 'killed' }); h.b.kill(ops[1], { reason: 'killed' });
-    cast(); close(h.b.players[0].bonds.sarkazShip.layers, 2);
+    h.b.kill(ops[0]); h.b.kill(ops[1]);
+    cast(); close(h.b.players[0].bonds.sarkazShip.layers, 4);
     h.b.redeploy(ops[0], { free: true });
     for (let i = 0; i < 40; i++) cast();
-    close(h.b.players[0].bonds.sarkazShip.layers, cap);
-    assert.equal(compactResult(h.result()).perPlayer.p1.sarkazTyphonUsed, cap);
+    close(h.b.players[0].bonds.sarkazShip.layers, capA + 2);
+    h.b.redeploy(ops[1], { free: true });
+    for (let i = 0; i < 40; i++) cast();
+    close(h.b.players[0].bonds.sarkazShip.layers, capA + capB);
+    assert.deepEqual(compactResult(h.result()).perPlayer.p1.sarkazTyphonUsed, { [ops[0].uid]: capA, [ops[1].uid]: capB });
   }
+});
+
+test('Typhon per-piece carried usage prevents new allowances in the next sub-battle', () => {
+  const h = makeBattle({ players: [{ playerId: 'p1', bonds: { sarkazShip: bond(3) },
+    contentInfo: { sarkazTyphonUsed: { 101: 28, 102: 54 } }, units: [
+      { uid: 101, chessId: 'chess_char_5_sarkaz_typhon_a', row: 10, col: 3 },
+      { uid: 102, chessId: 'chess_char_5_sarkaz_typhon_b', row: 10, col: 4 },
+    ] }], autoFinish: false });
+  h.step();
+  const u = h.b.allyUnits.find(u => u.uid === 101);
+  h.b.emit('skillStart', { unit: u }); h.b.emit('skillStart', { unit: u });
+  assert.equal(h.b.players[0].bonds.sarkazShip.layers, 2);
+  assert.deepEqual(compactResult(h.result()).perPlayer.p1.sarkazTyphonUsed, { 101: 28, 102: 56 });
+  assert.deepEqual(h.b.errors, []);
 });

@@ -4,6 +4,7 @@ import * as S from '../support/index.js';
 import { numericShieldTotal, clampNumericShields } from '../../buffs.js';
 import { hasHp } from '../../damage.js';
 import { primaryHit } from './attack-riders.js';
+import { typhonUsage } from '../../../../shared/typhonUsage.js';
 
 export const BOND = 'sarkazShip';
 export const SHIELD = 'bond:sarkaz:barrier';
@@ -42,15 +43,16 @@ export function install(battle) {
       if (playerId === pid && bondId === BOND) battle.after(0, refresh);
     });
 
-    let typhonUsed = Math.max(0, Math.min(56, p.input?.contentInfo?.sarkazTyphonUsed ?? 0));
+    const carriedUsage = typhonUsage(p.input?.contentInfo?.sarkazTyphonUsed);
+    for (const u of ops) if (owns(u, 'typhon')) u.mem.sarkazTyphonUsed = carriedUsage[u.uid] ?? 0;
     battle.on('skillStart', ({ unit }) => {
       if (!member(unit) || !S.onField(unit) || !active() || !battle.flags.layerGainsEnabled) return;
       const holders = ops.filter(u => owns(u, 'typhon') && S.onField(u));
-      const holder = holders.find(u => elite(u, 'typhon')) ?? holders[0];
-      if (!holder || typhonUsed >= (elite(holder, 'typhon') ? 56 : 28)) return;
-      typhonUsed += 2;
-      for (const u of ops) if (owns(u, 'typhon')) u.mem.sarkazTyphonUsed = typhonUsed;
-      gain(battle, holder, BOND, 2);
+      for (const holder of holders) {
+        if (holder.mem.sarkazTyphonUsed >= (elite(holder, 'typhon') ? 56 : 28)) continue;
+        holder.mem.sarkazTyphonUsed += 2;
+        gain(battle, holder, BOND, 2);
+      }
     }, { priority: 90 });
 
     let shiningUsed = !!p.input?.contentInfo?.sarkazShiningUsed;
@@ -125,16 +127,24 @@ export function registerMeta(registry) {
       if (ev.input && ctx.counter('sarkaz:shining:round') === ctx.round) {
         (ev.input.contentInfo ??= {}).sarkazShiningUsed = true;
       }
-      if (ev.input && ctx.counter('sarkaz:typhon:round') === ctx.round) {
-        (ev.input.contentInfo ??= {}).sarkazTyphonUsed = ctx.counter('sarkaz:typhon:used');
+      if (ev.input) {
+        const used = {};
+        for (const piece of ctx.board()) if (ctx.counter(`sarkaz:typhon:round:${piece.uid}`) === ctx.round) {
+          const n = ctx.counter(`sarkaz:typhon:used:${piece.uid}`);
+          if (n > 0) used[piece.uid] = n;
+        }
+        if (Object.keys(used).length) (ev.input.contentInfo ??= {}).sarkazTyphonUsed = used;
       }
     },
     onBattleResult(ctx, ev) {
       if (ev.result?.sarkazShiningUsed || ev.unite?.sarkazShiningUsed) ctx.setCounter('sarkaz:shining:round', ctx.round);
-      const used = Math.max(ev.result?.sarkazTyphonUsed ?? 0, ev.unite?.sarkazTyphonUsed ?? 0,
-        ctx.counter('sarkaz:typhon:round') === ctx.round ? ctx.counter('sarkaz:typhon:used') : 0);
-      ctx.setCounter('sarkaz:typhon:round', ctx.round);
-      ctx.setCounter('sarkaz:typhon:used', Math.min(56, used));
+      for (const result of [ev.result, ev.unite]) for (const [uid, n] of Object.entries(typhonUsage(result?.sarkazTyphonUsed))) {
+        if (!ctx.piece(Number(uid))) continue;
+        const roundKey = `sarkaz:typhon:round:${uid}`, usedKey = `sarkaz:typhon:used:${uid}`;
+        const before = ctx.counter(roundKey) === ctx.round ? ctx.counter(usedKey) : 0;
+        ctx.setCounter(roundKey, ctx.round);
+        ctx.setCounter(usedKey, Math.max(before, n));
+      }
     },
   });
 }

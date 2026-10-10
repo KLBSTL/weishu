@@ -129,7 +129,7 @@ export function finishColumbia(files) {
     files.effects[effectId] = { ...structuredClone(files.effects[files.items[`${template}_${suffix}`].effectId]),
       effectId, name, desc, descRaw: desc, buffs: [], params };
   }
-  const desc = '累计每新增15层，获得1个随身身份牌。\n<在场3名不同【哥伦比亚】干员>【哥伦比亚】攻击力+20%，每层再+0.7%。\n<在场6名不同【哥伦比亚】干员>任一成员攻击敌人时，在主目标位置引发半径2.5格的圆形法术轰击，伤害为在场哥伦比亚干员当前总攻击力的200%，并附加实际轰击伤害10%的灼燃损伤。被轰击的敌人每秒受到总攻击力×层数×0.5%的法术持续伤害，持续5秒，不附加灼燃损伤；再次轰击刷新持续时间与快照，不叠加。范围同维什戴尔三技能。每名玩家的哥伦比亚全队共享10秒冷却，每满100层减少1秒，最低1秒；治疗、召唤物、持续伤害及独立追伤不触发。';
+  const desc = '累计每新增25层，获得1个随身身份牌。\n<在场3名不同【哥伦比亚】干员>【哥伦比亚】攻击力+20%，每层再+0.7%。\n<在场6名不同【哥伦比亚】干员>任一成员攻击敌人时，在主目标位置引发半径2.5格的圆形法术轰击，伤害为在场哥伦比亚干员当前总攻击力的200%，并附加实际轰击伤害10%的灼燃损伤。被轰击的敌人每秒受到总攻击力×层数×0.5%的法术持续伤害，持续5秒，不附加灼燃损伤；再次轰击刷新持续时间与快照，不叠加。范围同维什戴尔三技能。每名玩家的哥伦比亚全队共享10秒冷却，每满100层减少1秒，最低1秒；治疗、召唤物、持续伤害及独立追伤不触发。';
   files.effects.bondeffect_columbia = { ...structuredClone(files.effects.bondeffect_yan), effectId: 'bondeffect_columbia',
     name: '拓界共振', desc, descRaw: desc, buffs: [], params: {} };
   const members = Object.values(files.chess).filter(c => !c.isGolden && c.bonds.includes('columbiaShip'));

@@ -3,10 +3,10 @@ export const SARKAZ_ROSTER = Object.freeze([
   ['vigna', 'char_290_vigna', 1, 'chess_char_1_05_a', 'indomShip', 1],
   ['hbisc2', 'char_1024_hbisc2', 2, null, 'arcaneShip', 1],
   ['meteo', 'char_219_meteo', 2, null, 'swiftShip', 1],
-  ['mudrok', 'char_311_mudrok', 3, 'chess_char_4_18_a', 'soloShip', 1],
+  ['mudrok', 'char_311_mudrok', 3, 'chess_char_4_18_a', 'deputShip', 1],
   ['ifrit', 'char_134_ifrit', 4, null, 'visiShip', 1],
   ['shining', 'char_147_shining', 4, null, null, 2],
-  ['typhon', 'char_2012_typhon', 5, null, 'preciShip', 1],
+  ['typhon', 'char_2012_typhon', 5, null, 'skillfulShip', 1],
   ['nymph', 'char_4146_nymph', 5, 'chess_char_5_22_a', 'swiftShip', 1],
   ['wisdel', 'char_1035_wisdel', 6, null, 'preciShip', 1],
 ]);
@@ -18,7 +18,7 @@ const descriptions = {
   hbisc2: ['休整期结束时，自身所属盟约各+2层（无需激活）。', '休整期结束时，自身所属盟约各+4层（无需激活）。'],
   ifrit: ['自身攻击力与生命上限各+30%。', '自身攻击力与生命上限各+60%。'],
   shining: ['开启技能，使层数最多的已激活盟约+6层；每轮最多一次。', '开启技能，使层数最多的已激活盟约+12层；每轮最多一次。'],
-  typhon: ['在场时，任一己方萨卡兹真实开技使已激活萨卡兹+2层；每正式回合共享上限28。', '在场时，任一己方萨卡兹真实开技使已激活萨卡兹+2层；每正式回合共享上限56。'],
+  typhon: ['在场时，任一己方萨卡兹真实开技使已激活萨卡兹+2层；每正式回合自身上限28，同名干员独立计数。', '在场时，任一己方萨卡兹真实开技使已激活萨卡兹+2层；每正式回合自身上限56，同名干员独立计数。'],
   wisdel: ['每层已激活的萨卡兹使自身造成伤害+1%。', '每层已激活的萨卡兹使自身造成伤害+2%。'],
 };
 

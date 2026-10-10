@@ -33,6 +33,7 @@
 
 import { Battle } from './Battle.js';
 import { extensionStats } from '../../shared/combatStats.js';
+import { typhonUsage } from '../../shared/typhonUsage.js';
 import { toDataSource, withUnitLoadouts } from './simdata.js';
 import { isPotential, isCultivate } from '../../shared/potential.js';
 import { BOSS_POOL_MIN_HP } from './constants.js';
@@ -341,7 +342,7 @@ export function resultDigest(result) {
       Math.round(Number(p.damageDealt) || 0), Math.round(Number(p.bossDamage) || 0),
       (Array.isArray(p.unitsEnd) ? p.unitsEnd : []).map((u) => [u && u.uid, r4(u && u.hpPct), r4(u && u.sp), !!(u && u.alive)]),
       ...(p.sarkazShiningUsed ? ['sarkazShiningUsed'] : []),
-      ...(p.sarkazTyphonUsed ? [['sarkazTyphonUsed', p.sarkazTyphonUsed]] : []),
+      ...(Object.keys(typhonUsage(p.sarkazTyphonUsed)).length ? [['sarkazTyphonUsed', typhonUsage(p.sarkazTyphonUsed)]] : []),
     ];
   });
   const json = JSON.stringify([res.reason ?? null, r4(res.time), res.killed | 0, res.total | 0, players]);
@@ -417,7 +418,8 @@ export function compactResult(res) {
     const resolved = Number.isFinite(p.resolved) ? Math.max(0, Math.min(total, Math.trunc(p.resolved))) : null;
     if (resolved != null) perPlayer[pid].resolved = resolved;
     if (p.sarkazShiningUsed === true) perPlayer[pid].sarkazShiningUsed = true;
-    if (Number.isInteger(p.sarkazTyphonUsed)) perPlayer[pid].sarkazTyphonUsed = Math.max(0, Math.min(56, p.sarkazTyphonUsed));
+    const used = typhonUsage(p.sarkazTyphonUsed);
+    if (Object.keys(used).length) perPlayer[pid].sarkazTyphonUsed = used;
   }
   const out = {
     reason: ['cleared', 'timeout', 'forced'].includes(r.reason) ? r.reason : 'forced',
