@@ -20,13 +20,15 @@ function setup(L = 0, gs = {}, count = 6) {
       arcaneShip: { count: 2, active: true, tier: 1, layers: 0 } } });
   h.step(); const ops = units.map(u => h.unit(u.chessId));
   const e = h.spawn('dummy', { pos: [7, 9] });
-  return { h, ops, e, hit: (tags = [], amount = 1, target = e) => h.b.dealDamage(ops[0], target,
-    { amount, type: 'arts', isAttack: true, canDodge: true, tags }) };
+  return { h, ops, e, hit: (tags = [], amount = 1, target = e) => {
+    h.b.dealDamage(ops[0], target, { amount, type: 'arts', isAttack: true, canDodge: true, tags });
+    if (!tags.length) h.b.emit('attack', { attacker: ops[0], targets: [target], isSkill: false });
+  } };
 }
-test('Columbia has eleven identities including shared Ifrit; 106 regular recruits; retained exceptions stay visible', () => {
+test('Columbia has ten identities without Ifrit; 106 regular recruits; retained exceptions stay visible', () => {
   const visible = Object.values(ds.raw.chess).filter(c => !c.isGolden && c.visible);
   assert.equal(visible.length, 106);
-  assert.equal(visible.filter(c => c.bonds.includes('columbiaShip')).length, 11);
+  assert.equal(visible.filter(c => c.bonds.includes('columbiaShip')).length, 10);
   for (const c of visible.filter(c => c.bonds.some(b => ['egirShip', 'victoriaShip'].includes(b)))) assert.ok(RETAINED_CHARACTERS.includes(c.charId), c.name);
   for (const id of RETAINED_CHARACTERS) assert.ok(visible.some(c => c.charId === id), id);
   for (const [, charId, tier, , addon, skill] of COLUMBIA_ROSTER) {
@@ -38,20 +40,21 @@ test('Columbia has eleven identities including shared Ifrit; 106 regular recruit
     }
   }
 });
-test('Ifrit keeps both covenants and Farsight; fixed damage bonus does not amplify shield true damage', () => {
+test('Ifrit has Sarkaz/Farsight and 30/60 percent ATK and HP, no Columbia or damage multiplier', () => {
   for (const form of ['a', 'b']) {
     const id = `chess_char_4_sarkaz_ifrit_${form}`;
-    assert.deepEqual(ds.rawChess(id).bonds, ['sarkazShip', 'columbiaShip', 'visiShip']);
+    assert.deepEqual(ds.rawChess(id).bonds, ['sarkazShip', 'visiShip']);
     const h = makeBattle({ units: [{ chessId: id, row: 10, col: 4 }], defs: { enemies: { dummy } },
       bonds: { sarkazShip: { count: 6, tier: 2, active: true, layers: 0 },
         columbiaShip: { count: 6, tier: 2, active: true, layers: 0 } }, autoFinish: false });
     h.step(); const u = h.unit(id), e = h.spawn('dummy', { pos: [7, 9] });
-    close(u.s.dmgDealtMul, 1.3); close(u.s.atk, u.base.atk * 1.40);
+    close(u.s.dmgDealtMul, 1); close(u.s.atk, u.base.atk * (form === 'a' ? 1.5 : 1.8));
+    close(u.s.maxHp, u.base.maxHp * (form === 'a' ? 1.3 : 1.6));
     const shield = u.s.maxHp * .25;
     h.b.addBuff(u, { key: 'test:barrier', shield, duration: 20 });
     const hp = e.hp;
     h.b.dealDamage(u, e, { amount: 100, type: 'true', isAttack: true });
-    close(hp - e.hp, 130 + shield * .3);
+    close(hp - e.hp, 100 + shield * .3);
     close(e.elem.apoptosis ?? 0, 0);
     assert.deepEqual(h.b.errors, []);
   }
@@ -86,7 +89,7 @@ test('Columbia blast snapshots field ATK, burns, ticks five times and shares coo
   hit(); h.step();
   close(seen.find(c => c.dmg.tags.includes('bond:columbia:burst')).amount, total * 3);
   assert.ok(e.elem.burn > 0 || e.findBuff('burnBurst'));
-  h.b.dealDamage(ops[1], e, { amount: 1, type: 'true' }); h.step();
+  h.b.emit('attack', { attacker: ops[1], targets: [e] }); h.step();
   assert.equal(seen.filter(c => c.dmg.tags.includes('bond:columbia:burst')).length, 1);
   h.b.addBuff(ops[1], { key: 'snapshot-test', mods: { atkFlat: 10000 } });
   h.run(5.1);
@@ -118,6 +121,50 @@ test('Hoolheyak reads combined stored Columbia/Arcane layers in complete groups 
     h.b.emit('layerGain', { playerId: ops[0].ownerId, bondId: 'arcaneShip' }); h.step();
     close(ops[0].s.dmgDealtMul, form === 'b' ? 1.08 : 1.04);
   }
+});
+
+test('Columbia DoT follows struck enemies, refreshes one timer and snapshots the newest blast', () => {
+  const { h, ops, e, hit } = setup(600);
+  for (const u of ops) h.b.addBuff(u, { key: 'manual-attacks-only', flags: { disarm: true }, duration: 30 });
+  const late = h.spawn('dummy', { pos: [7, 12] });
+  late.x = e.x + 10; late.y = e.y;
+  for (const enemy of [e, late]) h.b.addBuff(enemy, { key: 'freeze-test-position', flags: { stun: true }, duration: 30 });
+  const damage = [], burns = [];
+  h.b.on('damaged', c => { if (c.dmg.tags?.includes('bond:columbia:dot')) damage.push(c); });
+  const deal = h.b.dealDamage.bind(h.b);
+  h.b.dealDamage = (source, target, dmg) => {
+    if (dmg.tags?.includes('bond:columbia:burn')) burns.push(dmg);
+    return deal(source, target, dmg);
+  };
+  const x = e.x, y = e.y;
+  hit(); h.step(); assert.equal(burns.length, 1);
+  e.x = x + 7; late.x = x; late.y = y;
+  h.run(2.1);
+  assert.equal(damage.length, 2); assert.ok(damage.every(c => c.target === e));
+  h.b.dealDamage(ops[0], late, { amount: 1e10, type: 'true' }); // Refresh only the original target.
+  const old = damage[0].amount;
+  h.b.addBuff(ops[1], { key: 'new-snapshot', mods: { atkFlat: 10000 } });
+  const latest = ops.reduce((n, u) => n + u.s.atk, 0) * 600 * .005;
+  hit(); h.step(); assert.equal(burns.length, 2);
+  h.run(5.1);
+  assert.equal(damage.length, 7, `old remaining ticks cancelled; five replacements: ${JSON.stringify(damage.map(c => [c.target.id, c.amount]))}`);
+  for (const c of damage.slice(2)) { assert.equal(c.target, e); close(c.amount, latest); }
+  assert.ok(latest > old);
+  assert.equal(burns.length, 2, 'DoT never applies Burn');
+  h.run(1); assert.equal(damage.length, 7);
+});
+
+test('Columbia triggers only enemy attacks, not healing, summons or standalone damage', () => {
+  const { h, ops, e } = setup();
+  let blasts = 0;
+  h.b.on('damaged', c => { if (c.dmg.tags?.includes('bond:columbia:burst')) blasts++; });
+  h.b.dealDamage(ops[0], e, { amount: 5, type: 'arts', tags: ['dot'] });
+  h.b.emit('attack', { attacker: ops[0], targets: [ops[1]] });
+  h.b.emit('attack', { attacker: { kind: 'token', ownerId: ops[0].ownerId }, targets: [e] });
+  h.step(); assert.equal(blasts, 0);
+  h.b.emit('attack', { attacker: ops[0], targets: [e], isSkill: true });
+  h.b.emit('attack', { attacker: ops[1], targets: [e] });
+  h.step(); assert.equal(blasts, 1, 'all members share the same cooldown');
 });
 
 test('Beanstalk summons real crab, fatal becomes tactical point and recovers, S2 temporary crabs leave', () => {

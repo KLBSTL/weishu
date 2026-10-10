@@ -12,7 +12,8 @@ import { powi } from './detmath.js';
 
 /** Numeric shield budget is opt-in; the strictest cap wins. Hit-count shields never consume it. */
 export function clampNumericShields(unit) {
-  const ratio = Math.min(unit?.trait?.numericShieldCap ?? Infinity, unit?.trait?.columbiaFieldShields > 0 ? 1 : Infinity);
+  const ratio = Math.min(unit?.trait?.numericShieldCap ?? Infinity, unit?.trait?.columbiaFieldShields > 0 ? 1 : Infinity,
+    unit?.trait?.sarkazBoneShields > 0 ? .5 : Infinity);
   if (!(ratio >= 0) || !Number.isFinite(ratio)) return;
   let left = Math.max(0, unit.s.maxHp * ratio);
   for (const b of unit.buffs) {

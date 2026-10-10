@@ -26,10 +26,10 @@ export function install(battle) {
     });
     if (!S.bondActive(battle, pid, BOND, 2)) continue;
     let readyAt = 0;
-    battle.on('damaged', ({ source, target, dmg, amount }) => {
-      if (!member(source) || !S.onField(source) || target?.side !== 'enemy' || !(amount > 0)
-        || dmg.sourceless || dmg.type === 'element' || dmg.tags?.some(t => t.startsWith('bond:columbia:'))
-        || battle.time + 1e-9 < readyAt) return;
+    const afflictions = new WeakMap(); // One refreshed DoT per player and enemy, independent of its position.
+    battle.on('attack', ({ attacker: source, targets }) => {
+      const target = targets?.find(t => t?.side === 'enemy');
+      if (!member(source) || !S.onField(source) || !target || battle.time + 1e-9 < readyAt) return;
       const layers = L();
       readyAt = battle.time + Math.max(2, 8 - Math.floor(layers / 100));
       // Reserve a shared cooldown before extra damage; snapshot living, deployed operators only.
@@ -37,17 +37,20 @@ export function install(battle) {
       const x = target.x, y = target.y;
       battle.after(0, () => {
         battle.fx('aoe', { x, y, radius: BLAST_RADIUS, id: source.id, skill: 'columbia:blast' });
-        battle.fx('zone', { x, y, r: BLAST_RADIUS, dur: 5, id: source.id, kind: 'arts' });
         for (const e of battle.foesInRadius(x, y, BLAST_RADIUS, true)) {
           const dealt = battle.dealDamage(source, e, { amount: atk * 3, type: 'arts', canDodge: false, tags: ['bond:columbia:burst'] });
           if (dealt > 0 && hasHp(e)) battle.dealDamage(source, e, { amount: dealt * .10, type: 'element', element: 'burn',
             canDodge: false, tags: ['bond:columbia:burn'] });
-        }
-        for (let second = 1; second <= 5; second++) battle.after(second, () => {
-          for (const e of battle.foesInRadius(x, y, BLAST_RADIUS, true)) battle.dealDamage(source, e, {
-            amount: atk * layers * .005, type: 'arts', canDodge: false, tags: ['dot', 'bond:columbia:dot'],
+          if (!hasHp(e)) continue;
+          const mark = {};
+          afflictions.set(e, mark);
+          for (let second = 1; second <= 5; second++) battle.after(second, () => {
+            if (afflictions.get(e) !== mark || !hasHp(e)) return;
+            battle.dealDamage(source, e, { amount: atk * layers * .005, type: 'arts', canDodge: false,
+              tags: ['dot', 'bond:columbia:dot'] });
+            if (second === 5) afflictions.delete(e);
           });
-        });
+        }
       });
     });
   }
@@ -75,13 +78,13 @@ export function registerMeta(registry) {
   registry.garrison('COLUMBIA_ASTESI', {
     run(ctx) {
       const n = Math.min(10, Math.floor(ctx.roundStats().spent / 2)) * ctx.source.bb.count;
-      for (const id of [BOND, 'arcaneShip']) ctx.addLayers(id, n, { requireActive: false });
+      for (const id of [BOND, 'arcaneShip']) ctx.addLayers(id, n, { requireActive: true });
     },
   });
   registry.garrison('COLUMBIA_APHRIS', {
     run(ctx) {
       const n = Math.floor(ctx.funds()) * ctx.source.bb.count;
-      for (const id of [BOND, 'preciShip']) ctx.addLayers(id, n, { requireActive: false });
+      for (const id of [BOND, 'preciShip']) ctx.addLayers(id, n, { requireActive: true });
     },
   });
   registry.garrison('COLUMBIA_CTRAIL', {

@@ -44,50 +44,56 @@ test('Columbia rounds 3/6/9 only, idempotent grants, no shop-upgrade charge; own
   assert.equal(JSON.stringify(ps.recruitment), before);
 });
 
-test('Sarkaz rounds 4/7/10/13, stored charges do not need an active alliance', () => {
-  const { ps } = setup('sarkaz', 4);
-  for (let r = 1; r <= 15; r++) { ps.startRecruitmentRound(r); ps.startRecruitmentRound(r); }
-  assert.equal(ps.recruitment.charges, 4);
-  assert.deepEqual(ps.recruitment.granted, [4, 7, 10, 13]);
-  assert.deepEqual(ps.openRecruitment(), OK);
-  assert.equal(ps.recruitment.pending.ids.length, 3);
-  assert.ok(ps.recruitment.pending.ids.every(id => DATA.chess[id].tier <= 4));
-});
-
-test('Sarkaz prioritizes unowned identities across hand/temp/board and elite copies', () => {
-  const { ps, h } = setup('sarkaz', 4);
-  for (const name of ['红豆', '陨星', '濯尘芙蓉']) ps.acquireChess(normal(name));
-  const vigna = ps.allChess().find(p => p.id === normal('红豆'));
-  ps.promote(vigna);
-  order(ps, 4);
-  assert.deepEqual(ps.openRecruitment(), OK);
-  assert.deepEqual(ps.recruitment.pending.ids.map(id => DATA.chess[id].name).sort(), ['伊芙利特', '泥岩', '闪灵'].sort());
-  h.invariants();
-  const id = ps.recruitment.pending.ids[0], funds = ps.funds, gained = ps.round.gainedChess;
-  assert.deepEqual(choose(ps), OK);
-  assert.equal(ps.funds, funds);
-  assert.equal(ps.round.gainedChess, gained + 1);
-  assert.ok(ps.allChess().some(p => p.id === id));
+test('Sarkaz first manual refresh: two distinct eligible operators, no beacon or free purchase', () => {
+  const { ps, h, other } = setup('sarkaz', 4);
+  for (let r = 1; r <= 15; r++) ps.startRecruitmentRound(r);
+  assert.equal(ps.recruitment.charges, 0); assert.equal(ps.recruitmentView(), null);
+  ps.funds = 20; ps.round.refreshes = 0; ps.shop.freeRefreshes = 0;
+  assert.deepEqual(ps.refresh(), OK);
+  const first = ps.shop.slots.slice(0, 2).map(s => DATA.chess[s.id]);
+  assert.equal(new Set(first.map(c => c.charId)).size, 2);
+  assert.ok(first.every(c => c.bonds.includes('sarkazShip') && c.tier <= 4 && !c.isGolden));
+  assert.equal(ps.allChess().length, 0); assert.equal(other.allChess().length, 0);
+  assert.equal(ps.funds, 20 - ps.gd.refreshPrice);
+  const view = ps.privateView(); assert.equal(view.recruitment, null);
+  const calls = [], roll = ps.rollShop.bind(ps);
+  ps.rollShop = opts => { calls.push(opts.priority); return roll(opts); };
+  ps.refresh(); assert.equal(calls.at(-1), null, 'second refresh has no priority');
+  ps.round.refreshes = 0; ps.shop.freeRefreshes = 1;
+  ps.rollShop({ keepFrozen: true }); assert.equal(ps.round.refreshes, 0, 'automatic roll does not consume');
+  ps.refresh(); assert.deepEqual(calls.at(-1), { bond: 'sarkazShip', count: 2 });
   h.invariants();
 });
 
-test('cancel/reopen, reconnect views and shop upgrades cannot reroll a beacon', () => {
-  const { ps, m, h } = setup('sarkaz', 4); order(ps, 4);
-  ps.openRecruitment();
+test('Sarkaz priority respects missing stock, bans, tier and failed refresh', () => {
+  const { ps, m } = setup('sarkaz', 1);
+  ps.funds = 0; ps.shop.freeRefreshes = 0; ps.round.refreshes = 0;
+  assert.equal(ps.refresh().ok, undefined); assert.equal(ps.round.refreshes, 0);
+  ps.funds = 10; ps.refresh(); assert.equal(ps.shop.slots[0].id, normal('红豆'));
+  assert.equal(ps.priceOf(ps.shop.slots[0]), 1);
+  m.pool.entries.delete(normal('红豆'));
+  ps.round.refreshes = 0; ps.refresh();
+  assert.ok(ps.shop.slots.filter(s => s?.kind === 'chess').every(s => s.id !== normal('红豆') && DATA.chess[s.id].tier === 1));
+});
+
+test('cancel/reopen, reconnect views and shop upgrades cannot reroll a Columbia order', () => {
+  const { ps, m, h } = setup('columbia', 5); order(ps);
+  const sample = ps.acquireChess(normal('白面鸮'));
+  ps.openRecruitment(sample.uid);
   const first = structuredClone(ps.recruitment.pending);
   const before = ps.privateView().recruitment;
   assert.deepEqual(ps.privateView().recruitment, before);
   const remaining = m.pool.left(first.ids[0]);
   assert.deepEqual(ps.cancelRecruitment(first.id), OK);
   assert.equal(m.pool.left(first.ids[0]), remaining + 1);
-  ps.shop.level = 6; ps.openRecruitment();
+  ps.shop.level = 6; ps.openRecruitment(sample.uid);
   assert.deepEqual(ps.recruitment.pending.ids, first.ids);
   assert.notEqual(ps.recruitment.pending.id, first.id);
   assert.equal(ps.pickRecruitment(first.id, 0).ok, undefined);
   h.invariants();
 });
 
-test('Columbia exact +1 tier, Ifrit candidate and sample, equipment returned, no sell or refund', () => {
+test('Columbia exact +1 tier excludes Ifrit; equipment returned without sell or refund', () => {
   const { ps, h } = setup();
   order(ps);
   const sample = ps.acquireChess(normal('星极'));
@@ -95,15 +101,17 @@ test('Columbia exact +1 tier, Ifrit candidate and sample, equipment returned, no
   const item = ps.acquireItem(itemId); ps._detach(ps.find(item.uid)); sample.items.push(item);
   const gain = ps.round.gainedChess, sells = ps.round.sells, funds = ps.funds;
   assert.deepEqual(ps.openRecruitment(sample.uid), OK);
-  assert.deepEqual(ps.recruitment.pending.ids.map(id => DATA.chess[id].name).sort(), ['伊芙利特', '白面鸮'].sort());
-  const index = ps.recruitment.pending.ids.indexOf(normal('伊芙利特'));
+  assert.deepEqual(ps.recruitment.pending.ids.map(id => DATA.chess[id].name), ['白面鸮']);
+  const index = 0;
   assert.deepEqual(choose(ps, index), OK);
   assert.equal(ps.find(sample.uid), null);
   assert.ok(['hand', 'temp'].includes(ps.find(item.uid)?.area));
   assert.equal(ps.round.sells, sells); assert.equal(ps.funds, funds);
   assert.equal(ps.round.gainedChess, gain + 1);
-  const ifrit = ps.allChess().find(p => p.id === normal('伊芙利特'));
-  order(ps, 6); assert.deepEqual(ps.openRecruitment(ifrit.uid), OK);
+  const plosis = ps.allChess().find(p => p.id === normal('白面鸮'));
+  const ifrit = ps.acquireChess(normal('伊芙利特'));
+  order(ps, 6); assert.equal(ps.openRecruitment(ifrit.uid).ok, undefined);
+  assert.deepEqual(ps.openRecruitment(plosis.uid), OK);
   assert.deepEqual(ps.recruitment.pending.ids.map(id => DATA.chess[id].name).sort(), ['山', '塞雷娅'].sort());
   h.invariants();
 });
@@ -143,8 +151,8 @@ test('stale or promoted sample refuses atomically, cancel keeps charge', () => {
   assert.ok(ps.find(sample.uid)); h.invariants();
 });
 
-test('full bench refuses before consuming sample/order/equipment; beacon also stays available', () => {
-  for (const kind of ['columbia', 'sarkaz']) {
+test('full bench refuses before consuming sample/order/equipment', () => {
+  for (const kind of ['columbia']) {
     const { ps, m } = setup(kind); order(ps, kind === 'sarkaz' ? 4 : 3);
     const sample = ps.acquireChess(normal('星极'));
     const itemId = Object.values(DATA.items).find(i => i.itemType === 'EQUIP' && !i.isGolden).id;
@@ -158,12 +166,12 @@ test('full bench refuses before consuming sample/order/equipment; beacon also st
 });
 
 test('reserved candidates block competing stock; cancel and elimination release all copies', () => {
-  const { ps, m, h } = setup('sarkaz'); order(ps, 4); ps.openRecruitment();
+  const { ps, m, h } = setup(); order(ps); const sample = ps.acquireChess(normal('白面鸮')); ps.openRecruitment(sample.uid);
   const ids = [...ps.recruitment.pending.ids];
   for (const id of ids) assert.equal(m.pool.left(id), m.pool.cap(id) - 1);
   ps.endPrep();
   for (const id of ids) assert.equal(m.pool.left(id), m.pool.cap(id));
-  ps.ready = false; ps.openRecruitment();
+  ps.ready = false; ps.openRecruitment(sample.uid);
   assert.deepEqual(ps.recruitment.pending.ids, ids);
   ps.eliminate(4);
   for (const id of ids) assert.equal(m.pool.left(id), m.pool.cap(id));
@@ -200,16 +208,17 @@ test('normal gain completes merge, pool transfers exactly one copy; replayed pic
 });
 
 test('ready/combat cannot open or confirm; private views do not leak another player offer', () => {
-  const { ps, other, m } = setup('sarkaz'); order(ps, 4);
-  ps.ready = true; assert.equal(ps.openRecruitment().ok, undefined);
-  ps.ready = false; ps.openRecruitment();
+  const { ps, other, m } = setup(); order(ps); const sample = ps.acquireChess(normal('白面鸮'));
+  ps.ready = true; assert.equal(ps.openRecruitment(sample.uid).ok, undefined);
+  ps.ready = false; ps.openRecruitment(sample.uid);
   assert.equal(other.privateView().recruitment, null);
   m.phase = 'COMBAT'; assert.equal(choose(ps).ok, undefined);
 });
 
 test('disabled core blocks new squads and bot spending obeys same server transactions', () => {
-  const { ps, m, h } = setup('sarkaz'); order(ps, 4);
-  m.disabledBonds.push('sarkazShip'); assert.equal(m.recruitmentBandOff(ps.bandId), true);
+  const { ps, m, h } = setup(); order(ps); ps.acquireChess(normal('白面鸮'));
+  m.disabledBonds.push('sarkazShip'); assert.equal(m.recruitmentBandOff('band_recruit_sarkaz'), true);
+  m.disabledBonds.push('columbiaShip'); assert.equal(m.recruitmentBandOff(ps.bandId), true);
   m.disabledBonds = []; takeRecruitment(m, ps);
   assert.equal(ps.recruitment.charges, 0); assert.equal(ps.allChess().length, 1);
   h.invariants();

@@ -725,7 +725,11 @@ test('Sarkaz custom traits exercise each normal and elite data id', () => {
     const h = battle({ units: [{ id: 'op', g: [gid], bonds: ['sarkazShip', 'arcaneShip'], row: 10, col: 4 }],
       bonds: { sarkazShip: B(100), arcaneShip: B(0) } });
     const u = h.unit('op');
-    if (code === 'ifrit') approx(u.s.dmgDealtMul, 1.3);
+    if (code === 'ifrit') {
+      approx(u.s.dmgDealtMul, 1);
+      approx(u.s.atk, form === 'b' ? 1250 : 1100); // 500 × (1 + 0.2 + 100 × 0.007 + trait)
+      approx(u.s.maxHp, form === 'b' ? 3200 : 2600);
+    }
     if (code === 'wisdel') approx(u.s.dmgDealtMul, form === 'b' ? 3 : 2);
     if (code === 'shining') {
       skill(h, u); skill(h, u);

@@ -27,14 +27,17 @@ export function install(battle) {
     const member = (u) => u?.kind === 'op' && u.ownerId === pid && S.isMember(battle, u, BOND);
     const refresh = () => {
       for (const u of ops) {
-        if (active() && member(u)) S.passiveBuff(battle, u, 'bond:sarkaz:attack', S.directMods({ atk: .20 + .006 * L() }));
+        if (active() && member(u)) S.passiveBuff(battle, u, 'bond:sarkaz:attack', S.directMods({ atk: .20 + .007 * L() }));
         if (owns(u, 'wisdel')) S.passiveBuff(battle, u, 'garrison:sarkaz:wisdel', {
           dmgDealtMul: active() ? 1 + (elite(u, 'wisdel') ? .02 : .01) * L() : 1,
         });
       }
     };
     refresh();
-    for (const u of ops) if (owns(u, 'ifrit')) S.passiveBuff(battle, u, 'garrison:sarkaz:ifrit', { dmgDealtMul: 1.30 });
+    for (const u of ops) if (owns(u, 'ifrit')) {
+      const n = elite(u, 'ifrit') ? .6 : .3;
+      S.passiveBuff(battle, u, 'garrison:sarkaz:ifrit', S.directMods({ atk: n, hp: n }));
+    }
     battle.on('layerGain', ({ playerId, bondId }) => {
       if (playerId === pid && bondId === BOND) battle.after(0, refresh);
     });
@@ -102,12 +105,9 @@ export function install(battle) {
 
 export function registerMeta(registry) {
   // Explicit gain handlers preserve the dispatcher contract and Investor re-triggers.
-  registry.garrison('SARKAZ_VIGNA', {
-    onGain(ctx) {
-      if (ctx.counter('sarkaz:vigna:first')) return;
-      ctx.setCounter('sarkaz:vigna:first', 1);
-      ctx.addLayers(BOND, 2, { requireActive: false });
-    },
+  registry.garrison('SARKAZ_VIGNA', { onGain() {} }); // Price is stored on the chess record, including elite.
+  registry.garrison('SARKAZ_MUDROK', {
+    onGain(ctx) { ctx.addFunds(ctx.chessRecord(ctx.source.piece.id)?.isGolden ? 2 : 1, 'garrison'); },
   });
   registry.garrison('SARKAZ_METEO', {
     onGain(ctx) {
@@ -135,13 +135,6 @@ export function registerMeta(registry) {
         ctx.counter('sarkaz:typhon:round') === ctx.round ? ctx.counter('sarkaz:typhon:used') : 0);
       ctx.setCounter('sarkaz:typhon:round', ctx.round);
       ctx.setCounter('sarkaz:typhon:used', Math.min(56, used));
-    },
-    onMerge(ctx, ev) {
-      if (ev.kind !== 'chess' || ctx.chessRecord(ev.piece?.id)?.charId !== 'char_290_vigna') return;
-      const key = `sarkaz:vigna:promotion:${ev.piece.uid}`;
-      if (ctx.counter(key)) return;
-      ctx.setCounter(key, 1);
-      ctx.addLayers(BOND, 4, { requireActive: false });
     },
   });
 }

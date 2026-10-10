@@ -22,7 +22,8 @@ test('Sarkaz browser/server parity and live combat-stat card', {
       seed: 871, kind: 'normal', round: 3, stageId: 'act2autochess_m01', timeLimit: 100,
       players: [{ playerId: 'p1', seat: 0, side: 'L', colOffset: 0, playerEffects: [],
         bonds: { sarkazShip: { count: 9, active: true, tier: 2, layers: 80 } },
-        units: ids.map((chessId, i) => ({ uid: i + 1, chessId, row: 10 + Math.floor(i / 5), col: 3 + i % 5, dir: 'RIGHT' })),
+        units: ids.map((chessId, i) => ({ uid: i + 1, chessId, row: 10 + Math.floor(i / 5), col: 3 + i % 5, dir: 'RIGHT',
+          items: i === 8 ? ['chess_item_2_sarkaz_bone_e_b', 'chess_item_6_sarkaz_remains_e_b'] : [] })),
       }],
       ...spawnsFromTemplate(tpl),
     });

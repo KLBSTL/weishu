@@ -13,7 +13,7 @@ test('Sarkaz roster: nine unique identities, shop tiers, normal/elite defaults a
   for (const [, charId, tier, , addon, skillIndex] of SARKAZ_ROSTER) {
     const c = members.find((c) => c.charId === charId);
     assert.equal(c.tier, tier);
-    assert.deepEqual(c.bonds, ['sarkazShip', ...(c.charId === 'char_134_ifrit' ? ['columbiaShip'] : []), ...(addon ? [addon] : [])]);
+    assert.deepEqual(c.bonds, ['sarkazShip', ...(addon ? [addon] : [])]);
     for (const id of [c.chessId, c.goldenId]) {
       const d = ds.getChess(id);
       assert.equal(d.loadout.skillIndex, skillIndex, id);

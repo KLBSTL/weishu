@@ -154,18 +154,18 @@ test('bonds: 25 bonds with valid members, thresholds and effects', () => {
   for (const c of normalChess) for (const b of c.bonds) assert.ok(bonds[b].members.includes(c.chessId), `${c.chessId} not in ${b}.members`);
 });
 
-test('garrisons: all referenced exist; 59 distinct effect keys', () => {
+test('garrisons: all referenced exist; 60 distinct effect keys', () => {
   const keys = new Set(Object.values(garrisons).map((g) => g.effectKey));
-  assert.equal(keys.size, 59);
+  assert.equal(keys.size, 60);
   for (const g of Object.values(garrisons)) {
     assert.ok(typeof g.eventType === 'string' && typeof g.desc === 'string', g.garrisonId);
     for (const o of g.owners) assert.ok(chess[o], `${g.garrisonId}: owner ${o}`);
   }
 });
 
-test('items: 119 item chess with valid effects, bonds and golden links', () => {
-  assert.equal(Object.keys(items).length, 119);
-  assert.equal(Object.values(items).filter((i) => i.itemType === 'EQUIP' && !i.isGolden).length, 58);
+test('items: 123 item chess with valid effects, bonds and golden links', () => {
+  assert.equal(Object.keys(items).length, 123);
+  assert.equal(Object.values(items).filter((i) => i.itemType === 'EQUIP' && !i.isGolden).length, 60);
   assert.equal(Object.values(items).filter((i) => i.itemType === 'MAGIC').length, 3);
   for (const it of Object.values(items)) {
     assert.ok(effects[it.effectId], `${it.id}: effect ${it.effectId}`);

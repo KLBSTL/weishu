@@ -710,8 +710,13 @@ test('Touch 外勤医疗: every player of a match with the band gets 预备干�
 test('coverage: every band is exercised by a test above', () => {
   for (const id of ['band_recruit_sarkaz', 'band_recruit_columbia']) {
     const { ps } = setup({ band: id });
-    ps.startRecruitmentRound(DATA.bands[id].recruitment.rounds[0]);
-    assert.equal(ps.recruitment.charges, 1);
+    const band = DATA.bands[id];
+    if (band.recruitment) {
+      ps.startRecruitmentRound(band.recruitment.rounds[0]);
+      assert.equal(ps.recruitment.charges, 1);
+    } else {
+      assert.deepEqual(band.shopPriority, { bond: 'sarkazShip', count: 2 });
+    }
     cover(id); // transaction, schedules and shared stock: test/match/recruitment.test.js
   }
   cover('band_dusk'); // 夕: 画卷 grant (fixed-round test) + 墨色真颜 (battle test)

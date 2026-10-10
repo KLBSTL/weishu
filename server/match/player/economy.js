@@ -75,7 +75,7 @@ export class PlayerEconomy {
    * Reroll the shop. keepFrozen → frozen unsold slots survive (round start); otherwise everything is rerolled
    * (manual refresh). Slot counts follow the current level.
    */
-  rollShop({ keepFrozen = false } = {}) {
+  rollShop({ keepFrozen = false, priority = null } = {}) {
     const { chess: nChess, item: nItem } = this.gd.shopSlots(this.shop.level);
     const old = this.shop.slots;
     const layout = this.shop.layout || { chess: old.length, item: 0 };
@@ -84,7 +84,21 @@ export class PlayerEconomy {
     const keep = (s, kind) => (keepFrozen && s && s.kind === kind && !s.sold && s.frozen ? { ...s } : null);
     // frozen slots keep their position; sold / empty / unfrozen positions are rerolled
     const slots = [];
-    for (let i = 0; i < nChess; i++) slots.push(keep(oldChess[i], 'chess') ?? this._rollChessSlot());
+    const selected = new Set();
+    for (let i = 0; i < nChess; i++) {
+      let slot = keep(oldChess[i], 'chess');
+      if (!slot && priority && selected.size < priority.count) {
+        const id = this.m.pool.roll(this.m.rngShop, { maxTier: this.shop.level, filter: id => {
+          const c = this.gd.chess(id);
+          return c?.visible && !c.isGolden && !c.isDiy && c.bonds.includes(priority.bond) && !selected.has(c.charId);
+        } });
+        if (id) {
+          selected.add(this.gd.chess(id).charId);
+          slot = { kind: 'chess', id, basePrice: this.gd.chessPrice(id), frozen: false, sold: false };
+        }
+      }
+      slots.push(slot ?? this._rollChessSlot());
+    }
     for (let i = 0; i < nItem; i++) slots.push(keep(oldItems[i], 'item') ?? this._rollItemSlot());
     this.shop.slots = slots;
     this.shop.layout = { chess: nChess, item: nItem };
@@ -171,7 +185,9 @@ export class PlayerEconomy {
     if (!free && this.funds < price) return fail(ERR.NO_FUNDS);
     if (free) this.shop.freeRefreshes--;
     else this.spend(price);
-    this.rollShop({ keepFrozen: false });
+    const priority = this.round.refreshes === 0 && !this.m.recruitmentBandOff(this.bandId)
+      ? this.gd.band(this.bandId)?.shopPriority : null;
+    this.rollShop({ keepFrozen: false, priority });
     this.stats.refreshes++;
     this.round.refreshes++;
     this.m.dispatch(this, 'onRefresh', { slots: this.shop.slots, free, price });

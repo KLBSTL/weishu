@@ -15,8 +15,6 @@ export function RecruitmentPanel({ priv, editable, open, onClose, onDetail }) {
   const columbia = r.kind === 'columbia';
   const options = offer ? offer.ids.map((id, idx) => ({ id, key: idx })) : (r.samples || []).map(p => ({ id: p.id, key: p.uid }));
   const chosen = options.find(p => p.key === selected);
-  const sampleId = offer?.sampleId || (!offer ? chosen?.id : null);
-  const ifrit = sampleId && data.lookup('chess', sampleId)?.bonds?.includes('sarkazShip');
   // Temporarily hide the modal so the existing detail panel remains readable; keep the reserved offer.
   const detail = (id, kind) => { onClose(); onDetail(id, kind); };
   const run = async (fn) => { if (busy) return; setBusy(true); try { await fn(); } finally { setBusy(false); } };
@@ -32,7 +30,6 @@ export function RecruitmentPanel({ priv, editable, open, onClose, onDetail }) {
         ${offer ? t('确认选择') : columbia ? t('检索高一阶干员') : t('开始检索')}<//>`}>
     <p>${t('剩余次数：{count}；未使用次数可保留。', { count: r.charges })}</p>
     <p>${offer ? t('确认后消耗一次；取消保留次数与样本，再次检索不会重抽候选。') : columbia ? t('选择普通哥伦比亚样本，确认取得候选时消耗样本；装备退回整备区。') : t('优先检索未持有的萨卡兹，候选不超过当前调度中心等级。')}</p>
-    ${ifrit ? html`<p class="recruitment-panel__warning">${t('伊芙利特同时属于萨卡兹：换走她可能使萨卡兹盟约失活。')}</p>` : null}
     ${columbia && !offer && !options.length ? html`<p>${t('暂无可用样本：需要低于调度中心等级的普通哥伦比亚干员。')}</p>` : null}
     ${offer?.sampleId ? html`<p>${t('将消耗：{name}', { name: data.lookup('chess', offer.sampleId)?.name || offer.sampleId })}</p>` : null}
     <div class="recruitment-panel__cards">

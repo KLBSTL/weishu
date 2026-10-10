@@ -36,7 +36,7 @@ battles of the normal records, the first 自选 battle of the operator kits and 
 
 ## Workflow
 
-Local Sarkaz and Columbia expansion: the corpus currently has 48 roster, 50 bond, 22 field, 18 match, 11 stand-in and 138 DIY scenarios (287 total). Disabling regular Aegir / Victoria recruits regroups the roster and changes recruitment outcomes. All 138 DIY baselines remain unchanged. The extra stand-in case carries full SP to exercise reserve guard S2 independently of its survival in regrouped teams; the stand-in match marks all NORMAL entries unowned. [Columbia scenario audit](../../docs/columbia-golden.md) lists every baseline move and its reason; [earlier Sarkaz audit](../../docs/sarkaz-golden.md) is retained as history.
+Local Sarkaz and Columbia expansion: the corpus currently has 47 roster, 50 bond, 22 field, 18 match, 11 stand-in and 138 DIY scenarios (286 total). Revised traits, equipment and shop priority intentionally change combat and recruitment outcomes. All 138 DIY baselines remain unchanged. The extra stand-in case carries full SP to exercise reserve guard S2 independently of its survival in regrouped teams; the stand-in match marks all NORMAL entries unowned. [Equipment and covenant audit](../../docs/sarkaz-equipment-golden.md) lists every baseline move and its reason; [Columbia scenario audit](../../docs/columbia-golden.md) and [earlier Sarkaz audit](../../docs/sarkaz-golden.md) are retained as history.
 
 ```sh
 GOLDEN_FULL=1 node --test test/golden.test.js   # the whole corpus (≈ 20 s with 4 worker threads)

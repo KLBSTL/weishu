@@ -460,6 +460,57 @@ const BY_BUFF = {
 
 /** Item-key behaviours. */
 const BY_ITEM = {
+  chess_item_2_sarkaz_bone_e(battle, u, rec, S) {
+    const key = S.key(`shield:${u.id}`), targets = new Set();
+    let deployed = null;
+    const clear = () => {
+      for (const a of targets) {
+        battle.removeBuff(a, key);
+        a.trait.sarkazBoneShields = Math.max(0, (a.trait.sarkazBoneShields ?? 0) - 1);
+      }
+      targets.clear();
+    };
+    const grant = () => {
+      if (!onField(u) || deployed === deploymentOf(u)) return;
+      deployed = deploymentOf(u);
+      clear(); // A new deployment replaces this source's old shields, never anyone else's.
+      if (!rec.isGolden && (itemsOf(u).includes('chess_item_2_sarkaz_bone_e_b')
+        || itemGrants(battle, u).some(g => g.id === 'chess_item_2_sarkaz_bone_e_b'))) return;
+      const [r, c] = frontTile(u);
+      const front = battle.allyUnits.find(a => a !== u && a.kind === 'op' && a.ownerId === u.ownerId
+        && onField(a) && a.tileR === r && a.tileC === c);
+      for (const a of [u, front].filter(Boolean)) {
+        targets.add(a);
+        a.trait.sarkazBoneShields = (a.trait.sarkazBoneShields ?? 0) + 1;
+        const room = Math.max(0, .5 * a.s.maxHp - numericShieldTotal(a));
+        const shield = Math.min(room, rec.params.shield_ratio * a.s.maxHp);
+        if (shield > 0) S.buff(a, { key, shield });
+        fxOn(battle, 'shield', a, u.id, key);
+      }
+    };
+    // Defer one event turn so every initial operator and every max-HP item is installed first.
+    S.on('deploy', c => { if (c.unit === u) S.after(0, grant); });
+    if (onField(u)) S.after(0, grant);
+    S.every(.1, () => { for (const a of targets) clampNumericShields(a); });
+    S.onDispose(clear);
+  },
+  chess_item_6_sarkaz_remains_e(battle, u, rec, S) {
+    let state = -1;
+    const refresh = () => {
+      // Highest quality wins, including a lent copy; the two qualities never stack.
+      const elitePresent = itemsOf(u).includes('chess_item_6_sarkaz_remains_e_b')
+        || itemGrants(battle, u).some(g => g.id === 'chess_item_6_sarkaz_remains_e_b');
+      const enabled = rec.isGolden || !elitePresent;
+      const combo = enabled && carries(battle, u, 'chess_item_2_sarkaz_bone_e');
+      const next = (enabled ? 1 : 0) + (combo ? 2 : 0);
+      if (next === state) return;
+      state = next;
+      S.stat('stats', { hpPct: enabled ? rec.params.hp : 0,
+        aspd: combo ? rec.params.attack_speed : 0 });
+    };
+    refresh();
+    S.every(.1, refresh);
+  },
   chess_item_3_columbia_chip_e(battle, u, rec, S) {
     S.stat('attack', { atkPct: rec.params.atk });
     const refresh = () => S.stat('skillSpeed', { aspd: u.skill?.active ? rec.params.attack_speed : 0 });

@@ -10,7 +10,7 @@ const normal = name => Object.values(DATA.chess).find(c => !c.isGolden && c.name
 for (const kind of ['columbia', 'sarkaz']) test(`recruitment ${kind}: real UI, cancellation and reconnect`, { skip: !enabled, timeout: 180000 }, async () => {
   const puppeteer = (await import('puppeteer-core')).default;
   const srv = await startRealServer({ fast: { seed: 3, startRound: kind === 'columbia' ? 3 : 4, level: 5,
-    chess: [normal('伊芙利特')], timerScale: 0.2 } });
+    chess: [normal('白面鸮')], timerScale: 0.2 } });
   const c = new Client(puppeteer, srv.base, kind, { prefix: `recruitment-${kind}` });
   try {
     await c.open(); await c.enter('检索验收');
@@ -26,14 +26,32 @@ for (const kind of ['columbia', 'sarkaz']) test(`recruitment ${kind}: real UI, c
     await c.click(`[data-band="band_recruit_${kind}"]`);
     await c.click('.draft-detail__btns .btn--primary', '确认选择');
     await c.waitFor(s => s.phase === 'PREP' && !s.ready, 'prep', 45000);
+    if (kind === 'sarkaz') {
+      await sleep(2200);
+      assert.equal((await privOf(c)).recruitment, null);
+      assert.equal(await c.page.$('.recruitment-entry'), null);
+      await c.click('.toolbtn--amber', '刷新');
+      await c.page.waitForFunction(() => globalThis.__SP__.store.get().match.private.stats.refreshes > 0);
+      const before = await privOf(c), ids = before.shop.slots.slice(0, 2).map(s => s.id);
+      assert.equal(new Set(ids.map(id => DATA.chess[id].charId)).size, 2);
+      assert.ok(ids.every(id => DATA.chess[id].bonds.includes('sarkazShip')));
+      await c.shot('priority-refresh');
+      await c.page.reload({ waitUntil: 'domcontentloaded' });
+      await c.page.waitForFunction(() => !!globalThis.__SP__);
+      await c.waitFor(s => s.phase === 'PREP', 'reconnect');
+      const after = await privOf(c);
+      assert.deepEqual(after.shop.slots, before.shop.slots);
+      assert.equal(after.stats.refreshes, before.stats.refreshes);
+      assert.deepEqual(problemsOf([c]).filter(x => !/fonts.googleapis|fonts.gstatic/.test(x)), []);
+      return;
+    }
     await c.page.waitForSelector('.recruitment-entry');
     await sleep(2200); // let the normal prep phase banner finish before inspecting the dialog
     const open = async () => {
       await c.click('.recruitment-entry');
       if (kind === 'columbia') {
         await c.click('.recruitment-panel__cards .scard');
-        await c.page.waitForSelector('.recruitment-panel__warning');
-        assert.match(await c.page.$eval('.recruitment-panel', e => e.textContent), /可能使萨卡兹盟约失活/);
+        assert.equal(await c.page.$('.recruitment-panel__warning'), null);
       }
       await c.click('.recruitment-panel .modal__actions .btn--primary');
       await c.page.waitForFunction(() => !!globalThis.__SP__.store.get().match.private.recruitment.offer);

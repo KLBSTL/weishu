@@ -686,8 +686,8 @@ test('变形同构体: carrier counts as a member of the other item\'s giveBondI
   assert.deepEqual([...unitBonds(h2.unit('t_op'))], [], 'the bond item alone grants nothing');
   // every giveBondId item grants its bond (14 bonds)
   const grants = Object.values(DATA.items).filter((r) => r.giveBondId && !r.isGolden);
-  assert.equal(grants.length, 20);
-  assert.equal(new Set(grants.map((r) => r.giveBondId)).size, 15);
+  assert.equal(grants.length, 22);
+  assert.equal(new Set(grants.map((r) => r.giveBondId)).size, 16);
   for (const r of grants) {
     const hh = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [r.id, A('6_09')] }] });
     assert.ok(unitBonds(hh.unit('t_op')).includes(r.giveBondId), r.id);
@@ -1327,9 +1327,49 @@ test('Columbia field tracks reduced maximum HP and borrowed chip expiration with
   assert.deepEqual(h.b.errors, []);
 });
 
+test('Sarkaz items: deploy grants own/front shields after HP bonuses, combo by remains quality, shop and merge', () => {
+  for (const form of ['a', 'b']) {
+    const bone = `chess_item_2_sarkaz_bone_e_${form}`, remains = `chess_item_6_sarkaz_remains_e_${form}`;
+    const h = fight({ ops: { carrier: op('carrier'), front: op('front', { stats: { maxHp: 4000 } }) }, units: [
+      { chessId: 'carrier', row: 10, col: 4, items: [bone, remains] }, { chessId: 'front', row: 10, col: 5 },
+    ] });
+    h.step(2); const u = h.unit('carrier'), f = h.unit('front'), ratio = form === 'a' ? .15 : .30;
+    close(u.s.maxHp, 3000, 'remains HP'); close(u.s.aspd, form === 'a' ? 125 : 145, 'pair speed');
+    close(f.s.maxHp, 4000, 'front does not inherit HP'); close(f.s.aspd, 100, 'front does not inherit speed');
+    close(numericShieldTotal(u), 3000 * ratio, 'own shield'); close(numericShieldTotal(f), 4000 * ratio, 'front shield');
+    h.b.addBuff(f, { key: 'other-shield', shield: 10000 });
+    close(numericShieldTotal(f), 2000, 'all sources share 50% cap even without active Sarkaz');
+    h.b.addBuff(f, { key: 'lower-hp', mods: { hpPct: -.5 } }); h.run(.2);
+    close(numericShieldTotal(f), 1000, 'cap shrinks with max HP');
+    const retainedOther = f.findBuff('other-shield')?.shield ?? 0;
+    h.b.emit('deploy', { unit: u }); h.step();
+    close(numericShieldTotal(u), 3000 * ratio, 'duplicate deploy event gives no second shield');
+    h.b.kill(u, { reason: 'killed' }); h.run(21);
+    assert.ok(u.deployed); close(numericShieldTotal(u), 3000 * ratio, 'actual redeploy grants again');
+    close(numericShieldTotal(f), retainedOther + 2000 * ratio, 'old source replaced at current HP, other shields retained');
+    assert.deepEqual(h.b.errors, []); cover(bone, remains);
+  }
+  const s = setup();
+  for (const k of ['2_sarkaz_bone', '6_sarkaz_remains']) {
+    assert.ok(s.m.gd.shopItemsByTier[DATA.items[A(k)].tier].includes(A(k)));
+    assert.ok(!s.m.gd.shopItemsByTier[DATA.items[A(k)].tier].includes(B(k)));
+    s.ps.acquireItem(A(k)); s.ps.acquireItem(A(k));
+    assert.ok(handIds(s.ps, 'item').includes(B(k)));
+  }
+  s.m.dispose();
+});
+
+test('Sarkaz item qualities do not stack, empty front gives no distant ally shield', () => {
+  const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [A('2_sarkaz_bone'), B('2_sarkaz_bone')] }] });
+  h.step(2); close(numericShieldTotal(h.unit('t_op')), 600, 'highest bone quality only');
+  const r = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [A('6_sarkaz_remains'), B('6_sarkaz_remains')] }] });
+  r.step(2); close(r.unit('t_op').s.maxHp, 3000, 'HP does not stack'); close(r.unit('t_op').s.aspd, 100, 'no bone, no speed');
+  assert.deepEqual(h.b.errors, []); assert.deepEqual(r.b.errors, []);
+});
+
 test('coverage: every equipment (normal + golden) and every Art is exercised by a test above', () => {
   // items whose numbers are asserted in the stat table, the proc tests or the meta tests
   const missing = Object.keys(DATA.items).filter((id) => !COVER.has(id)).sort();
   assert.deepEqual(missing, []);
-  assert.equal(Object.keys(DATA.items).length, 119);
+  assert.equal(Object.keys(DATA.items).length, 123);
 });

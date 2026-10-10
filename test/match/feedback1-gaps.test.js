@@ -110,7 +110,7 @@ describe('§21.26 3 — strategies tied to a bond the mode switches off', () => 
     for (const id of funny.bandIds()) {
       const b = DATA.bands[id];
       const note = /在<([^<>]+)>部分干员缺席时体验可能不完整/.exec(b.desc);
-      if (funny.bandBondIds(id).length && !b.recruitment) assert.ok(note && funny.bandBondIds(id).some((x) => DATA.bonds[x].name === note[1]), b.name);
+      if (funny.bandBondIds(id).length && !b.recruitment && !b.shopPriority) assert.ok(note && funny.bandBondIds(id).some((x) => DATA.bonds[x].name === note[1]), b.name);
     }
     // the three 标准 switches off; a bracketed item (<寻呼模块>, <画卷>) is no bond; unknown bands: []
     assert.deepEqual(funny.bandIds().filter((id) => funny.bandBondIds(id).some((b) => funny.modeInactiveBonds.has(b))), ['band_paganini', 'band_clementia', 'band_mlynar']);
@@ -171,7 +171,8 @@ describe('§21.26 3 — strategies tied to a bond the mode switches off', () => 
     // the pre-0.1.1 pick (starting LP only), replayed on the same rng: identical where no bond is off
     const before = (m) => {
       const ids = m.gd.bandIds().filter(id => {
-        const bond = m.gd.band(id).recruitment?.bond;
+        const band = m.gd.band(id);
+        const bond = band.recruitment?.bond ?? band.shopPriority?.bond;
         return !bond || (!m.disabledBonds.includes(bond) && !m.gd.modeInactiveBonds.has(bond));
       });
       const lateFunds = (id) => /暂存/.test(String(m.gd.band(id)?.desc || ''));

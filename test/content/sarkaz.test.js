@@ -39,11 +39,11 @@ function setup(n = 6, L = 0, gs = {}) {
 test('Sarkaz three: activation, raw layer scaling and live refresh', () => {
   for (const n of [2, 3, 5]) {
     const { h, ops } = setup(n, 100);
-    close(ops[0].s.atk, n >= 3 ? 1800 : 1000);
+    close(ops[0].s.atk, n >= 3 ? 1900 : 1000);
     assert.equal(ops[0].findBuff(SHIELD), null);
     ops[0].skill.activate('test', { free: true });
     assert.equal(ops[0].findBuff(SHIELD), null);
-    if (n >= 3) { h.b.addLayers('p1', 'sarkazShip', 50); h.step(2); close(ops[0].s.atk, 2100); }
+    if (n >= 3) { h.b.addLayers('p1', 'sarkazShip', 50); h.step(2); close(ops[0].s.atk, 2250); }
     checkInvariants(h.b);
   }
 });
@@ -86,11 +86,12 @@ test('Sarkaz: each primary hit adds 30% remaining shield; layers and hit-count s
   }
 });
 
-test('Wisadel normal / elite reads only Sarkaz, and Ifrit stays fixed', () => {
+test('Wisadel normal / elite reads only Sarkaz; Ifrit adds stats instead of damage scaling', () => {
   for (const form of ['a', 'b']) {
     const { h, ops } = setup(6, 100, { 0: [`garrison_sarkaz_wisdel_${form}`], 1: ['garrison_sarkaz_ifrit_a'] });
     close(ops[0].s.dmgDealtMul, form === 'a' ? 2 : 3);
-    close(ops[1].s.dmgDealtMul, 1.30);
+    close(ops[1].s.dmgDealtMul, 1);
+    close(ops[1].s.atk, 2200); close(ops[1].s.maxHp, 5200);
     h.b.addLayers('p1', 'arcaneShip', 200); h.step(2);
     close(ops[0].s.dmgDealtMul, form === 'a' ? 2 : 3);
     h.b.addLayers('p1', 'sarkazShip', 100); h.step(2);

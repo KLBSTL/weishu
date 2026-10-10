@@ -617,7 +617,7 @@ test('funds: 能天使 26 / 新约能天使 32 获得时, 格雷伊 67 / 泥岩 
   const s = setup();
   s.acquire('chess_char_6_13_b');
   s.sell(give(s.m, s.ps, 'chess_char_4_18_b', 'hand'));
-  assert.equal(s.ps.pendingFunds, 4 + 4);
+  assert.equal(s.ps.pendingFunds, 4, 'Mudrock no longer grants delayed sale income');
 });
 
 test('松果 116 on sale: a free special recruit of tier I (精锐: tier V)', () => {
@@ -859,22 +859,28 @@ test('风丸 93: only 2 copies merge into the elite', () => {
   assert.equal(GR('garrison_93_a').eventType, 'IN_BATTLE');
 });
 
-test('Sarkaz acquisition traits: Vigna once, promotion +4; Meteorite +2/+4', () => {
+test('Sarkaz: Vigna costs one without gain/merge stacks; Mudrock grants funds; Meteorite stacks', () => {
   const s = setup();
   s.acquire('chess_char_1_05_a');
-  assert.equal(s.L('sarkazShip'), 2);
+  assert.equal(s.L('sarkazShip'), 0);
   s.acquire('chess_char_1_05_a');
-  assert.equal(s.L('sarkazShip'), 2);
+  assert.equal(s.L('sarkazShip'), 0);
   const elite = s.acquire('chess_char_1_05_a');
-  assert.equal(s.L('sarkazShip'), 6);
+  assert.equal(s.L('sarkazShip'), 0);
   s.m.dispatch(s.ps, 'onMerge', { kind: 'chess', piece: elite });
-  assert.equal(s.L('sarkazShip'), 6, 'replayed promotion does not pay twice');
+  assert.equal(s.L('sarkazShip'), 0, 'promotion never grants layers');
+  assert.equal(s.ps.gd.chessPrice('chess_char_1_05_a'), 1);
+  assert.equal(s.ps.gd.chessPrice('chess_char_1_05_b'), 1);
+  assert.equal(s.ps.priceOf({ kind: 'chess', id: 'chess_char_1_05_a', basePrice: 1 }), 1);
+  const funds = s.ps.funds;
+  s.acquire('chess_char_4_18_a'); assert.equal(s.ps.funds, funds + 1);
+  s.acquire('chess_char_4_18_b'); assert.equal(s.ps.funds, funds + 3);
   s.acquire('chess_char_2_sarkaz_meteo_a');
   assert.equal(s.L('swiftShip'), 2);
   s.acquire('chess_char_2_sarkaz_meteo_b');
   assert.equal(s.L('swiftShip'), 6);
-  assert.equal(s.L('sarkazShip'), 12, 'Meteorite grants both own bonds without activation');
-  for (const code of ['vigna', 'meteo']) for (const form of ['a', 'b']) cover(`garrison_sarkaz_${code}_${form}`);
+  assert.equal(s.L('sarkazShip'), 6, 'Meteorite grants both own bonds without activation');
+  for (const code of ['vigna', 'mudrok', 'meteo']) for (const form of ['a', 'b']) cover(`garrison_sarkaz_${code}_${form}`);
   s.m.dispose();
 });
 
@@ -971,6 +977,22 @@ test('Hibiscus: prep end grants own bonds 2/4 even inactive; gain does not grant
   }
 });
 
+test('Astesia and Aphris check activation separately for each bond, including copied traits', () => {
+  for (const [code, tier, bond, event] of [['astesi', 3, 'arcaneShip', 'prepEnd'], ['aphris', 6, 'preciShip', 'roundStart']]) {
+    for (const [form, n] of [['a', 1], ['b', 2]]) {
+      const s = setup();
+      give(s.m, s.ps, `chess_char_${tier}_columbia_${code}_${form}`, 'board', [10, 5]);
+      s.ps.round.spent = 6; s.ps.funds = 3;
+      s[event](); assert.equal(s.L('columbiaShip'), 0); assert.equal(s.L(bond), 0);
+      s.activate(bond); s[event]();
+      assert.equal(s.G(bond), 3 * n); assert.equal(s.G('columbiaShip'), 0);
+      s.activate('columbiaShip'); s[event]();
+      assert.equal(s.G(bond), 6 * n); assert.equal(s.G('columbiaShip'), 3 * n);
+      s.m.dispose();
+    }
+  }
+});
+
 test('Columbia new prep traits, identity rewards and two-tile elite Saria copy', () => {
   const card = 'chess_item_1_04_e_a';
   for (const [form, n] of [['a', 1], ['b', 2]]) {
@@ -980,12 +1002,14 @@ test('Columbia new prep traits, identity rewards and two-tile elite Saria copy',
     give(s.m, s.ps, `chess_char_2_02_${form}`, 'board', [10, 5]);
     s.roundStart(); assert.equal(s.L('columbiaShip'), 2 * n); assert.equal(s.L('visiShip'), 2 * n);
     give(s.m, s.ps, `chess_char_6_columbia_aphris_${form}`, 'board', [10, 6]);
+    s.activate('columbiaShip'); s.activate('preciShip');
     s.ps.funds = 7; s.roundStart();
     assert.equal(s.L('columbiaShip'), 11 * n); assert.equal(s.L('preciShip'), 7 * n);
     for (const code of ['tinman', 'silent', 'aphris']) cover(`garrison_columbia_${code}_${form}`);
     s.m.dispose();
     const t = setup();
     give(t.m, t.ps, `chess_char_3_columbia_astesi_${form}`, 'board', [10, 5]);
+    t.activate('columbiaShip'); t.activate('arcaneShip');
     t.ps.round.spent = 19; t.prepEnd();
     assert.equal(t.L('columbiaShip'), 9 * n); assert.equal(t.L('arcaneShip'), 9 * n);
     t.m.round++; t.ps.round.spent = 100;
@@ -1002,6 +1026,7 @@ test('Columbia new prep traits, identity rewards and two-tile elite Saria copy',
   give(t.m, t.ps, 'chess_char_5_11_b', 'board', [10, 3]);
   give(t.m, t.ps, 'chess_char_3_columbia_astesi_a', 'board', [10, 4]);
   give(t.m, t.ps, 'chess_char_3_columbia_astesi_b', 'board', [10, 5]);
+  t.activate('columbiaShip'); t.activate('arcaneShip');
   t.ps.round.spent = 4; t.prepEnd();
   assert.equal(t.L('columbiaShip'), 12); assert.equal(t.L('arcaneShip'), 12);
   cover('garrison_columbia_demkni_b'); t.m.dispose();
