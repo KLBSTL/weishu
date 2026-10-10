@@ -23,15 +23,15 @@ function setup(L = 0, gs = {}, count = 6) {
   return { h, ops, e, hit: (tags = [], amount = 1, target = e) => h.b.dealDamage(ops[0], target,
     { amount, type: 'arts', isAttack: true, canDodge: true, tags }) };
 }
-test('Columbia has ten identities including shared Ifrit; 108 regular recruits; retained exceptions stay visible', () => {
+test('Columbia has eleven identities including shared Ifrit; 106 regular recruits; retained exceptions stay visible', () => {
   const visible = Object.values(ds.raw.chess).filter(c => !c.isGolden && c.visible);
-  assert.equal(visible.length, 108);
-  assert.equal(visible.filter(c => c.bonds.includes('columbiaShip')).length, 10);
+  assert.equal(visible.length, 106);
+  assert.equal(visible.filter(c => c.bonds.includes('columbiaShip')).length, 11);
   for (const c of visible.filter(c => c.bonds.some(b => ['egirShip', 'victoriaShip'].includes(b)))) assert.ok(RETAINED_CHARACTERS.includes(c.charId), c.name);
   for (const id of RETAINED_CHARACTERS) assert.ok(visible.some(c => c.charId === id), id);
   for (const [, charId, tier, , addon, skill] of COLUMBIA_ROSTER) {
     const c = visible.find(c => c.charId === charId);
-    assert.equal(c.tier, tier); assert.deepEqual(c.bonds, ['columbiaShip', addon]);
+    assert.equal(c.tier, tier); assert.deepEqual(c.bonds, ['columbiaShip', addon].filter(Boolean));
     assert.equal(ds.getChess(c.chessId).loadout.skillIndex, skill);
     for (const id of [c.chessId, c.goldenId]) for (const sk of ds.rawChess(id).skills) {
       assert.ok(['kit', 'skills'].includes(skillSpecSource(ds.getChess(id, { skillIndex: sk.index }))), `${id}/${sk.skillId}`);
@@ -46,13 +46,13 @@ test('Ifrit keeps both covenants and Farsight; fixed damage bonus does not ampli
       bonds: { sarkazShip: { count: 6, tier: 2, active: true, layers: 0 },
         columbiaShip: { count: 6, tier: 2, active: true, layers: 0 } }, autoFinish: false });
     h.step(); const u = h.unit(id), e = h.spawn('dummy', { pos: [7, 9] });
-    close(u.s.dmgDealtMul, 1.3); close(u.s.atk, u.base.atk * 1.35);
+    close(u.s.dmgDealtMul, 1.3); close(u.s.atk, u.base.atk * 1.40);
     const shield = u.s.maxHp * .25;
     h.b.addBuff(u, { key: 'test:barrier', shield, duration: 20 });
     const hp = e.hp;
     h.b.dealDamage(u, e, { amount: 100, type: 'true', isAttack: true });
     close(hp - e.hp, 130 + shield * .3);
-    close(e.elem.apoptosis, u.s.atk * .2);
+    close(e.elem.apoptosis ?? 0, 0);
     assert.deepEqual(h.b.errors, []);
   }
 });
@@ -71,50 +71,67 @@ for (const form of ['a', 'b']) for (const [code, , tier, existing] of COLUMBIA_R
 }
 test('Columbia 3: ATK scale and six-person gate', () => {
   for (const n of [2, 3, 5, 6]) {
-    const { ops, hit, e } = setup(100, {}, n);
-    close(ops[0].s.atk, n >= 3 ? 1650 : 1000); hit();
-    close(e.elem.apoptosis ?? 0, n === 6 ? 330 : 0);
+    const { h, ops, hit } = setup(100, {}, n);
+    close(ops[0].s.atk, n >= 3 ? 2100 : 1000);
+    const blasts = []; h.b.on('damaged', c => { if (c.dmg.tags?.includes('bond:columbia:burst')) blasts.push(c.amount); });
+    hit(); h.step(); assert.equal(blasts.length, n === 6 ? 1 : 0);
   }
 });
-test('Columbia buildup is ATK-based; triggering hit gets no rider; later hits get one elemental rider', () => {
-  const { h, ops, e, hit } = setup(100, { 0: ['garrison_columbia_heyak_b'] });
-  e.s.res = 99; e.s.def = 99999;
-  hit(); close(e.elem.apoptosis, 330);
-  hit(); hit(); const before = e.hp; hit();
-  assert.ok(e.findBuff('apoptosisBurst')); close(before - e.hp, .15); // arts minimum damage then source x3
-  // Burst application recomputes enemy stats; use true damage to isolate the fixed elemental rider.
-  const next = e.hp; h.b.dealDamage(ops[0], e, { amount: 1, type: 'true', isAttack: true });
-  close(next - e.hp, 3 + 1650 * 1.4 * 3);
-  assert.deepEqual(h.b.errors, []); assert.equal(ops[0].s.dmgDealtMul, 3);
+
+test('Columbia blast snapshots field ATK, burns, ticks five times and shares cooldown across operators', () => {
+  const { h, ops, e, hit } = setup(20);
+  const seen = [];
+  h.b.on('damaged', c => { if (c.dmg.tags?.some(t => t.startsWith('bond:columbia:'))) seen.push(c); });
+  const total = ops.reduce((n, u) => n + u.s.atk, 0);
+  hit(); h.step();
+  close(seen.find(c => c.dmg.tags.includes('bond:columbia:burst')).amount, total * 3);
+  assert.ok(e.elem.burn > 0 || e.findBuff('burnBurst'));
+  h.b.dealDamage(ops[1], e, { amount: 1, type: 'true' }); h.step();
+  assert.equal(seen.filter(c => c.dmg.tags.includes('bond:columbia:burst')).length, 1);
+  h.b.addBuff(ops[1], { key: 'snapshot-test', mods: { atkFlat: 10000 } });
+  h.run(5.1);
+  const ticks = seen.filter(c => c.dmg.tags.includes('bond:columbia:dot'));
+  assert.equal(ticks.length, 5);
+  for (const c of ticks) close(c.amount, total * .1);
+  h.run(3); hit(); h.step();
+  assert.equal(seen.filter(c => c.dmg.tags.includes('bond:columbia:burst')).length, 2);
+  assert.deepEqual(h.b.errors, []);
 });
-test('Columbia only apoptosis burst, no recursive riders or dot/aftershock; dodge has no buildup', () => {
-  const { h, e, hit } = setup();
-  for (const tag of ['dot', 'aftershock', 'aphris:relay', 'bond:columbia:rider', 'bond:sarkaz:rider']) hit([tag]);
-  close(e.elem.apoptosis ?? 0, 0);
-  e.s.dodgeArts = 1; hit(); close(e.elem.apoptosis ?? 0, 0); e.s.dodgeArts = 0;
-  h.b.addBuff(e, { key: 'burnBurst', flags: { burstLock: true }, duration: 10 });
-  const hp = e.hp; hit(); close(hp - e.hp, 1);
+
+test('Columbia radius 2.5 and cooldown floor 2s; own damage cannot recursively trigger', () => {
+  const { h, e, hit } = setup(999);
+  const far = h.spawn('dummy', { pos: [7, 12] });
+  far.x = e.x; far.y = e.y + 4;
+  h.b.addBuff(far, { key: 'test:stationary', flags: { stun: true }, duration: 20 });
+  const targets = []; h.b.on('damaged', c => { if (c.dmg.tags?.includes('bond:columbia:burst')) targets.push(c.target); });
+  h.step(); hit(['bond:columbia:dot']); h.step(); assert.equal(targets.length, 0);
+  hit(); h.step(); assert.deepEqual(targets.map(u => u.id), [e.id]); assert.equal(far.hp, far.s.maxHp);
+  h.run(1); hit(); h.step(); assert.equal(targets.length, 1);
+  h.run(1.1); hit(); h.step(); assert.equal(targets.length, 2);
 });
-test('Mew elite grants all own operators once; Astgenne no longer grants kill growth', () => {
-  const { h, ops, e } = setup(0, { 0: ['garrison_columbia_aphris_b'], 1: ['garrison_columbia_aphris_b'],
-    2: ['garrison_columbia_halo_b'] }, 3);
-  h.b.dealDamage(ops[5], e, { amount: 1e9, type: 'true' }); close(h.b.players[0].bonds.columbiaShip.layers, 2);
-  h.b.dealDamage(ops[2], h.spawn('dummy'), { amount: 1e9, type: 'true' });
-  close(h.b.players[0].bonds.columbiaShip.layers, 4); close(h.b.players[0].bonds.arcaneShip.layers, 0);
+
+test('Hoolheyak reads combined stored Columbia/Arcane layers in complete groups of three', () => {
+  for (const form of ['a', 'b']) {
+    const { h, ops } = setup(7, { 0: [`garrison_columbia_heyak_${form}`] }, 2);
+    close(ops[0].s.dmgDealtMul, form === 'b' ? 1.04 : 1.02);
+    h.b.players[0].bonds.arcaneShip.layers = 5;
+    h.b.emit('layerGain', { playerId: ops[0].ownerId, bondId: 'arcaneShip' }); h.step();
+    close(ops[0].s.dmgDealtMul, form === 'b' ? 1.08 : 1.04);
+  }
 });
-test('Astesia garrison reads its own current blocking targets', () => {
-  const { h, ops, e } = setup(0, { 0: ['garrison_columbia_astesi_b'] });
-  ops[0].blocking = [e]; close(h.b.dealDamage(ops[0], e, { amount: 100, type: 'true' }), 140);
-  ops[0].blocking = []; close(h.b.dealDamage(ops[0], e, { amount: 100, type: 'true' }), 100);
-});
+
 test('Beanstalk summons real crab, fatal becomes tactical point and recovers, S2 temporary crabs leave', () => {
   const id = 'chess_char_1_columbia_bstalk_b';
-  const h = makeBattle({ units: [{ chessId: id, row: 10, col: 4 }], autoFinish: false });
+  const h = makeBattle({ units: [{ chessId: id, row: 10, col: 4 }], defs: { enemies: { dummy } }, autoFinish: false });
   h.step(); const u = h.unit(id), crab = u.trait.reinforcement;
-  assert.equal(crab?.defId, 'token_10014_bstalk_crab'); assert.ok(crab.s.atk > 0);
+  assert.equal(crab?.defId, 'token_10014_bstalk_crab'); assert.ok(crab.s.atk > 0); assert.equal(crab.s.blockCnt, 1);
+  const e = h.spawn('dummy'); e.x = crab.x; e.y = crab.y;
+  assert.ok(h.b._checkBlock(e)); assert.equal(e.blockedBy, crab);
   h.b.dealDamage(null, crab, { amount: 1e8, type: 'true' });
-  assert.ok(crab.alive && crab.s.flags.noBlock); h.run(15.1); close(crab.hp, crab.s.maxHp);
+  assert.ok(crab.alive && crab.s.flags.noBlock); assert.equal(e.blockedBy, null);
+  assert.ok(!h.b._checkBlock(e)); h.run(15.1); close(crab.hp, crab.s.maxHp);
   assert.ok(!crab.s.flags.noBlock);
+  e.x = crab.x; e.y = crab.y; assert.ok(h.b._checkBlock(e)); assert.equal(e.blockedBy, crab);
   u.skill.activate('test', { free: true });
   const temps = h.b.allyUnits.filter(t => t.mem.bstalkTemporary && t.alive); assert.ok(temps.length > 0);
   assert.ok(crab.s.def > crab.base.def); u.skill.end('test'); assert.ok(temps.every(t => !t.alive));

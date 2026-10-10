@@ -10,10 +10,10 @@
 import { COLD_ASPD, COLD_FREEZE_DURATION, FREEZE_RES_DOWN, RESIST_DEFAULT, RESIST_PALSY_DECAY } from './constants.js';
 import { powi } from './detmath.js';
 
-/** Numeric shield budget is opt-in (Sarkaz six); hit-count shields never consume it. Oldest source keeps priority. */
+/** Numeric shield budget is opt-in; the strictest cap wins. Hit-count shields never consume it. */
 export function clampNumericShields(unit) {
-  const ratio = unit?.trait?.numericShieldCap;
-  if (!(ratio >= 0)) return;
+  const ratio = Math.min(unit?.trait?.numericShieldCap ?? Infinity, unit?.trait?.columbiaFieldShields > 0 ? 1 : Infinity);
+  if (!(ratio >= 0) || !Number.isFinite(ratio)) return;
   let left = Math.max(0, unit.s.maxHp * ratio);
   for (const b of unit.buffs) {
     if (!(b.shield > 0) || !(b.timeLeft > 0)) continue;

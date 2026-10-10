@@ -67,7 +67,8 @@ test('every 自选 summoner: the hand count of each placeable summon in every fo
             assert.ok(rec, `${charId} T${tier} ${elite ? 'elite' : 'normal'} ${mod} S${s.index + 1}`);
             const view = diyGameData(gd, new Map([[id, rec]]));
             for (const { tokenId, count } of view.placeableTokens(id, { skillIndex: s.index, moduleId: mod })) {
-              assert.equal(count, official(charId, mod, elite ? STAGE[tier] : 0), `${charId} T${tier} ${elite ? 'elite' : 'normal'} ${mod ?? 'none'} S${s.index + 1}: ${tokenId}`);
+              const expected = charId === 'char_4229_aphris' && s.index === 2 ? 3 : official(charId, mod, elite ? STAGE[tier] : 0);
+              assert.equal(count, expected, `${charId} T${tier} ${elite ? 'elite' : 'normal'} ${mod ?? 'none'} S${s.index + 1}: ${tokenId}`);
               checked++;
             }
           }

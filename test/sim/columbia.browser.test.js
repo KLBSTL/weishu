@@ -24,8 +24,9 @@ test('Columbia normal/elite browser-server parity, assets and live combat stats'
       const ids = COLUMBIA_ROSTER.map(([code, , tier, old]) => (old ?? `chess_char_${tier}_columbia_${code}_a`).replace(/_a$/, `_${form}`));
       const spec = buildBattleSpec({ seed: 781, kind: 'normal', round: 6, stageId: 'act2autochess_m01', timeLimit: 100,
         players: [{ playerId: 'p1', seat: 0, side: 'L', colOffset: 0, playerEffects: [],
-          bonds: { columbiaShip: { count: 9, active: true, tier: 2, layers: 80 } },
-          units: ids.map((chessId, i) => ({ uid: i + 1, chessId, row: 10 + Math.floor(i / 5), col: 3 + i % 5, dir: 'RIGHT' })),
+          bonds: { columbiaShip: { count: 10, active: true, tier: 2, layers: 80 } },
+          units: ids.map((chessId, i) => ({ uid: i + 1, chessId, row: 10 + Math.floor(i / 5), col: 3 + i % 5, dir: 'RIGHT',
+            items: i === 9 ? [`chess_item_3_columbia_chip_e_${form}`, `chess_item_6_columbia_field_e_${form}`] : [] })),
         }], ...spawnsFromTemplate(ds.getWave('act1autochess_06')) });
       const nb = createBattleFromSpec(spec, ds, { quiet: true });
       const expected = resultDigest(nb.runToEnd(4000)).hash;

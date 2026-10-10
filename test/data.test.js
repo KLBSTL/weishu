@@ -75,14 +75,14 @@ test('numbers: every stats/bb/enemyScale object holds only finite numbers (no nu
   assert.deepEqual(bad.slice(0, 10), [], `${bad.length} bad numeric fields`);
 });
 
-test('chess: 290 records, 108 visible non-DIY (16/18/19/19/17/19 per tier)', () => {
+test('chess: 290 records, 106 visible non-DIY (16/17/18/19/17/19 per tier)', () => {
   assert.equal(Object.keys(chess).length, 290);
-  assert.equal(visible.length, 108);
+  assert.equal(visible.length, 106);
   const perTier = {};
   for (const c of visible) perTier[c.tier] = (perTier[c.tier] || 0) + 1;
-  assert.deepEqual(perTier, { 1: 16, 2: 18, 3: 19, 4: 19, 5: 17, 6: 19 });
+  assert.deepEqual(perTier, { 1: 16, 2: 17, 3: 18, 4: 19, 5: 17, 6: 19 });
   assert.equal(normalChess.filter((c) => c.isDiy).length, 4);
-  assert.equal(normalChess.filter((c) => c.isHidden).length, 33);
+  assert.equal(normalChess.filter((c) => c.isHidden).length, 35);
 });
 
 test('chess: ids, golden pairs and references resolve', () => {
@@ -154,18 +154,18 @@ test('bonds: 25 bonds with valid members, thresholds and effects', () => {
   for (const c of normalChess) for (const b of c.bonds) assert.ok(bonds[b].members.includes(c.chessId), `${c.chessId} not in ${b}.members`);
 });
 
-test('garrisons: all referenced exist; 56 distinct effect keys', () => {
+test('garrisons: all referenced exist; 59 distinct effect keys', () => {
   const keys = new Set(Object.values(garrisons).map((g) => g.effectKey));
-  assert.equal(keys.size, 56);
+  assert.equal(keys.size, 59);
   for (const g of Object.values(garrisons)) {
     assert.ok(typeof g.eventType === 'string' && typeof g.desc === 'string', g.garrisonId);
     for (const o of g.owners) assert.ok(chess[o], `${g.garrisonId}: owner ${o}`);
   }
 });
 
-test('items: 115 item chess with valid effects, bonds and golden links', () => {
-  assert.equal(Object.keys(items).length, 115);
-  assert.equal(Object.values(items).filter((i) => i.itemType === 'EQUIP' && !i.isGolden).length, 56);
+test('items: 119 item chess with valid effects, bonds and golden links', () => {
+  assert.equal(Object.keys(items).length, 119);
+  assert.equal(Object.values(items).filter((i) => i.itemType === 'EQUIP' && !i.isGolden).length, 58);
   assert.equal(Object.values(items).filter((i) => i.itemType === 'MAGIC').length, 3);
   for (const it of Object.values(items)) {
     assert.ok(effects[it.effectId], `${it.id}: effect ${it.effectId}`);

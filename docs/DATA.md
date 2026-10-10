@@ -313,7 +313,7 @@ full-rank build from the others; the build fails unless `atRank` rebuilds every 
 | `bb`, `bbStr` | `{"multi":1}`, `{"add_method":"shoplv","bond":"yanShip"}` | |
 | `owners[]` | `["chess_char_1_03_a"]` | chess carrying it (includes garrisons referenced by other garrisons, which may have no owner) |
 
-## 5. `items.json` — `{ [itemChessId]: Item }` (115 = 56 EQUIP × 2 + 3 MAGIC)
+## 5. `items.json` — `{ [itemChessId]: Item }` (119 = 58 EQUIP × 2 + 3 MAGIC)
 
 | Field | Example (`chess_item_1_01_e_a`) | Meaning |
 |---|---|---|
@@ -744,4 +744,4 @@ field), 助战 borrows (`borrowCount` 20), and a player's potential / 练度 per
 
 `tools/sarkaz-data.mjs` supplies the roster and covenant augmentation to `build-data.mjs`. Regenerate rather than editing JSON. Six new formal entries reuse operator kits by charId; Meteorite/Hibiscus have separate expansion kits, excluded from the six-star DIY kit list. The later upstream Clement entry is excluded until its kit is supported. See [rules and training](design/sarkaz.md).
 
-`tools/columbia-data.mjs` adds six more formal entries, adjusts three existing members, shares Ifrit with Sarkaz, and hides 17 recruits. Columbia now has ten identities. The output contains 290 normal/elite records, 108 visible base recruits and 25 bonds. Beanstalk, Contrail, Astesia and Astgenne have separate expansion kits; Aphris/Ho'olheyak retain their DIY forms. Shared token IDs select the proper owner/loadout variant. Asset extras include both expansions. See [Columbia rules](design/columbia.md).
+`tools/columbia-data.mjs` preserves six expansion entries and reuses native member slots. The 2026-10-10 revision hides Contrail/Astgenne in addition to the 17 earlier recruits and adds Tin Man/Silence/Pinecone to Columbia: eleven identities including shared Ifrit. Output: 290 normal/elite records, 106 visible base recruits, 25 bonds and 119 items. Two Columbia equipment pairs have generated effects and reuse native icons; normal versions enter the tier-3/6 shop pools. Beanstalk's token kit applies its blocking talent; Aphris S3's initial hand/deployment cap is three. Old kits and DIY forms remain available. See [Columbia rules](design/columbia.md).

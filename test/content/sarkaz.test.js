@@ -108,12 +108,12 @@ test('Shining one reward per player per battle; subsequent casts still grant bar
   close(ops[2].findBuff(SHIELD).shield, first * 2);
 });
 
-test('Typhon no longer grows on kills; Hibiscus own kill grants both bonds', () => {
+test('Typhon and Hibiscus no longer grow on kills', () => {
   const { h, ops } = setup(6, 0, { 0: ['garrison_sarkaz_typhon_b'], 1: ['garrison_sarkaz_typhon_b'], 2: ['garrison_sarkaz_hbisc2_b'] });
   const e = h.spawn('dummy', { pos: [7, 9] });
   h.b.dealDamage(ops[2], e, { amount: 1e9, type: 'true' });
-  close(h.b.players[0].bonds.sarkazShip.layers, 2);
-  close(h.b.players[0].bonds.arcaneShip.layers, 2);
+  close(h.b.players[0].bonds.sarkazShip.layers, 0);
+  close(h.b.players[0].bonds.arcaneShip.layers, 0);
 });
 
 test('Sarkaz statistics count actual barrier gain/absorption and survive result compaction', () => {

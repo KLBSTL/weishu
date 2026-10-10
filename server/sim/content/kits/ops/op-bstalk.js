@@ -9,7 +9,8 @@ export function refreshCrab(battle, crab) {
 }
 export function crabKit() {
   return { trait: { noHeal: true }, install(battle, unit) {
-    battle.addBuff(unit, { key: 'bstalk:noHeal', flags: { noHeal: true }, persist: true, allowDead: true });
+    const block = (unit.def.talents ?? []).reduce((n, t) => num(t.bb?.block_cnt, n), 1);
+    battle.addBuff(unit, { key: 'bstalk:noHeal', mods: { blockCnt: block }, flags: { noHeal: true }, persist: true, allowDead: true });
     battle.on('fatal', ctx => {
       if (ctx.unit !== unit || unit.mem.bstalkTemporary) return;
       ctx.prevented = true; unit.hp = 1; battle.releaseBlocked(unit);

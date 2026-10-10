@@ -1,26 +1,33 @@
 // User-approved expansion and temporary recruitment pool reduction.
 export const COLUMBIA_ROSTER = Object.freeze([
-  ['bstalk', 'char_452_bstalk', 1, null, 'deputShip', 1],
-  ['ctrail', 'char_4165_ctrail', 2, null, 'skillfulShip', 1],
+  ['bstalk', 'char_452_bstalk', 1, null, null, 1],
+  ['tinman', 'char_4151_tinman', 2, 'chess_char_2_19_a', 'investShip', 1],
+  ['silent', 'char_108_silent', 2, 'chess_char_2_02_a', 'visiShip', 1],
+  ['pinecn', 'char_440_pinecn', 3, 'chess_char_3_10_a', 'swiftShip', 1],
   ['astesi', 'char_274_astesi', 3, null, 'arcaneShip', 1],
-  ['halo', 'char_135_halo', 3, null, 'arcaneShip', 1],
   ['plosis', 'char_128_plosis', 4, 'chess_char_4_21_a', 'skillfulShip', 1],
   ['f12yin', 'char_264_f12yin', 5, 'chess_char_5_17_a', 'investShip', 1],
   ['demkni', 'char_202_demkni', 5, 'chess_char_5_11_a', 'steadShip', 1],
-  ['heyak', 'char_4027_heyak', 6, null, 'preciShip', 2],
-  ['aphris', 'char_4229_aphris', 6, null, 'miraShip', 2],
+  ['heyak', 'char_4027_heyak', 6, null, 'arcaneShip', 2],
+  ['aphris', 'char_4229_aphris', 6, null, 'preciShip', 2],
 ]);
+const RETIRED = [
+  ['ctrail', 'char_4165_ctrail', 2, null, 'skillfulShip', 1],
+  ['halo', 'char_135_halo', 3, null, 'arcaneShip', 1],
+];
 export const RETAINED_CHARACTERS = Object.freeze(['char_1040_blaze2', 'char_4114_harold']);
 const descriptions = {
-  bstalk: ['本局首次获得本体时，哥伦比亚+2层（无需激活）；每次晋级精锐再+4层。', '晋级精锐时，哥伦比亚+4层（无需激活）。'],
+  bstalk: ['获得时，哥伦比亚+2层（无需激活）。', '获得时，哥伦比亚+4层（无需激活）。'],
+  tinman: ['获得时，获得1个随身身份牌。', '获得时，获得2个随身身份牌。'],
+  silent: ['进入休整期时，哥伦比亚与远见分别+2层（无需激活）。', '进入休整期时，哥伦比亚与远见分别+4层（无需激活）。'],
   ctrail: ['获得时，灵巧+2层（无需激活）。', '获得时，灵巧+4层（无需激活）。'],
-  astesi: ['对自身当前阻挡的敌人造成伤害提升至125%。', '对自身当前阻挡的敌人造成伤害提升至140%。'],
+  astesi: ['休整期结束时，本回合每消耗2资金，哥伦比亚与奥术各+1层，每回合最多10次（无需激活）。', '休整期结束时，本回合每消耗2资金，哥伦比亚与奥术各+2层，每回合最多10次（无需激活）。'],
   halo: ['进入休整期时，使已激活哥伦比亚与奥术分别+2层。', '进入休整期时，使已激活哥伦比亚与奥术分别+4层。'],
-  heyak: ['每层已激活哥伦比亚使自身造成伤害+1%。', '每层已激活哥伦比亚使自身造成伤害+2%。'],
-  aphris: ['自身击杀敌人，使已激活哥伦比亚+2层。', '开战时授予己方全队干员：击杀敌人使已激活哥伦比亚+2层；同名授予不叠加。'],
+  heyak: ['哥伦比亚与奥术记录层数之和每满3层，自身造成伤害+1%。', '哥伦比亚与奥术记录层数之和每满3层，自身造成伤害+2%。'],
+  aphris: ['进入休整期时，每持有1资金，哥伦比亚与精准各+1层（无需激活）。', '进入休整期时，每持有1资金，哥伦比亚与精准各+2层（无需激活）。'],
 };
 export function prepareColumbia({ act }) {
-  for (const [code, charId, tier, existing, addon, skillIndex] of COLUMBIA_ROSTER) {
+  for (const [code, charId, tier, existing, addon, skillIndex] of [...COLUMBIA_ROSTER, ...RETIRED]) {
     const base = existing ?? `chess_char_${tier}_columbia_${code}_a`, golden = base.replace(/_a$/, '_b');
     if (!existing) {
       const template = tier <= 3 ? 'chess_char_2_02_a' : 'chess_char_4_18_a';
@@ -39,19 +46,34 @@ export function prepareColumbia({ act }) {
     }
     Object.assign(act.charShopChessDatas[base], { chessLevel: tier, isHidden: false, defaultSkillIndex: skillIndex });
     for (const [suffix, id] of [['a', base], ['b', golden]]) {
-      const rec = act.charChessDataDict[id]; rec.bondIds = ['columbiaShip', addon];
+      const rec = act.charChessDataDict[id]; rec.bondIds = ['columbiaShip', addon].filter(Boolean);
       if (descriptions[code]) {
         const gid = `garrison_columbia_${code}_${suffix}`, n = suffix === 'b' ? 2 : 1;
         rec.garrisonIds = [gid];
         act.garrisonDataDict[gid] = { garrisonDesc: descriptions[code][n - 1], description: descriptions[code][n - 1],
-          eventType: ['bstalk', 'ctrail'].includes(code) ? 'SERVER_GAIN' : 'IN_BATTLE',
-          eventTypeDesc: ['bstalk', 'ctrail'].includes(code) ? '整备能力' : '作战能力',
+          eventType: ['bstalk', 'ctrail', 'tinman'].includes(code) ? 'SERVER_GAIN' : 'IN_BATTLE',
+          eventTypeDesc: code === 'heyak' ? '作战能力' : '整备能力',
           eventTypeIcon: 'icon_gold', effectType: `COLUMBIA_${code.toUpperCase()}`, blackboard:
           ['halo', 'aphris'].includes(code) ? [
             { key: 'bond_add_count', value: code === 'halo' ? n : 2, valueStr: null },
             { key: 'bond_type', value: 0, valueStr: 'bond_by_id' },
             { key: 'bond_id', value: 0, valueStr: code === 'halo' ? 'columbiaShip,arcaneShip' : 'columbiaShip' },
           ] : [] };
+        if (['silent', 'aphris'].includes(code)) act.garrisonDataDict[gid].eventType = 'SERVER_PREP_START';
+        if (code === 'astesi') act.garrisonDataDict[gid].eventType = 'SERVER_PREP_FIN';
+        if (['silent', 'aphris', 'astesi'].includes(code)) {
+          act.garrisonDataDict[gid].blackboard = [
+            { key: 'count', value: n, valueStr: null },
+            { key: 'conditionkey', value: 0, valueStr: 'character_target_inboard' },
+          ];
+        }
+      }
+      if (code === 'demkni' && suffix === 'b') {
+        const gid = 'garrison_columbia_demkni_b';
+        const g = structuredClone(act.garrisonDataDict.garrison_99_b);
+        g.effectType = 'COLUMBIA_DEMKNI';
+        g.garrisonDesc = '身前两格干员若为“休整期结束时”特质，分别复制两者的特质。';
+        g.description = g.garrisonDesc; act.garrisonDataDict[gid] = g; rec.garrisonIds = [gid];
       }
       if (code === 'f12yin') {
         // Preserve the native Investor event/condition and copyability by Saria.
@@ -72,6 +94,7 @@ export function prepareColumbia({ act }) {
       }
     }
   }
+  for (const [code, , tier] of RETIRED) act.charShopChessDatas[`chess_char_${tier}_columbia_${code}_a`].isHidden = true;
   // Keep old ids and kits for saves/self-selection; remove only regular recruitment visibility.
   for (const [id, shop] of Object.entries(act.charShopChessDatas)) {
     const bonds = act.charChessDataDict[id]?.bondIds ?? [];
@@ -85,13 +108,35 @@ export function prepareColumbia({ act }) {
   }
 }
 export function finishColumbia(files) {
-  const desc = '【哥伦比亚】攻击力+15%，每层再+0.5%。\n<在场6名不同【哥伦比亚】干员>有效主攻击附加当前攻击力20%的凋亡损伤；命中前目标已处于凋亡损伤爆发时，另造成当前攻击力（110%+每层0.3%）的元素伤害。多段逐段、群攻逐目标，独立追伤不再次触发。';
+  for (const [code, tier, name, template] of [
+    ['chip', 3, '哥伦比亚芯片', 'chess_item_3_03_e'],
+    ['field', 6, '力场发生器', 'chess_item_6_03_e'],
+  ]) for (const suffix of ['a', 'b']) {
+    const gold = suffix === 'b', key = `chess_item_${tier}_columbia_${code}_e`;
+    const id = `${key}_${suffix}`, effectId = `eff_columbia_${code}_${suffix}`;
+    const params = code === 'chip' ? { atk: gold ? .3 : .2, attack_speed: gold ? 30 : 20 }
+      : { shield: gold ? 1000 : 500, damage_scale: gold ? 1.5 : 1.3, reduction: gold ? .5 : .3, hp: gold ? 1 : .5 };
+    const desc = code === 'chip' ? `攻击力+${params.atk * 100}%，技能期间攻击速度+${params.attack_speed}。`
+      : `技能持续期间每秒获得${params.shield}点屏障，屏障总量上限为生命上限的100%（萨卡兹六人效果仍限制为50%）。拥有屏障时造成伤害提升至${params.damage_scale * 100}%。同时装备哥伦比亚芯片时，受到伤害减少${params.reduction * 100}%，生命上限+${params.hp * 100}%。`;
+    const rec = structuredClone(files.items[`${template}_${suffix}`]);
+    Object.assign(rec, { id, baseId: `${key}_a`, goldenId: `${key}_b`, isGolden: gold,
+      identifier: 3000 + tier * 10 + (gold ? 1 : 0), name, effectId, effectName: name, desc, descRaw: desc,
+      shopSortId: 90, hideInShop: gold, shopExcluded: false, shopExcludedBy: null,
+      mergeable: !gold, upgradeNum: gold ? 0 : 2, upgradeChessId: gold ? null : `${key}_b`,
+      giveBondId: 'columbiaShip', requiresBondId: null, canGiveBond: false,
+      buffs: [], params, category: 'STAT', kind: 'passive', family: null,
+      implFormula: desc, note: 'User-approved 2026-10-10 design; icon reused from native equipment.', flavor: name });
+    files.items[id] = rec;
+    files.effects[effectId] = { ...structuredClone(files.effects[files.items[`${template}_${suffix}`].effectId]),
+      effectId, name, desc, descRaw: desc, buffs: [], params };
+  }
+  const desc = '累计每新增15层，获得1个随身身份牌。\n<在场3名不同【哥伦比亚】干员>【哥伦比亚】攻击力+20%，每层再+0.9%。\n<在场6名不同【哥伦比亚】干员>造成伤害时，在目标位置引发范围法术爆炸，伤害为在场哥伦比亚干员当前总攻击力的300%，并附加实际爆炸伤害10%的灼燃损伤；范围内留下5秒伤害区域，每秒造成该总攻击力×层数×0.5%的法术伤害。范围同维什戴尔三技能。每名玩家共享8秒冷却，每满100层减少1秒，最低2秒；盟约爆炸、持续伤害及附加损伤不递归触发。';
   files.effects.bondeffect_columbia = { ...structuredClone(files.effects.bondeffect_yan), effectId: 'bondeffect_columbia',
     name: '拓界共振', desc, descRaw: desc, buffs: [], params: {} };
   const members = Object.values(files.chess).filter(c => !c.isGolden && c.bonds.includes('columbiaShip'));
   files.bonds.columbiaShip = { ...structuredClone(files.bonds.sarkazShip), bondId: 'columbiaShip', name: '哥伦比亚',
     identifier: 25, iconId: 'icon_columbiaShip', desc, descRaw: desc, effectId: 'bondeffect_columbia', effectName: '拓界共振',
-    effectDesc: desc, effectDescRaw: desc, bb: { base_atk: .15, atk_per_stack: .005, power_bond_char_cnt: 6 },
+    effectDesc: desc, effectDescRaw: desc, bb: { base_atk: .20, atk_per_stack: .009, power_bond_char_cnt: 6 },
     members: members.map(c => c.chessId), visibleMembers: members.filter(c => c.visible).map(c => c.chessId),
     spec: { origin: 'User-approved Columbia fan expansion; docs/design/columbia.md' } };
 }

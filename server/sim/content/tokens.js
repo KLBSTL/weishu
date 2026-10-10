@@ -1676,6 +1676,7 @@ function tokenSources(battle, tokenId, owner) {
 }
 
 function deployLimitOf(u) {
+  if (u.defId === 'token_10070_aphris_pc' && u.ownerUnit?.skill?.id === 'skchr_aphris_3') return 3;
   const v = variantOf(u);
   return num(v?.stats?.deployLimit ?? v?.deployLimit ?? u.def?.raw?.deployLimit ?? u.def?.raw?.stats?.deployLimit, Infinity);
 }

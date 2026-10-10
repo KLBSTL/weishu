@@ -30,7 +30,7 @@ const FILLER = 'chess_char_1_01_a';
 const FILLERS = [1, 2].flatMap((t) => chessOfTier(t, (c) => !c.bonds.includes('siracusaShip') && !c.bonds.includes('visiShip')
   && (c.garrisonIds || []).every((g) => DATA.garrisons[g].eventType === 'IN_BATTLE')));
 const LAP_KEY = 'garrison:SERVER_GAIN_BOND_LAYER_BY_REFRESH_CNT';
-const SIL_KEY = 'garrison:SERVER_ADD_BOND_CHESS_ALL';
+const SIL_KEY = 'garrison:COLUMBIA_SILENT';
 
 function setup({ mode = 'solo', bots = 0, round = 1, pid = 'p_0', seed = 70 } = {}) {
   const h = makeMatch({ mode, bots, seed, registry: REG, fake: true }).start();
@@ -85,7 +85,7 @@ test('official data: a 进入休整期时 / 休整期结束时 / 刷新时 特�
     if (/整备区时也有效|整备区也有效/.test(g.desc)) {
       assert.equal(key, undefined, `${g.garrisonId}: a bench trait carries no condition key`);
       bench.push(g.garrisonId);
-    } else if (!/^身前一格干员若为/.test(g.desc)) {
+    } else if (!/^身前(一格|两格)干员若为/.test(g.desc)) {
       // the rest: deployed only (character_target_inboard), or a row condition that only a deployed operator can meet;
       // the two copy traits (白面鸮 / 塞雷娅 "身前一格…") read the tile in front and are positional by nature
       assert.ok(key === 'character_target_inboard' || key === 'character_same_row', `${g.garrisonId}: ${key} — ${g.desc}`);

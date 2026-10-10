@@ -39,11 +39,6 @@ export function install(battle) {
       if (playerId === pid && bondId === BOND) battle.after(0, refresh);
     });
 
-    battle.on('kill', ({ killer, victim }) => {
-      if (!killer || killer.ownerId !== pid || victim?.side !== 'enemy') return;
-      if (owns(killer, 'hbisc2')) gain(battle, killer, [BOND, 'arcaneShip'], elite(killer, 'hbisc2') ? 2 : 1);
-    });
-
     let typhonUsed = Math.max(0, Math.min(56, p.input?.contentInfo?.sarkazTyphonUsed ?? 0));
     battle.on('skillStart', ({ unit }) => {
       if (!member(unit) || !S.onField(unit) || !active() || !battle.flags.layerGainsEnabled) return;
@@ -116,7 +111,13 @@ export function registerMeta(registry) {
   });
   registry.garrison('SARKAZ_METEO', {
     onGain(ctx) {
-      ctx.addLayers('swiftShip', ctx.chessRecord(ctx.source.piece.id)?.isGolden ? 4 : 2, { requireActive: false });
+      const n = ctx.chessRecord(ctx.source.piece.id)?.isGolden ? 4 : 2;
+      for (const bond of ctx.pieceBonds(ctx.source.piece.uid)) ctx.addLayers(bond, n, { requireActive: false });
+    },
+  });
+  registry.garrison('SARKAZ_HBISC2', {
+    run(ctx) {
+      for (const bond of ctx.pieceBonds(ctx.source.piece.uid)) ctx.addLayers(bond, ctx.source.bb.count, { requireActive: false });
     },
   });
   registry.global('sarkaz_acquire', {

@@ -720,7 +720,7 @@ test('real data: every owned IN_BATTLE garrison installs without errors on its r
 });
 
 test('Sarkaz custom traits exercise each normal and elite data id', () => {
-  for (const form of ['a', 'b']) for (const code of ['hbisc2', 'ifrit', 'shining', 'typhon', 'wisdel']) {
+  for (const form of ['a', 'b']) for (const code of ['ifrit', 'shining', 'typhon', 'wisdel']) {
     const gid = `garrison_sarkaz_${code}_${form}`;
     const h = battle({ units: [{ id: 'op', g: [gid], bonds: ['sarkazShip', 'arcaneShip'], row: 10, col: 4 }],
       bonds: { sarkazShip: B(100), arcaneShip: B(0) } });
@@ -746,12 +746,12 @@ test('Sarkaz custom traits exercise each normal and elite data id', () => {
 });
 
 test('Columbia battle traits exercise each normal and elite data id', () => {
-  for (const form of ['a', 'b']) for (const code of ['astesi', 'heyak', 'aphris']) {
+  for (const form of ['a', 'b']) for (const code of ['heyak']) {
     const gid = `garrison_columbia_${code}_${form}`;
     const h = battle({ units: [{ id: 'op', g: [gid], bonds: ['columbiaShip', 'arcaneShip'], row: 10, col: 4 }],
       bonds: { columbiaShip: B(100), arcaneShip: B(0) } });
     const u = h.unit('op'), e = h.spawn('e_dummy', { pos: [7, 9] });
-    if (code === 'heyak') approx(u.s.dmgDealtMul, form === 'b' ? 3 : 2);
+    if (code === 'heyak') approx(u.s.dmgDealtMul, form === 'b' ? 1.66 : 1.33);
     if (code === 'astesi') {
       u.blocking = [e]; approx(h.b.dealDamage(u, e, { amount: 100, type: 'true' }), form === 'b' ? 140 : 125);
     }

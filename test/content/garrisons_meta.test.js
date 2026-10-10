@@ -873,6 +873,7 @@ test('Sarkaz acquisition traits: Vigna once, promotion +4; Meteorite +2/+4', () 
   assert.equal(s.L('swiftShip'), 2);
   s.acquire('chess_char_2_sarkaz_meteo_b');
   assert.equal(s.L('swiftShip'), 6);
+  assert.equal(s.L('sarkazShip'), 12, 'Meteorite grants both own bonds without activation');
   for (const code of ['vigna', 'meteo']) for (const form of ['a', 'b']) cover(`garrison_sarkaz_${code}_${form}`);
   s.m.dispose();
 });
@@ -890,15 +891,15 @@ test('Sarkaz Shining round marker survives settlement and resets next round', ()
   s.m.dispose();
 });
 
-test('Columbia acquisition: Bean once and promotion, Contrail normal and elite', () => {
+test('Columbia acquisition: Bean every gain and elite, Contrail legacy remains functional', () => {
   const s = setup();
   s.acquire('chess_char_1_columbia_bstalk_a');
   s.acquire('chess_char_1_columbia_bstalk_a');
-  assert.equal(s.L('columbiaShip'), 2);
+  assert.equal(s.L('columbiaShip'), 4);
   const elite = s.acquire('chess_char_1_columbia_bstalk_a');
-  assert.equal(s.L('columbiaShip'), 6);
+  assert.equal(s.L('columbiaShip'), 8);
   s.m.dispatch(s.ps, 'onMerge', { kind: 'chess', piece: elite });
-  assert.equal(s.L('columbiaShip'), 6);
+  assert.equal(s.L('columbiaShip'), 8);
   s.acquire('chess_char_2_columbia_ctrail_a');
   assert.equal(s.L('skillfulShip'), 2);
   s.acquire('chess_char_2_columbia_ctrail_b');
@@ -953,6 +954,57 @@ test('Typhon budget survives sub-battles, never decreases, and resets on the nex
   s.m.dispatch(s.ps, 'onBattleStart', next);
   assert.equal(next.input.contentInfo.sarkazTyphonUsed, undefined);
   s.m.dispose();
+});
+
+test('Hibiscus: prep end grants own bonds 2/4 even inactive; gain does not grant layers', () => {
+  for (const [form, n] of [['a', 2], ['b', 4]]) {
+    const s = setup(), id = `chess_char_2_sarkaz_hbisc2_${form}`;
+    s.acquire(id); assert.equal(s.L('sarkazShip'), 0);
+    s.prepEnd(); assert.equal(s.L('sarkazShip'), 0, 'hand does not trigger');
+    give(s.m, s.ps, id, 'board', [10, 5]);
+    s.prepEnd(); assert.equal(s.L('sarkazShip'), n); assert.equal(s.L('arcaneShip'), n);
+    give(s.m, s.ps, 'chess_char_5_11_a', 'board', [10, 4]);
+    s.prepEnd();
+    assert.equal(s.L('sarkazShip'), 2 * n, 'copy uses copier own bonds');
+    assert.equal(s.L('columbiaShip'), n); assert.equal(s.L('steadShip'), n);
+    cover(`garrison_sarkaz_hbisc2_${form}`); s.m.dispose();
+  }
+});
+
+test('Columbia new prep traits, identity rewards and two-tile elite Saria copy', () => {
+  const card = 'chess_item_1_04_e_a';
+  for (const [form, n] of [['a', 1], ['b', 2]]) {
+    const s = setup();
+    s.acquire(`chess_char_2_19_${form}`);
+    assert.equal(itemUnits(s.ps, card), n);
+    give(s.m, s.ps, `chess_char_2_02_${form}`, 'board', [10, 5]);
+    s.roundStart(); assert.equal(s.L('columbiaShip'), 2 * n); assert.equal(s.L('visiShip'), 2 * n);
+    give(s.m, s.ps, `chess_char_6_columbia_aphris_${form}`, 'board', [10, 6]);
+    s.ps.funds = 7; s.roundStart();
+    assert.equal(s.L('columbiaShip'), 11 * n); assert.equal(s.L('preciShip'), 7 * n);
+    for (const code of ['tinman', 'silent', 'aphris']) cover(`garrison_columbia_${code}_${form}`);
+    s.m.dispose();
+    const t = setup();
+    give(t.m, t.ps, `chess_char_3_columbia_astesi_${form}`, 'board', [10, 5]);
+    t.ps.round.spent = 19; t.prepEnd();
+    assert.equal(t.L('columbiaShip'), 9 * n); assert.equal(t.L('arcaneShip'), 9 * n);
+    t.m.round++; t.ps.round.spent = 100;
+    t.prepEnd(); assert.equal(t.L('columbiaShip'), 19 * n);
+    cover(`garrison_columbia_astesi_${form}`);
+    t.m.dispose();
+  }
+  const s = setup();
+  s.ps.addLayers('columbiaShip', 14); assert.equal(itemUnits(s.ps, card), 0);
+  s.ps.addLayers('columbiaShip', 17); assert.equal(itemUnits(s.ps, card), 2);
+  s.ps.addLayers('arcaneShip', 30); assert.equal(itemUnits(s.ps, card), 2);
+  s.m.dispose();
+  const t = setup();
+  give(t.m, t.ps, 'chess_char_5_11_b', 'board', [10, 3]);
+  give(t.m, t.ps, 'chess_char_3_columbia_astesi_a', 'board', [10, 4]);
+  give(t.m, t.ps, 'chess_char_3_columbia_astesi_b', 'board', [10, 5]);
+  t.ps.round.spent = 4; t.prepEnd();
+  assert.equal(t.L('columbiaShip'), 12); assert.equal(t.L('arcaneShip'), 12);
+  cover('garrison_columbia_demkni_b'); t.m.dispose();
 });
 
 test('every SERVER_* effectKey of the data has a registered handler', () => {

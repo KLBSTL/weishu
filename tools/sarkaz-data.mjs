@@ -13,8 +13,8 @@ export const SARKAZ_ROSTER = Object.freeze([
 
 const descriptions = {
   vigna: ['本局首次获得时，萨卡兹层数+2（无需激活）；每次晋级精锐时+4。', '晋级精锐时，萨卡兹层数+4（无需激活）。'],
-  meteo: ['获得时，迅捷层数+2（无需激活）。', '获得时，迅捷层数+4（无需激活）。'],
-  hbisc2: ['自身击杀敌人，使已激活的萨卡兹、奥术各+1层。', '自身击杀敌人，使已激活的萨卡兹、奥术各+2层。'],
+  meteo: ['获得时，自身所属盟约各+2层（无需激活）。', '获得时，自身所属盟约各+4层（无需激活）。'],
+  hbisc2: ['休整期结束时，自身所属盟约各+2层（无需激活）。', '休整期结束时，自身所属盟约各+4层（无需激活）。'],
   ifrit: ['自身造成伤害提升至130%，同名效果不叠加。', '自身造成伤害提升至130%，同名效果不叠加。'],
   shining: ['开启技能，使层数最多的已激活盟约+6层；每轮最多一次。', '开启技能，使层数最多的已激活盟约+12层；每轮最多一次。'],
   typhon: ['在场时，任一己方萨卡兹真实开技使已激活萨卡兹+2层；每正式回合共享上限28。', '在场时，任一己方萨卡兹真实开技使已激活萨卡兹+2层；每正式回合共享上限56。'],
@@ -64,7 +64,7 @@ export function prepareSarkaz(ctx) {
           eventTypeIcon: 'icon_gold', effectType: `SARKAZ_${code.toUpperCase()}`, blackboard: [],
         };
         // Reuse the server's declared-gain allowance validator for these custom handlers.
-        if (['hbisc2', 'typhon', 'shining'].includes(code)) {
+        if (['typhon', 'shining'].includes(code)) {
           const amount = code === 'typhon' ? 2 : code === 'shining' ? (suffix === 'b' ? 12 : 6) : (suffix === 'b' ? 2 : 1);
           act.garrisonDataDict[gid].blackboard = [
             { key: 'bond_add_count', value: amount, valueStr: null },
@@ -73,6 +73,11 @@ export function prepareSarkaz(ctx) {
             ...(code === 'shining' ? [{ key: 'max_add_count_per_battle', value: amount, valueStr: null }] : []),
           ];
         }
+        if (code === 'hbisc2') Object.assign(act.garrisonDataDict[gid], {
+          eventType: 'SERVER_PREP_FIN', eventTypeDesc: '整备能力',
+          blackboard: [{ key: 'count', value: suffix === 'b' ? 4 : 2, valueStr: null },
+            { key: 'conditionkey', value: 0, valueStr: 'character_target_inboard' }],
+        });
       }
     }
   }

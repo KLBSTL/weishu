@@ -90,7 +90,7 @@ test('cancel/reopen, reconnect views and shop upgrades cannot reroll a beacon', 
 test('Columbia exact +1 tier, Ifrit candidate and sample, equipment returned, no sell or refund', () => {
   const { ps, h } = setup();
   order(ps);
-  const sample = ps.acquireChess(normal('星源'));
+  const sample = ps.acquireChess(normal('星极'));
   const itemId = Object.values(DATA.items).find(i => i.itemType === 'EQUIP' && !i.isGolden).id;
   const item = ps.acquireItem(itemId); ps._detach(ps.find(item.uid)); sample.items.push(item);
   const gain = ps.round.gainedChess, sells = ps.round.sells, funds = ps.funds;

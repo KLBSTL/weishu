@@ -3873,7 +3873,7 @@ function validateAll(f) {
   const visible = Object.values(chess).filter((c) => !c.isGolden && c.visible);
   if (Object.keys(bonds).length !== 25) err(`expected 25 bonds with Sarkaz and Columbia, got ${Object.keys(bonds).length}`);
   if (Object.keys(bands).length !== 42) err(`expected 42 bands, got ${Object.keys(bands).length}`);
-  if (visible.length !== 108) err(`expected 108 visible non-DIY chess after the approved pool reduction, got ${visible.length}`);
+  if (visible.length !== 106) err(`expected 106 visible non-DIY chess after the approved pool reduction, got ${visible.length}`);
   for (const c of Object.values(chess)) {
     if (!chess[c.baseId]) err(`chess ${c.chessId}: baseId missing`);
     if (c.goldenId && !chess[c.goldenId]) err(`chess ${c.chessId}: goldenId missing`);

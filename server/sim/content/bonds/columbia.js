@@ -1,15 +1,12 @@
-// Columbia expansion: direct attacks build apoptosis; only pre-existing apoptosis bursts enable the HP rider.
+// User-approved Columbia revision (2026-10-10); docs/design/columbia.md.
 import * as S from '../support/index.js';
 import { hasHp } from '../../damage.js';
-import { primaryHit } from './attack-riders.js';
 export const BOND = 'columbiaShip';
+export const BLAST_RADIUS = 2.5; // Same as op-wisdel.js S3_SPLASH.
+export const IDENTITY_CARD = 'chess_item_1_04_e_a';
 const has = (u, code, form) => (u?.def?.raw?.garrisonIds ?? []).includes(`garrison_columbia_${code}_${form}`);
 const elite = (u, code) => has(u, code, 'b');
 const owns = (u, code) => has(u, code, 'a') || elite(u, code);
-function gain(battle, u, bonds, n) {
-  const added = S.gainLayers(battle, { playerId: u.ownerId, bonds, n, source: u, reason: 'garrison' });
-  u.stats.layersGranted = (u.stats.layersGranted ?? 0) + added;
-}
 export function install(battle) {
   for (const p of battle.players) {
     const pid = p.playerId, ops = S.playerOps(battle, pid);
@@ -17,40 +14,40 @@ export function install(battle) {
     const member = u => u?.kind === 'op' && u.ownerId === pid && S.isMember(battle, u, BOND);
     const refresh = () => {
       for (const u of ops) {
-        if (active() && member(u)) S.passiveBuff(battle, u, 'bond:columbia:attack', S.directMods({ atk: .15 + .005 * L() }));
+        if (active() && member(u)) S.passiveBuff(battle, u, 'bond:columbia:attack', S.directMods({ atk: .20 + .009 * L() }));
         if (owns(u, 'heyak')) S.passiveBuff(battle, u, 'garrison:columbia:heyak', {
-          dmgDealtMul: active() ? 1 + (elite(u, 'heyak') ? .02 : .01) * L() : 1,
+          dmgDealtMul: 1 + (elite(u, 'heyak') ? .02 : .01) * Math.floor((L() + S.bondLayers(battle, pid, 'arcaneShip')) / 3),
         });
       }
     };
     refresh();
     battle.on('layerGain', ({ playerId, bondId }) => {
-      if (playerId === pid && bondId === BOND) battle.after(0, refresh);
-    });
-    const sharedKills = ops.some(u => elite(u, 'aphris'));
-    battle.on('kill', ({ killer, victim }) => {
-      if (!killer || killer.ownerId !== pid || killer.kind !== 'op' || victim?.side !== 'enemy') return;
-      if (sharedKills || owns(killer, 'aphris')) gain(battle, killer, BOND, 2);
-    });
-    battle.on('hit', ({ source, target, dmg }) => {
-      if (source?.ownerId === pid && owns(source, 'astesi') && source.blocking?.includes(target) && !dmg.sourceless) {
-        dmg.mul *= elite(source, 'astesi') ? 1.40 : 1.25;
-      }
+      if (playerId === pid && [BOND, 'arcaneShip'].includes(bondId)) battle.after(0, refresh);
     });
     if (!S.bondActive(battle, pid, BOND, 2)) continue;
-    const hits = new WeakMap();
-    battle.on('hit', ({ source, target, dmg }) => {
-      if (!member(source) || target?.side !== 'enemy' || !primaryHit(dmg)) return;
-      hits.set(dmg, { atk: source.s.atk, burst: (target.findBuff('apoptosisBurst')?.timeLeft ?? 0) > 0, layers: L() });
-    }, { priority: -1000 });
-    battle.on('damaged', ({ source, target, dmg }) => {
-      const hit = hits.get(dmg); hits.delete(dmg);
-      if (!hit || !source || !hasHp(target)) return;
-      battle.dealDamage(source, target, { amount: hit.atk * .20, type: 'element', element: 'apoptosis',
-        canDodge: false, tags: ['bond:columbia:buildup'] });
-      if (hit.burst && hasHp(target)) battle.dealDamage(source, target, {
-        amount: hit.atk * (1.10 + .003 * hit.layers), type: 'elemental', element: 'apoptosis',
-        canDodge: false, tags: ['bond:columbia:rider'],
+    let readyAt = 0;
+    battle.on('damaged', ({ source, target, dmg, amount }) => {
+      if (!member(source) || !S.onField(source) || target?.side !== 'enemy' || !(amount > 0)
+        || dmg.sourceless || dmg.type === 'element' || dmg.tags?.some(t => t.startsWith('bond:columbia:'))
+        || battle.time + 1e-9 < readyAt) return;
+      const layers = L();
+      readyAt = battle.time + Math.max(2, 8 - Math.floor(layers / 100));
+      // Reserve a shared cooldown before extra damage; snapshot living, deployed operators only.
+      const atk = ops.filter(u => member(u) && S.onField(u)).reduce((sum, u) => sum + u.s.atk, 0);
+      const x = target.x, y = target.y;
+      battle.after(0, () => {
+        battle.fx('aoe', { x, y, radius: BLAST_RADIUS, id: source.id, skill: 'columbia:blast' });
+        battle.fx('zone', { x, y, r: BLAST_RADIUS, dur: 5, id: source.id, kind: 'arts' });
+        for (const e of battle.foesInRadius(x, y, BLAST_RADIUS, true)) {
+          const dealt = battle.dealDamage(source, e, { amount: atk * 3, type: 'arts', canDodge: false, tags: ['bond:columbia:burst'] });
+          if (dealt > 0 && hasHp(e)) battle.dealDamage(source, e, { amount: dealt * .10, type: 'element', element: 'burn',
+            canDodge: false, tags: ['bond:columbia:burn'] });
+        }
+        for (let second = 1; second <= 5; second++) battle.after(second, () => {
+          for (const e of battle.foesInRadius(x, y, BLAST_RADIUS, true)) battle.dealDamage(source, e, {
+            amount: atk * layers * .005, type: 'arts', canDodge: false, tags: ['dot', 'bond:columbia:dot'],
+          });
+        });
       });
     });
   }
@@ -64,21 +61,38 @@ export function registerMeta(registry) {
     },
   });
   registry.garrison('COLUMBIA_BSTALK', {
+    onGain(ctx) { ctx.addLayers(BOND, ctx.chessRecord(ctx.source.piece.id)?.isGolden ? 4 : 2, { requireActive: false }); },
+  });
+  registry.garrison('COLUMBIA_TINMAN', {
     onGain(ctx) {
-      if (ctx.counter('columbia:bstalk:first')) return;
-      ctx.setCounter('columbia:bstalk:first', 1);
-      ctx.addLayers(BOND, 2, { requireActive: false });
+      const count = ctx.chessRecord(ctx.source.piece.id)?.isGolden ? 2 : 1;
+      for (let i = 0; i < count; i++) ctx.grantItem(IDENTITY_CARD);
+    },
+  });
+  registry.garrison('COLUMBIA_SILENT', {
+    run(ctx) { for (const id of [BOND, 'visiShip']) ctx.addLayers(id, 2 * ctx.source.bb.count, { requireActive: false }); },
+  });
+  registry.garrison('COLUMBIA_ASTESI', {
+    run(ctx) {
+      const n = Math.min(10, Math.floor(ctx.roundStats().spent / 2)) * ctx.source.bb.count;
+      for (const id of [BOND, 'arcaneShip']) ctx.addLayers(id, n, { requireActive: false });
+    },
+  });
+  registry.garrison('COLUMBIA_APHRIS', {
+    run(ctx) {
+      const n = Math.floor(ctx.funds()) * ctx.source.bb.count;
+      for (const id of [BOND, 'preciShip']) ctx.addLayers(id, n, { requireActive: false });
     },
   });
   registry.garrison('COLUMBIA_CTRAIL', {
     onGain(ctx) { ctx.addLayers('skillfulShip', ctx.chessRecord(ctx.source.piece.id)?.isGolden ? 4 : 2, { requireActive: false }); },
   });
-  registry.global('columbia_acquire', {
-    onMerge(ctx, ev) {
-      if (ev.kind !== 'chess' || ctx.chessRecord(ev.piece?.id)?.charId !== 'char_452_bstalk') return;
-      const key = `columbia:bstalk:promotion:${ev.piece.uid}`;
-      if (ctx.counter(key)) return;
-      ctx.setCounter(key, 1); ctx.addLayers(BOND, 4, { requireActive: false });
+  registry.global('columbia_identity_cards', {
+    onLayers(ctx, ev) {
+      if (ev.bondId !== BOND || !(ev.to > ev.from)) return;
+      const before = ctx.counter('columbia:earnedLayers'), after = before + ev.to - ev.from;
+      ctx.setCounter('columbia:earnedLayers', after);
+      for (let n = Math.floor(before / 15); n < Math.floor(after / 15); n++) ctx.grantItem(IDENTITY_CARD);
     },
   });
 }

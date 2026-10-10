@@ -123,7 +123,9 @@ export function diyGameData(gd, records) {
           }
           const mid = rec.module && rec.module.active ? rec.module.id : null;
           const vm = v && mid && isObj(v.byModule) ? v.byModule[mid] ?? null : null;
-          out.push({ tokenId: tid, count: Math.min(posIntOr(vm?.stats?.deployLimit, posIntOr(v?.stats?.deployLimit, posIntOr(t.deployLimit, 1))), 9) });
+          const relayS3 = rec.charId === 'char_4229_aphris' && tid === 'token_10070_aphris_pc'
+            && (loadout?.skillIndex ?? rec.skill?.index) === 2;
+          out.push({ tokenId: tid, count: relayS3 ? 3 : Math.min(posIntOr(vm?.stats?.deployLimit, posIntOr(v?.stats?.deployLimit, posIntOr(t.deployLimit, 1))), 9) });
         }
         return out;
       },

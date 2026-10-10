@@ -29,6 +29,7 @@
 //     fires on another event and reads the player's refreshes of the round (roundStats), like 本回合每获得过 / 每花费.
 
 import { metaBonds, frontPiece, behindPiece, distinctTiers } from '../support/meta.js';
+import { frontOf } from '../../dir.js';
 
 const ids = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'string' && v.trim() !== '' && Number.isFinite(+v) ? +v : d);
@@ -402,10 +403,12 @@ H.SERVER_TRIGGER_FRONT_COUNT = {
 // 塞雷娅 / 白面鸮: "身前一格干员若为“X”特质，本干员的特质与其相同" — the front operator's X garrisons run as the copier's
 // own (self-relative effects use the copier's tile / bonds). A copier of the same kind in front copies what that one
 // copies (the chain is followed, bounded).
-function copyFront(ctx, eventType, selfKey) {
+function copyFront(ctx, eventType, selfKey, distance = 1) {
   const self = selfView(ctx);
   if (!onBoard(self)) return;
-  let target = frontPiece(ctx, self);
+  let r = self.row, c = self.col;
+  for (let i = 0; i < distance; i++) [r, c] = frontOf(r, c, self.dir);
+  let target = ctx.pieceAt(r, c);
   for (let i = 0; i < 8 && target && target.kind === 'chess'; i++) {
     const gs = garrisonsOfPiece(ctx, target).filter((g) => g.eventType === eventType);
     if (!gs.length) return;
@@ -418,6 +421,11 @@ function copyFront(ctx, eventType, selfKey) {
 
 H.SERVER_FRONT_SAME_EFFECT_PREP_FIN = {
   run(ctx) { copyFront(ctx, 'SERVER_PREP_FIN', 'SERVER_FRONT_SAME_EFFECT_PREP_FIN'); },
+};
+H.COLUMBIA_DEMKNI = {
+  run(ctx) {
+    for (const distance of [1, 2]) copyFront(ctx, 'SERVER_PREP_FIN', 'COLUMBIA_DEMKNI', distance);
+  },
 };
 H.SERVER_FRONT_SAME_EFFECT_PREP_START = {
   run(ctx) { copyFront(ctx, 'SERVER_PREP_START', 'SERVER_FRONT_SAME_EFFECT_PREP_START'); },

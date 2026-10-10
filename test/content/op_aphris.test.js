@@ -81,6 +81,16 @@ test('谬因 in every 自选 form: her operator kit (all three skills authored),
   assert.deepEqual([modOf(5, BLAY).attr, modOf(6, BLAY).attr], [{ cost: -8, maxHp: 120, atk: 45 }, { cost: -8, maxHp: 200, atk: 70 }]);
 });
 
+test('S3 has three deployable relays before casting; S1/S2 retain one', () => {
+  for (const skill of [0, 1, 2]) {
+    const others = [4, 6, 8].map((col, i) => ({ uid: 10 + i, kind: 'token', tokenId: RELAY, ownerUid: 1, row: 10, col, dir: 'UP' }));
+    const { h, u } = field({ tier: 6, elite: true, skill, others });
+    assert.ok(!u.skill.active);
+    assert.equal(h.b.allyUnits.filter(t => t.defId === RELAY && t.alive && t.deployed).length, skill === 2 ? 3 : 1);
+    done(h);
+  }
+});
+
 test('a 自选 pick: 谬因 is offered at tiers 5 and 6 (she has a kit) and a roster with her passes validateDiyPicks', () => {
   const data = { chess: CHESS, backups: BACKUPS };
   assert.ok(KITTED_CHARS.includes(APHRIS));

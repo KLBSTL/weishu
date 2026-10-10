@@ -8,6 +8,7 @@ import { makeMatch, give, giveItem, DATA, legalTileFor } from '../match/harness.
 import { createRegistry } from '../../server/match/effectsMeta.js';
 import { lendItemEffects, itemGrants, PRIO_REVIVE } from '../../server/sim/content/items/battle.js';
 import { unitBonds } from '../../server/sim/content/support/index.js';
+import { numericShieldTotal } from '../../server/sim/buffs.js';
 
 const QUIET = { warn() {}, error() {}, info() {} };
 const REG = createRegistry({ log: QUIET });
@@ -685,8 +686,8 @@ test('变形同构体: carrier counts as a member of the other item\'s giveBondI
   assert.deepEqual([...unitBonds(h2.unit('t_op'))], [], 'the bond item alone grants nothing');
   // every giveBondId item grants its bond (14 bonds)
   const grants = Object.values(DATA.items).filter((r) => r.giveBondId && !r.isGolden);
-  assert.equal(grants.length, 18);
-  assert.equal(new Set(grants.map((r) => r.giveBondId)).size, 14);
+  assert.equal(grants.length, 20);
+  assert.equal(new Set(grants.map((r) => r.giveBondId)).size, 15);
   for (const r of grants) {
     const hh = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [r.id, A('6_09')] }] });
     assert.ok(unitBonds(hh.unit('t_op')).includes(r.giveBondId), r.id);
@@ -1275,9 +1276,60 @@ test('merging: two identical normal items become the golden one (upgradeNum 2); 
   cover(A('3_07'), B('3_07'));
 });
 
+test('Columbia chip and field: skill stats, shield budget, combo, damage and merge', () => {
+  for (const form of ['a', 'b']) {
+    const chip = `chess_item_3_columbia_chip_e_${form}`, field = `chess_item_6_columbia_field_e_${form}`;
+    const gold = form === 'b';
+    const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [chip, field] }] });
+    h.step(); const u = h.unit('t_op');
+    close(u.s.atk, gold ? 650 : 600, 'chip attack'); close(u.s.maxHp, gold ? 4000 : 3000, 'combo HP');
+    close(u.s.dmgTakenMul, gold ? .5 : .7, 'combo resistance');
+    close(u.s.aspd, 100, 'no skill speed before activation');
+    u.skill.activate('test', { free: true }); h.step();
+    close(u.s.aspd, gold ? 130 : 120, 'skill speed');
+    h.run(1); close(numericShieldTotal(u), gold ? 1000 : 500, 'first second');
+    const e = h.spawn('e_d', { pos: [7, 9] });
+    close(hitTrue(h, u, e, 100), gold ? 150 : 130, 'shield damage bonus');
+    h.run(2); assert.ok(numericShieldTotal(u) <= u.s.maxHp);
+    u.skill.end('test'); h.step(); close(u.s.aspd, 100, 'speed expires');
+    const shield = numericShieldTotal(u); h.run(1.1); close(numericShieldTotal(u), shield, 'shield production stops');
+    assert.deepEqual(h.b.errors, []);
+    cover(chip, field);
+  }
+  const h = fight({ ops: { t_op: op('t_op', { bonds: ['sarkazShip'] }) },
+    units: [{ chessId: 't_op', row: 10, col: 4, items: [A('6_columbia_field')] }],
+    bonds: { sarkazShip: { active: true, count: 6, tier: 2, layers: 0 } } });
+  h.step(); const u = h.unit('t_op'); u.skill.activate('test', { free: true }); h.run(4);
+  close(numericShieldTotal(u), 1000, 'Sarkaz half-HP cap overrides field full-HP cap');
+  const s = setup();
+  for (const k of ['3_columbia_chip', '6_columbia_field']) {
+    s.ps.acquireItem(A(k)); s.ps.acquireItem(A(k));
+    assert.ok(handIds(s.ps, 'item').includes(B(k)), k);
+    assert.ok(s.m.gd.shopItemsByTier[DATA.items[A(k)].tier].includes(A(k)));
+    assert.ok(!s.m.gd.shopItemsByTier[DATA.items[A(k)].tier].includes(B(k)));
+  }
+  s.m.dispose();
+});
+
+test('Columbia field tracks reduced maximum HP and borrowed chip expiration without losing the cap', () => {
+  const h = fight({ ops: { from: op('from'), to: op('to') }, units: [
+    { chessId: 'from', row: 10, col: 4, items: [A('3_columbia_chip')] },
+    { chessId: 'to', row: 10, col: 6, items: [B('6_columbia_field')] },
+  ] });
+  h.step(); const from = h.unit('from'), to = h.unit('to');
+  lendItemEffects(h.b, from, to, { maxTier: 5, duration: 2 });
+  h.run(.2); close(to.s.maxHp, 4000, 'borrowed chip combo');
+  h.b.addBuff(to, { key: 'test:shield', shield: 5000 });
+  close(numericShieldTotal(to), 4000, '100% aggregate cap');
+  h.run(2.2); close(to.s.maxHp, 2000, 'combo removed');
+  close(numericShieldTotal(to), 2000, 'cap follows maximum HP');
+  close(to.s.dmgTakenMul, 1, 'combo reduction removed');
+  assert.deepEqual(h.b.errors, []);
+});
+
 test('coverage: every equipment (normal + golden) and every Art is exercised by a test above', () => {
   // items whose numbers are asserted in the stat table, the proc tests or the meta tests
   const missing = Object.keys(DATA.items).filter((id) => !COVER.has(id)).sort();
   assert.deepEqual(missing, []);
-  assert.equal(Object.keys(DATA.items).length, 115);
+  assert.equal(Object.keys(DATA.items).length, 119);
 });

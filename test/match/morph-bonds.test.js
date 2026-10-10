@@ -72,10 +72,10 @@ test('缪尔赛思 hands out 变形同构体 on purchase (garrison_76), the boug
   h.invariants();
 });
 
-test('every pairing (18 bond items × normal / golden, both 变形同构体): the wearer counts in prep, in the views, in the battle input and in the real battle', () => {
+test('every pairing (20 bond items × normal / golden, both 变形同构体): the wearer counts in prep, in the views, in the battle input and in the real battle', () => {
   const grants = Object.values(DATA.items).filter((r) => r.giveBondId);
-  assert.equal(grants.length, 36);
-  assert.equal(new Set(grants.map((r) => r.giveBondId)).size, 14, '14 bonds have a bond item (the official talent\'s list)');
+  assert.equal(grants.length, 40);
+  assert.equal(new Set(grants.map((r) => r.giveBondId)).size, 15, '14 native bonds plus Columbia have bond items');
   for (const r of grants) {
     const bond = r.giveBondId;
     const iso = r.isGolden ? ISO_B : ISO; // golden bond items with the golden 变形同构体, normal with normal

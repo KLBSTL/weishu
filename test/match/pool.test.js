@@ -13,7 +13,7 @@ test('pool caps follow config (12/14/18/16/8/5, 缪尔赛思 4) and only visible
   const pool = new SharedPool(gd, { banned: [] });
   const caps = { 1: 12, 2: 14, 3: 18, 4: 16, 5: 8, 6: 5 };
   assert.equal(pool.entries.size, gd.visibleChess.length);
-  assert.equal(pool.entries.size, 108);
+  assert.equal(pool.entries.size, 106);
   for (const [id, e] of pool.entries) {
     const expect = id === 'chess_char_6_11_a' ? 4 : caps[e.tier];
     assert.equal(e.cap, expect, id);
@@ -22,7 +22,7 @@ test('pool caps follow config (12/14/18/16/8/5, 缪尔赛思 4) and only visible
   }
   const banned = [gd.visibleChess[0], gd.visibleChess[5]];
   const p2 = new SharedPool(gd, { banned });
-  assert.equal(p2.entries.size, 106);
+  assert.equal(p2.entries.size, 104);
   assert.ok(!p2.has(banned[0]) && p2.left(banned[0]) === 0 && p2.take(banned[0]) === 0);
 });
 
@@ -59,12 +59,12 @@ test('odds sanity: level L rolls only tiers ≤ L; level 1 only tier 1; shares �
     const shares = pool.tierShares(level);
     for (const [t, n] of Object.entries(seen)) assert.ok(Math.abs(n / 4000 - shares[t]) < 0.035, `L${level} T${t} ${n / 4000} vs ${shares[t]}`);
   }
-  // Updated full pool: 16/18/19/19/17/19 operators, weighted by 12/14/18/16/8/5 copies (Muelsyse has 4).
+  // Updated full pool: 16/17/18/19/17/19 operators, weighted by 12/14/18/16/8/5 copies (Muelsyse has 4).
   const s6 = pool.tierShares(6);
-  const want = { 1: 192 / 1320, 2: 252 / 1320, 3: 342 / 1320, 4: 304 / 1320, 5: 136 / 1320, 6: 94 / 1320 };
+  const want = { 1: 192 / 1288, 2: 238 / 1288, 3: 324 / 1288, 4: 304 / 1288, 5: 136 / 1288, 6: 94 / 1288 };
   for (const t of Object.keys(want)) assert.ok(Math.abs(s6[t] - want[t]) < 0.01, `T${t} ${s6[t]}`);
   const s2 = pool.tierShares(2);
-  assert.ok(Math.abs(s2[1] - 192 / 444) < 0.01 && Math.abs(s2[2] - 252 / 444) < 0.01);
+  assert.ok(Math.abs(s2[1] - 192 / 430) < 0.01 && Math.abs(s2[2] - 238 / 430) < 0.01);
 });
 
 test('rolls are copy-weighted: an exhausted chess never rolls; tier/filter options work', () => {
@@ -78,6 +78,20 @@ test('rolls are copy-weighted: an exhausted chess never rolls; tier/filter optio
   for (let i = 0; i < 100; i++) assert.equal(DATA.chess[pool.roll(rng, { tier: 3 })].tier, 3);
   const f = pool.roll(rng, { maxTier: 6, filter: (id) => id === chessOfTier(5)[2] });
   assert.equal(f, chessOfTier(5)[2]);
+});
+
+test('Columbia chip/field really roll at their shop levels; retired operators never roll', () => {
+  const gd = gdOf(), pool = new SharedPool(gd), rng = createRng(20261010);
+  for (const [level, wanted] of [[3, 'chess_item_3_columbia_chip_e_a'], [6, 'chess_item_6_columbia_field_e_a']]) {
+    const seen = new Set();
+    for (let i = 0; i < 10000; i++) {
+      const item = pool.rollItem(rng, level); seen.add(item);
+      assert.ok(DATA.items[item].tier <= level && !DATA.items[item].isGolden);
+    }
+    assert.ok(seen.has(wanted), wanted);
+  }
+  assert.ok(!pool.entries.has('chess_char_2_columbia_ctrail_a'));
+  assert.ok(!pool.entries.has('chess_char_3_columbia_halo_a'));
 });
 
 test('item slot: tier ≤ level, shop-eligible normal equipment only', () => {
@@ -107,7 +121,7 @@ test('effect-only items are never shop items: not in shopItemsByTier, never in t
   assert.equal(DATA.items.chess_item_1_01_e_a.shopExcluded, false, 'the plain 维式重锤 is sold');
   const gd = gdOf();
   const listed = new Set(Object.values(gd.shopItemsByTier).flat());
-  assert.equal(listed.size, 51, '56 normal equipment − 5 effect-only');
+  assert.equal(listed.size, 53, '58 normal equipment − 5 effect-only');
   for (const id of EFFECT_ONLY) assert.ok(!listed.has(id), `${id} not a shop item`);
   assert.ok(listed.has('chess_item_1_01_e_a'));
   // the shop item slot at every level
@@ -166,7 +180,7 @@ test('the match pool excludes banned chess; m.public lists disabled bonds and ba
   assert.equal(pub.drawnDisabledBonds.length, 7);
   assert.ok(pub.bannedChess.length > 0);
   for (const id of pub.bannedChess) assert.ok(!h.m.pool.has(id), `${id} should not be in the pool`);
-  assert.equal(h.m.pool.entries.size + pub.bannedChess.length, 108);
+  assert.equal(h.m.pool.entries.size + pub.bannedChess.length, 106);
   checkInvariants(h.m);
   h.m.dispose();
 });

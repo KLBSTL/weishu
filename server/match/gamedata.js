@@ -546,7 +546,9 @@ export class GameData {
         const src = Array.isArray(alt?.sources) ? alt.sources : Array.isArray(v.sources) ? v.sources : [];
         if (!src.includes('talent') && !src.includes('skill')) continue;
       }
-      const count = posIntOr(v?.stats?.deployLimit, posIntOr(t.deployLimit, 1));
+      const relayS3 = c.charId === 'char_4229_aphris' && tid === 'token_10070_aphris_pc'
+        && (loadout?.skillIndex ?? c.skill?.index) === 2;
+      const count = relayS3 ? 3 : posIntOr(v?.stats?.deployLimit, posIntOr(t.deployLimit, 1));
       out.push({ tokenId: tid, count: Math.min(count, 9) });
     }
     return out;
