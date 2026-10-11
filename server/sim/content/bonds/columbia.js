@@ -79,7 +79,11 @@ export function registerMeta(registry) {
   registry.garrison('COLUMBIA_ASTESI', spendingTrait('arcaneShip'));
   registry.garrison('COLUMBIA_APHRIS', {
     run(ctx) {
-      const n = Math.floor(ctx.funds()) * ctx.source.bb.count;
+      if (!ctx.bondActive(BOND) || !ctx.bondActive('preciShip')) return;
+      const { count, funds_per_trigger } = ctx.source.bb;
+      const triggers = Math.floor(ctx.funds() / funds_per_trigger);
+      if (triggers <= 0 || !ctx.spendFunds(triggers)) return;
+      const n = triggers * count;
       for (const id of [BOND, 'preciShip']) ctx.addLayers(id, n, { requireActive: true });
     },
   });

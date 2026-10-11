@@ -1041,36 +1041,72 @@ test('Hibiscus: prep end grants own bonds 2/4 even inactive; gain does not grant
   }
 });
 
-test('Aphris: every held fund grants 1/2 layers to each active bond, board only and funds stay unchanged', () => {
-  for (const [form, n] of [['a', 1], ['b', 2]]) {
+test('Aphris: board only, both bonds required, every 4 held funds costs 1 for 4/8 layers', () => {
+  for (const [form, n] of [['a', 4], ['b', 8]]) {
     const s = setup();
-    const aphris = give(s.m, s.ps, `chess_char_6_columbia_aphris_${form}`, 'hand');
-    s.ps.funds = 7;
+    give(s.m, s.ps, `chess_char_6_columbia_aphris_${form}`, 'hand');
+    s.ps.funds = 8;
     s.activate('columbiaShip', 'preciShip');
+    const spent = s.ps.round.spent;
     s.roundStart(); assert.deepEqual(s.gainsNow(), {}, 'hand does not trigger');
-    s.ps._detach(s.ps.find(aphris.uid)); s.ps.board.set('10,5', aphris); s.ps.recompute();
-    s.ps.bondCountBonus.columbiaShip = 0; s.ps.recompute();
-    s.roundStart(); assert.equal(s.G('preciShip'), 7 * n); assert.equal(s.G('columbiaShip'), 0);
-    s.activate('columbiaShip'); s.roundStart();
-    assert.equal(s.G('columbiaShip'), 7 * n); assert.equal(s.G('preciShip'), 14 * n);
-    assert.equal(s.ps.funds, 7); assert.deepEqual(handItems(s.ps), []);
-    s.ps.funds = 0; s.roundStart();
-    assert.equal(s.G('columbiaShip'), 7 * n); assert.equal(s.G('preciShip'), 14 * n);
-    const before = s.gainsNow(); s.prepEnd(); assert.deepEqual(s.gainsNow(), before);
+    assert.equal(s.ps.funds, 8); assert.equal(s.ps.round.spent, spent);
+    s.m.dispose();
+    for (const bonds of [[], ['columbiaShip'], ['preciShip']]) {
+      const t = setup();
+      give(t.m, t.ps, `chess_char_6_columbia_aphris_${form}`, 'board', [10, 5]);
+      t.activate(...bonds); t.ps.funds = 8;
+      const before = t.ps.round.spent;
+      t.roundStart(); assert.deepEqual(t.gainsNow(), {}, `inactive pair: ${bonds}`);
+      assert.equal(t.ps.funds, 8); assert.equal(t.ps.round.spent, before);
+      t.m.dispose();
+    }
+    for (const [funds, triggers] of [[0, 0], [1, 0], [2, 0], [3, 0], [4, 1], [7, 1], [8, 2], [15, 3], [100, 25]]) {
+      const t = setup();
+      give(t.m, t.ps, `chess_char_6_columbia_aphris_${form}`, 'board', [10, 5]);
+      t.activate('columbiaShip', 'preciShip'); t.ps.funds = funds;
+      const before = t.ps.round.spent, rng = t.m.rngMeta.state();
+      t.roundStart();
+      onlyGains(t, { columbiaShip: triggers * n, preciShip: triggers * n }, `${form}: ${funds} funds`);
+      assert.equal(t.ps.funds, funds - triggers); assert.equal(t.ps.round.spent, before + triggers);
+      assert.equal(t.m.rngMeta.state(), rng);
+      assert.equal(itemUnits(t.ps, 'chess_item_1_04_e_a'), Math.floor(triggers * n / 25));
+      const layers = t.gainsNow(); t.prepEnd(); assert.deepEqual(t.gainsNow(), layers);
+      assert.equal(t.ps.funds, funds - triggers, 'prep end does not pay again');
+      t.m.dispose();
+    }
     cover(`garrison_columbia_aphris_${form}`);
+  }
+});
+
+test('Aphris: Ptilopsis copies the target form and pays from current funds without RNG draws', () => {
+  for (const [form, n] of [['a', 4], ['b', 8]]) {
+    const s = setup();
+    give(s.m, s.ps, `chess_char_6_columbia_aphris_${form}`, 'board', [10, 5]);
+    give(s.m, s.ps, 'chess_char_4_21_a', 'board', [10, 4]);
+    s.activate('columbiaShip'); s.ps.funds = 8;
+    const spent = s.ps.round.spent;
+    s.roundStart(); assert.deepEqual(s.gainsNow(), {});
+    assert.equal(s.ps.funds, 8); assert.equal(s.ps.round.spent, spent);
+    s.activate('preciShip');
+    const rng = s.m.rngMeta.state(); s.roundStart();
+    assert.equal(s.G('columbiaShip'), 3 * n); assert.equal(s.G('preciShip'), 3 * n);
+    assert.equal(s.ps.funds, 5); assert.equal(s.ps.round.spent, spent + 3);
+    assert.equal(s.m.rngMeta.state(), rng);
     s.m.dispose();
   }
 });
 
-test('Aphris: Ptilopsis copies held-funds layers using the copied normal/elite form without RNG draws', () => {
-  for (const [form, n] of [['a', 1], ['b', 2]]) {
+test('Aphris: paid trait costs count toward Astesia and Mountain prep-end layers', () => {
+  for (const [form, n] of [['a', 4], ['b', 8]]) {
     const s = setup();
     give(s.m, s.ps, `chess_char_6_columbia_aphris_${form}`, 'board', [10, 5]);
-    give(s.m, s.ps, 'chess_char_4_21_a', 'board', [10, 4]);
-    s.activate('columbiaShip', 'preciShip'); s.ps.funds = 1;
-    const rng = s.m.rngMeta.state(); s.roundStart();
-    assert.equal(s.G('columbiaShip'), 2 * n); assert.equal(s.G('preciShip'), 2 * n);
-    assert.equal(s.ps.funds, 1); assert.equal(s.m.rngMeta.state(), rng);
+    give(s.m, s.ps, 'chess_char_3_columbia_astesi_a', 'board', [10, 6]);
+    give(s.m, s.ps, 'chess_char_5_17_a', 'board', [10, 7]);
+    s.activate('columbiaShip', 'preciShip', 'arcaneShip', 'investShip');
+    s.ps.funds = 16; s.ps.round.spent = 0;
+    s.roundStart(); assert.equal(s.ps.funds, 12); assert.equal(s.ps.round.spent, 4);
+    s.prepEnd();
+    onlyGains(s, { columbiaShip: 4 * n + 4, preciShip: 4 * n, arcaneShip: 2, investShip: 2 });
     s.m.dispose();
   }
 });

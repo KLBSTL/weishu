@@ -24,7 +24,7 @@ const descriptions = {
   astesi: ['休整期结束时，本回合每消耗2资金，使已激活哥伦比亚与奥术各+1层，每回合各最多+7层。', '休整期结束时，本回合每消耗2资金，使已激活哥伦比亚与奥术各+2层，每回合各最多+14层。'],
   halo: ['进入休整期时，使已激活哥伦比亚与奥术分别+2层。', '进入休整期时，使已激活哥伦比亚与奥术分别+4层。'],
   heyak: ['哥伦比亚与奥术记录层数之和每满3层，自身造成伤害+1%。', '哥伦比亚与奥术记录层数之和每满3层，自身造成伤害+2%。'],
-  aphris: ['进入休整期时，每持有1资金，使已激活哥伦比亚与精准各+1层，不消耗资金。', '进入休整期时，每持有1资金，使已激活哥伦比亚与精准各+2层，不消耗资金。'],
+  aphris: ['进入休整期时，若哥伦比亚与精准同时激活，每持有4资金消耗1资金，使两盟约各+4层；未同时激活不消耗资金。', '进入休整期时，若哥伦比亚与精准同时激活，每持有4资金消耗1资金，使两盟约各+8层；未同时激活不消耗资金。'],
 };
 export function prepareColumbia({ act }) {
   for (const [code, charId, tier, existing, addon, skillIndex] of [...COLUMBIA_ROSTER, ...RETIRED]) {
@@ -63,9 +63,12 @@ export function prepareColumbia({ act }) {
         if (code === 'astesi') act.garrisonDataDict[gid].eventType = 'SERVER_PREP_FIN';
         if (['silent', 'aphris', 'astesi'].includes(code)) {
           act.garrisonDataDict[gid].blackboard = [
-            { key: 'count', value: n, valueStr: null },
+            { key: 'count', value: code === 'aphris' ? 4 * n : n, valueStr: null },
             { key: 'conditionkey', value: 0, valueStr: 'character_target_inboard' },
           ];
+          if (code === 'aphris') {
+            act.garrisonDataDict[gid].blackboard.push({ key: 'funds_per_trigger', value: 4, valueStr: null });
+          }
           if (code === 'astesi') {
             act.garrisonDataDict[gid].blackboard.push({ key: 'funds_per_trigger', value: 2, valueStr: null });
             act.garrisonDataDict[gid].blackboard.push({ key: 'max_layers', value: 7 * n, valueStr: null });

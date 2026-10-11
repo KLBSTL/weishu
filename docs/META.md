@@ -4,7 +4,10 @@ Columbia spending garrisons (Astesia / Mountain) are `SERVER_PREP_FIN`: `roundSt
 reset by `PlayerRound.startRound`. Every 2 funds grant active Columbia/Arcane 1/2 layers for Astesia (capped
 at 7/14 per bond), or Investor and Columbia 1/2 each for Mountain (uncapped). Saria can copy them.
 Silence grants Columbia/Farsight 2/4 at prep start only when each recipient bond is active, including copied traits.
-Aphris is `SERVER_PREP_START`: every held fund grants each active Columbia/Precision bond 1/2 layers, without spending.
+Aphris is `SERVER_PREP_START`: require both Columbia and Precision active before any payment or gain. Snapshot
+current funds F per invocation, pay floor(F/4) through `spendFunds`, then grant each bond 4/8 layers per paid fund.
+Elite doubles layers only; fewer than 4 funds does not pay. Costs contribute to `round.spent` for Astesia/Mountain.
+Ptilopsis copies the target form and reads the remaining funds per invocation; no recursive threshold calculation.
 
 Map selection: `room.stageId` is null (default random pool) or an eligible stage ID.
 Host-only `room.setStage {stageId}` resets human readiness and rejects changes during a match.
@@ -18,7 +21,7 @@ Prep intents: `g.recruitOpen {sampleUid?}`, `g.recruitCancel {offerId}`, `g.recr
 pick revalidates sample, capacity and offer identity before consuming anything. Reserved candidates count in shared
 pool invariants and release on cancel/prep end/elimination. The ordinary reward-offer queue remains separate.
 
-Columbia retains fixed-round orders. Sarkaz uses `band.shopPriority` in `PlayerEconomy.refresh`: the first successful manual refresh each formal round prioritizes two distinct eligible Sarkaz identities. Free manual refreshes count; automatic round-start rolls and rejected requests do not. No beacon is issued. Vigna costs 1; Mudrock grants immediate funds on acquisition. Astesia/Aphris require each recipient bond to be active independently.
+Columbia retains fixed-round orders. Sarkaz uses `band.shopPriority` in `PlayerEconomy.refresh`: the first successful manual refresh each formal round prioritizes two distinct eligible Sarkaz identities. Free manual refreshes count; automatic round-start rolls and rejected requests do not. No beacon is issued. Vigna costs 1; Mudrock grants immediate funds on acquisition. Astesia checks each recipient bond independently; Aphris requires both Columbia and Precision active together.
 
 Audience: **content authors** writing prep-side ("SERVER_*") effects in `server/sim/content/*.js → registerMeta(registry)`,
 the **UI owner** consuming `m.public` / `m.private` / `m.result`, and anyone driving matches in tests or tools.

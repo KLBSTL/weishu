@@ -1,5 +1,28 @@
 # 回合经济更新：草案、实现与验证
 
+## 谬因资金消耗修订草案（2026-10-11，基线710f456）
+
+用户确认：休整开始，每持有4资金消耗1资金，哥伦比亚与精准各+4层，精锐各+8层；两盟约必须同时激活，否则不扣款也不加层。草案先于实现写入，工作区完整草案为 ark/docs/Stronghold-Protocol_谬因资金消耗特质草案.md。
+
+当前处理器按持有1资金给两个盟约分别+1/+2且不扣款。拟改为每次执行先检查同时激活，再读取当时资金F，一次计算floor(F/4)，经统一spendFunds消耗同等资金后各加4/8倍层数；精锐费用仍为1。不足4资金不支付，扣款后不递归重算；例如8资金扣2，普通各+8、精锐各+16。费用计入round.spent，与星极和山联动。白面鸮使用被复制品质并按执行顺序读取剩余资金；通用999总层数上限、25层身份牌奖励保留。无其他待决选择。
+
+影响生成器、特质处理器、定向测试和规则/版本/META，生成数据只再生。待验证手牌条件、同时激活门槛、资金边界、普通/精锐费用和层数、复制顺序、消费联动与随机流；按最少测试要求只运行相关玩法测试、文档检查、改动JS lint和matches golden。之后以710f456为父提交，通过独立索引快进发布main；发布记录和日志保存在工作区ark/publishing、ark/testing。下文保留此前发布的历史记录。
+
+本次实现与验证已完成：离线生成成功，3项必要玩法测试通过，31项文档检查通过，改动JS lint无错误或警告。18个matches golden重新计算完成，相对710f456仅以下2个场景有意变化，其余16个不变：
+
+- `solo-NORMAL-2`：哥伦比亚未激活时，谬因不再单独增加精准；结束精准层数80→66，激活层数和伤害摘要随之改变，支付/随机流不变。
+- `solo-HARD-2`：同一同时激活门槛使结束精准层数96→56，回合层数、伤害和击杀摘要随之改变，支付/随机流不变。
+
+```text
+node tools/build-data.mjs --offline --quiet
+node --test --test-concurrency=1 --test-reporter=spec "--test-name-pattern=Aphris:" test/content/garrisons_meta.test.js
+node --test --test-concurrency=1 --test-reporter=spec test/docs-consistency.test.js test/docs-paths.test.js
+node node_modules/eslint/bin/eslint.js server/sim/content/bonds/columbia.js tools/columbia-data.mjs test/content/garrisons_meta.test.js
+node tools/golden.mjs --family matches --update --jobs 2
+```
+
+日志为ark/testing/aphris-spend-{build,targeted,docs,lint,golden}.log；按用户要求未运行全仓、其他golden家族或浏览器测试。9个相关文件从710f456继承完整资源和依赖，通过独立发布索引上传；具体远端提交及主索引保留核验写入ark/publishing/SYNC-2026-10-11-APHRIS-SPEND-UPLOADED.md。
+
 ## 后续修订草案（2026-10-11，基线0485601）
 
 用户确认：星极精锐每回合每种盟约上限14层；山哥伦比亚收益减半为普通+1／精锐+2，投资人仍+1／+2；赫默仅为已激活的哥伦比亚和远见各+2／+4，分别判断激活。其他已发布规则沿用。先建立草案，再修改生成参数和赫默 requireActive 标志；工作区草案为 ark/docs/Stronghold-Protocol_哥伦比亚特质上限与激活修订草案.md。下文保留0485601发布时的历史记录。
