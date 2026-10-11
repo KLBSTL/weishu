@@ -74,7 +74,7 @@ export function registerMeta(registry) {
     },
   });
   registry.garrison('COLUMBIA_SILENT', {
-    run(ctx) { for (const id of [BOND, 'visiShip']) ctx.addLayers(id, 2 * ctx.source.bb.count, { requireActive: false }); },
+    run(ctx) { for (const id of [BOND, 'visiShip']) ctx.addLayers(id, 2 * ctx.source.bb.count, { requireActive: true }); },
   });
   registry.garrison('COLUMBIA_ASTESI', spendingTrait('arcaneShip'));
   registry.garrison('COLUMBIA_APHRIS', {

@@ -1,5 +1,21 @@
 # 回合经济更新：草案、实现与验证
 
+## 后续修订草案（2026-10-11，基线0485601）
+
+用户确认：星极精锐每回合每种盟约上限14层；山哥伦比亚收益减半为普通+1／精锐+2，投资人仍+1／+2；赫默仅为已激活的哥伦比亚和远见各+2／+4，分别判断激活。其他已发布规则沿用。先建立草案，再修改生成参数和赫默 requireActive 标志；工作区草案为 ark/docs/Stronghold-Protocol_哥伦比亚特质上限与激活修订草案.md。下文保留0485601发布时的历史记录。
+
+本次离线数据生成成功，5项必要玩法测试通过，31项文档测试通过，改动文件lint无错误或警告。18个matches golden重新计算完成；相对0485601，`solo-FUNNY-2`、`coop3-ABYSS-5` 随此次盟约激活门槛和成长规则改变而有意变化，其余16个不变。没有运行全仓、其他golden家族或浏览器测试。准确命令如下：
+
+```text
+node tools/build-data.mjs --offline --quiet
+node --test --test-concurrency=1 --test-reporter=spec "--test-name-pattern=Columbia spending|Astesia caps|spending traits count|Silence:|Columbia new prep" test/content/garrisons_meta.test.js
+node --test --test-concurrency=1 --test-reporter=spec test/docs-consistency.test.js test/docs-paths.test.js
+node node_modules/eslint/bin/eslint.js server/sim/content/bonds/columbia.js tools/columbia-data.mjs test/content/garrisons_meta.test.js
+node tools/golden.mjs --family matches --update --jobs 2
+```
+
+日志保存在工作区 ark/testing/economy-followup-*.log。本次仅发布9个相关文件，以0485601为父提交快进更新main；发布结果保存到 ark/publishing/SYNC-2026-10-11-ECONOMY-FOLLOWUP-UPLOADED.md。
+
 2026-10-11；用户已授权本次实现、修复与发布。工作区草案先于代码修改写入 ark/docs/Stronghold-Protocol_回合经济特质与储蓄罐修复草案.md。本文件随仓库发布，保留确认口径和验收证据。
 
 ## 用户已确认的规则

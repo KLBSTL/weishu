@@ -19,9 +19,9 @@ export const RETAINED_CHARACTERS = Object.freeze(['char_1040_blaze2', 'char_4114
 const descriptions = {
   bstalk: ['获得时，哥伦比亚+2层（无需激活）。', '获得时，哥伦比亚+4层（无需激活）。'],
   tinman: ['获得时，获得1个随身身份牌。', '获得时，获得2个随身身份牌。'],
-  silent: ['进入休整期时，哥伦比亚与远见分别+2层（无需激活）。', '进入休整期时，哥伦比亚与远见分别+4层（无需激活）。'],
+  silent: ['进入休整期时，使已激活哥伦比亚与远见分别+2层。', '进入休整期时，使已激活哥伦比亚与远见分别+4层。'],
   ctrail: ['获得时，灵巧+2层（无需激活）。', '获得时，灵巧+4层（无需激活）。'],
-  astesi: ['休整期结束时，本回合每消耗2资金，使已激活哥伦比亚与奥术各+1层，每回合各最多+7层。', '休整期结束时，本回合每消耗2资金，使已激活哥伦比亚与奥术各+2层，无额外回合上限。'],
+  astesi: ['休整期结束时，本回合每消耗2资金，使已激活哥伦比亚与奥术各+1层，每回合各最多+7层。', '休整期结束时，本回合每消耗2资金，使已激活哥伦比亚与奥术各+2层，每回合各最多+14层。'],
   halo: ['进入休整期时，使已激活哥伦比亚与奥术分别+2层。', '进入休整期时，使已激活哥伦比亚与奥术分别+4层。'],
   heyak: ['哥伦比亚与奥术记录层数之和每满3层，自身造成伤害+1%。', '哥伦比亚与奥术记录层数之和每满3层，自身造成伤害+2%。'],
   aphris: ['进入休整期时，每持有1资金，使已激活哥伦比亚与精准各+1层，不消耗资金。', '进入休整期时，每持有1资金，使已激活哥伦比亚与精准各+2层，不消耗资金。'],
@@ -68,7 +68,7 @@ export function prepareColumbia({ act }) {
           ];
           if (code === 'astesi') {
             act.garrisonDataDict[gid].blackboard.push({ key: 'funds_per_trigger', value: 2, valueStr: null });
-            if (suffix === 'a') act.garrisonDataDict[gid].blackboard.push({ key: 'max_layers', value: 7, valueStr: null });
+            act.garrisonDataDict[gid].blackboard.push({ key: 'max_layers', value: 7 * n, valueStr: null });
           }
         }
       }
@@ -87,10 +87,10 @@ export function prepareColumbia({ act }) {
         g.effectType = 'COLUMBIA_F12YIN';
         g.eventType = 'SERVER_PREP_FIN';
         g.blackboard = [{ key: 'count', value: n, valueStr: null },
-          { key: 'columbia_count', value: 2 * n, valueStr: null },
+          { key: 'columbia_count', value: n, valueStr: null },
           { key: 'funds_per_trigger', value: 2, valueStr: null },
           { key: 'conditionkey', value: 0, valueStr: 'character_target_inboard' }];
-        g.garrisonDesc = `休整期结束时，本回合每消耗2资金，使已激活投资人+${n}层、哥伦比亚+${2 * n}层，无额外回合上限。`;
+        g.garrisonDesc = `休整期结束时，本回合每消耗2资金，使已激活投资人与哥伦比亚各+${n}层，无额外回合上限。`;
         g.description = g.garrisonDesc; act.garrisonDataDict[gid] = g; rec.garrisonIds = [gid];
       }
       if (code === 'halo') {

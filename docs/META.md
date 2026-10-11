@@ -1,8 +1,9 @@
 # META.md — match & meta engine (server/match)
 
 Columbia spending garrisons (Astesia / Mountain) are `SERVER_PREP_FIN`: `roundStats().spent` counts actual payments,
-reset by `PlayerRound.startRound`. Every 2 funds grant active Columbia/Arcane 1/2 layers for Astesia (normal capped
-at 7 per bond, elite uncapped), or Investor 1/2 and Columbia 2/4 for Mountain (uncapped). Saria can copy them.
+reset by `PlayerRound.startRound`. Every 2 funds grant active Columbia/Arcane 1/2 layers for Astesia (capped
+at 7/14 per bond), or Investor and Columbia 1/2 each for Mountain (uncapped). Saria can copy them.
+Silence grants Columbia/Farsight 2/4 at prep start only when each recipient bond is active, including copied traits.
 Aphris is `SERVER_PREP_START`: every held fund grants each active Columbia/Precision bond 1/2 layers, without spending.
 
 Map selection: `room.stageId` is null (default random pool) or an eligible stage ID.
