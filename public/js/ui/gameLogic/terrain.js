@@ -19,6 +19,10 @@ import { t, N_ } from '../../../../shared/i18n.js';
  * `tag` is the chip above the name; `fact` needs the tile's own legend entry (see terrainInfo).
  */
 const TERRAIN_TIPS = Object.freeze({
+  healing: {
+    name: N_('医疗符文'), tag: N_('特殊地形'),
+    lines: (st) => [t('每秒恢复其上我方单位最大生命值的 {pct}%；属于生命再生，离开地块后停止', { pct: Math.round(param(st?.healing?.maxHpRatio, 0.03) * 100) })],
+  },
   infection: {
     name: N_('活性源石'), tag: N_('特殊地形'),
     lines: (st) => {

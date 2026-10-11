@@ -42,6 +42,7 @@ import { extendedGrid } from '../shared/loadoutRecord.js';
 import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
 import { prepareSarkaz, finishSarkaz, SARKAZ_ROSTER } from './sarkaz-data.mjs';
 import { prepareColumbia, finishColumbia, COLUMBIA_ROSTER } from './columbia-data.mjs';
+import { finishRelayStage } from './relay-stage-data.mjs';
 import { finishRecruitment } from './recruitment-data.mjs';
 
 // ===== CLI & IO ==================================================================================
@@ -4093,6 +4094,7 @@ async function main() {
   finishSarkaz(files);
   finishColumbia(files);
   finishRecruitment(files);
+  finishRelayStage(files, officialPath);
 
   // the unit forms rebuild every PRESET chess at every rank (before the annotation: each pass as built)
   const errors = [...validateAll(files), ...passes.flatMap((p) => checkUnitFormParity(p.ctx, p.chess).map((e) => `${e} (potential rank ${p.ctx.potRank})`))];

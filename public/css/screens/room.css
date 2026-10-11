@@ -2,6 +2,22 @@
    screens/room.css — room/waiting screen: invite key, 4 seat cards, bottom action bar.
    ========================================================================================== */
 
+.stage-picker { display: flex; gap: .3rem; align-items: center; justify-content: space-between; padding: .16rem .4rem; background: #172522; border-top: 1px solid #39544b; }
+.stage-picker__copy { max-width: 8rem; }
+.stage-picker__copy label { margin-right: .15rem; color: var(--mint-500); }
+.stage-picker select { max-width: 100%; padding: .06rem .12rem; background: #0c1816; color: #edf8f4; border: 1px solid #5b786e; }
+.stage-picker p, .stage-picker figcaption { font-size: .14rem; margin: .06rem 0 0; color: #bdd0c9; }
+.stage-picker__preview { margin: 0; flex-shrink: 0; }
+.stage-picker__grid { display: grid; grid-template-columns: repeat(9, .25rem); gap: .025rem; }
+.stage-picker__tile { height: .22rem; background: #66776f; color: white; text-align: center; font-size: .16rem; line-height: .22rem; }
+.stage-picker__tile--void { background: #202a27; }
+.stage-picker__tile--h, .stage-picker__tile--v { outline: 1px solid #e9c777; outline-offset: -1px; }
+.stage-picker__tile--q { background: #147952; }
+.stage-picker__tile--i, .stage-picker__tile--v { background: #985328; }
+.stage-picker__tile--S { background: #b94a4a; }
+.stage-picker__tile--E { background: #286bad; }
+@media (max-width: 700px) { .stage-picker { padding: .12rem .16rem; flex-wrap: wrap; } }
+
 .room-screen .topbar { height: 1.36rem; }
 .room-ping { display: flex; flex-direction: column; align-items: flex-start; gap: .04rem; }
 

@@ -71,6 +71,7 @@ export class MatchViews {
       modeId: this.modeId,
       difficulty: this.difficulty,
       stageId: this.stageId,
+      selectedStageId: this.opts.stageId ?? null,
       factions: this.factions.slice(),
       disabledBonds: [...new Set([...this.disabledBonds, ...this.staticInactiveBonds])].sort(),
       drawnDisabledBonds: this.disabledBonds.slice(),

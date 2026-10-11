@@ -81,14 +81,14 @@ test('Columbia 3: ATK scale and six-person gate', () => {
   }
 });
 
-test('Columbia blast snapshots field ATK, burns, ticks five times and shares cooldown across operators', () => {
+test('Columbia blast snapshots field ATK without Burn, ticks five times and shares cooldown across operators', () => {
   const { h, ops, e, hit } = setup(20);
   const seen = [];
   h.b.on('damaged', c => { if (c.dmg.tags?.some(t => t.startsWith('bond:columbia:'))) seen.push(c); });
   const total = ops.reduce((n, u) => n + u.s.atk, 0);
   hit(); h.step();
   close(seen.find(c => c.dmg.tags.includes('bond:columbia:burst')).amount, total * 2);
-  assert.ok(e.elem.burn > 0 || e.findBuff('burnBurst'));
+  assert.equal(e.elem.burn || 0, 0); assert.ok(!e.findBuff('burnBurst'));
   h.b.emit('attack', { attacker: ops[1], targets: [e] }); h.step();
   assert.equal(seen.filter(c => c.dmg.tags.includes('bond:columbia:burst')).length, 1);
   h.b.addBuff(ops[1], { key: 'snapshot-test', mods: { atkFlat: 10000 } });
@@ -151,7 +151,7 @@ test('Columbia DoT follows struck enemies, refreshes one timer and snapshots the
     return deal(source, target, dmg);
   };
   const x = e.x, y = e.y;
-  hit(); h.step(); assert.equal(burns.length, 1);
+  hit(); h.step(); assert.equal(burns.length, 0);
   e.x = x + 7; late.x = x; late.y = y;
   h.run(2.1);
   assert.equal(damage.length, 2); assert.ok(damage.every(c => c.target === e));
@@ -159,12 +159,12 @@ test('Columbia DoT follows struck enemies, refreshes one timer and snapshots the
   const old = damage[0].amount;
   h.b.addBuff(ops[1], { key: 'new-snapshot', mods: { atkFlat: 10000 } });
   const latest = ops.reduce((n, u) => n + u.s.atk, 0) * 800 * .005;
-  hit(); h.step(); assert.equal(burns.length, 2);
+  hit(); h.step(); assert.equal(burns.length, 0);
   h.run(5.1);
   assert.equal(damage.length, 7, `old remaining ticks cancelled; five replacements: ${JSON.stringify(damage.map(c => [c.target.id, c.amount]))}`);
   for (const c of damage.slice(2)) { assert.equal(c.target, e); close(c.amount, latest); }
   assert.ok(latest > old);
-  assert.equal(burns.length, 2, 'DoT never applies Burn');
+  assert.equal(burns.length, 0, 'neither blast nor DoT applies Burn');
   h.run(1); assert.equal(damage.length, 7);
 });
 

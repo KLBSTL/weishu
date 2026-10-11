@@ -38,9 +38,7 @@ export function install(battle) {
       battle.after(0, () => {
         battle.fx('aoe', { x, y, radius: BLAST_RADIUS, id: source.id, skill: 'columbia:blast' });
         for (const e of battle.foesInRadius(x, y, BLAST_RADIUS, true)) {
-          const dealt = battle.dealDamage(source, e, { amount: atk * 2, type: 'arts', canDodge: false, tags: ['bond:columbia:burst'] });
-          if (dealt > 0 && hasHp(e)) battle.dealDamage(source, e, { amount: dealt * .10, type: 'element', element: 'burn',
-            canDodge: false, tags: ['bond:columbia:burn'] });
+          battle.dealDamage(source, e, { amount: atk * 2, type: 'arts', canDodge: false, tags: ['bond:columbia:burst'] });
           if (!hasHp(e)) continue;
           const mark = {};
           afflictions.set(e, mark);
@@ -56,13 +54,13 @@ export function install(battle) {
   }
 }
 export function registerMeta(registry) {
-  registry.garrison('COLUMBIA_F12YIN', {
-    run(ctx) {
-      const n = ctx.roundStats().gainedChess | 0;
-      ctx.addLayers('investShip', n * ctx.source.bb.multi, { requireActive: true });
-      ctx.addLayers(BOND, n * ctx.source.bb.columbia_multi, { requireActive: true });
-    },
+  const transactionTrait = sellBond => ({
+    ownedHooks: ['onBuy', 'onSold'],
+    garrisonHooks: () => ['onBuy', 'onSold'],
+    onBuy(ctx, ev) { if (ev.kind === 'chess') ctx.addLayers(BOND, ctx.source.bb.count, { requireActive: true }); },
+    onSold(ctx, ev) { if (ev.piece?.kind === 'chess') ctx.addLayers(sellBond, ctx.source.bb.count, { requireActive: true }); },
   });
+  registry.garrison('COLUMBIA_F12YIN', transactionTrait('investShip'));
   registry.garrison('COLUMBIA_BSTALK', {
     onGain(ctx) { ctx.addLayers(BOND, ctx.chessRecord(ctx.source.piece.id)?.isGolden ? 4 : 2, { requireActive: false }); },
   });
@@ -75,15 +73,10 @@ export function registerMeta(registry) {
   registry.garrison('COLUMBIA_SILENT', {
     run(ctx) { for (const id of [BOND, 'visiShip']) ctx.addLayers(id, 2 * ctx.source.bb.count, { requireActive: false }); },
   });
-  registry.garrison('COLUMBIA_ASTESI', {
-    run(ctx) {
-      const n = Math.min(10, Math.floor(ctx.roundStats().spent / 2)) * ctx.source.bb.count;
-      for (const id of [BOND, 'arcaneShip']) ctx.addLayers(id, n, { requireActive: true });
-    },
-  });
+  registry.garrison('COLUMBIA_ASTESI', transactionTrait('arcaneShip'));
   registry.garrison('COLUMBIA_APHRIS', {
     run(ctx) {
-      const n = Math.floor(ctx.funds()) * ctx.source.bb.count;
+      const n = Math.floor(ctx.funds() / ctx.source.bb.funds_per_trigger);
       for (const id of [BOND, 'preciShip']) ctx.addLayers(id, n, { requireActive: true });
     },
   });

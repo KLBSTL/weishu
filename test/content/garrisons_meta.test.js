@@ -914,22 +914,44 @@ test('Columbia acquisition: Bean every gain and elite, Contrail legacy remains f
   s.m.dispose();
 });
 
-test('Mountain: prep-end acquired count grants Investor 1 / Columbia 2, doubled elite; Saria copies both', () => {
-  for (const [form, n] of [['a', 1], ['b', 2]]) {
-    const s = setup();
-    give(s.m, s.ps, `chess_char_5_17_${form}`, 'board', [10, 5]);
-    s.ps.round.gainedChess = 3;
-    s.prepEnd(); assert.deepEqual(s.gainsNow(), {}, 'inactive bonds receive nothing');
-    s.activate('columbiaShip'); s.prepEnd();
-    assert.equal(s.G('columbiaShip'), 6 * n); assert.equal(s.G('investShip'), 0);
-    s.activate('investShip');
-    give(s.m, s.ps, 'chess_char_5_11_a', 'board', [10, 4]);
-    s.ps.round.gainedChess = 3;
-    s.prepEnd();
-    assert.equal(s.G('columbiaShip'), 18 * n, 'both Mountain and Saria grant Columbia');
-    assert.equal(s.G('investShip'), 6 * n, 'both grant Investor at half the Columbia rate');
-    cover(`garrison_columbia_f12yin_${form}`); s.m.dispose();
+test('Columbia transaction traits: board only, separate active bonds, normal/elite and real buy/sell', () => {
+  for (const [code, base, sellBond] of [['astesi', 'chess_char_3_columbia_astesi', 'arcaneShip'], ['f12yin', 'chess_char_5_17', 'investShip']]) {
+    for (const [form, n] of [['a', 1], ['b', 2]]) {
+      const s = setup(), id = `${base}_${form}`;
+      const observer = give(s.m, s.ps, id, 'board', [10, 5]);
+      const buy = () => {
+        s.ps.shop.slots = [{ id: 'chess_char_1_05_a', kind: 'chess', sold: false }];
+        assert.deepEqual(s.ps.buy(0), { ok: true });
+        return s.ps.allChess().find(p => p.id === 'chess_char_1_05_a');
+      };
+      s.sell(buy()); assert.equal(s.G('columbiaShip'), 0); assert.equal(s.G(sellBond), 0);
+      s.activate('columbiaShip');
+      s.sell(buy()); assert.equal(s.G('columbiaShip'), n); assert.equal(s.G(sellBond), 0);
+      s.activate(sellBond); s.ps.layers[sellBond] = 100;
+      s.sell(buy()); assert.equal(s.G('columbiaShip'), 2 * n); assert.equal(s.G(sellBond), n, 'Investor does not repeat transactions');
+      const before = s.gainsNow();
+      s.acquire('chess_char_1_05_a'); s.prepEnd();
+      s.m.dispatch(s.ps, 'onBuy', { kind: 'item', piece: { kind: 'item' } });
+      assert.deepEqual(s.gainsNow(), before, 'gifts, prep end and equipment purchases do not trigger');
+      s.sell(observer); assert.deepEqual(s.gainsNow(), before, 'selling the observer does not trigger itself');
+      give(s.m, s.ps, id, 'hand');
+      s.sell(buy()); assert.deepEqual(s.gainsNow(), before, 'hand observers do not trigger');
+      cover(`garrison_columbia_${code}_${form}`); s.m.dispose();
+    }
   }
+});
+
+test('transaction observers stack per deployed copy, and only remaining observers watch a sale', () => {
+  const s = setup();
+  const a = give(s.m, s.ps, 'chess_char_3_columbia_astesi_a', 'board', [10, 5]);
+  const b = give(s.m, s.ps, 'chess_char_3_columbia_astesi_b', 'board', [10, 6]);
+  s.activate('columbiaShip', 'arcaneShip');
+  s.ps.shop.slots = [{ id: 'chess_char_1_05_a', kind: 'chess', sold: false }];
+  assert.deepEqual(s.ps.buy(0), { ok: true });
+  assert.equal(s.G('columbiaShip'), 3);
+  s.sell(a); assert.equal(s.G('arcaneShip'), 2);
+  s.sell(b); assert.equal(s.G('arcaneShip'), 2);
+  s.m.dispose();
 });
 
 test('Astgenne: prep-start only, each active bond gains 2 / 4; Ptilopsis copies the front trait', () => {
@@ -980,19 +1002,23 @@ test('Hibiscus: prep end grants own bonds 2/4 even inactive; gain does not grant
   }
 });
 
-test('Astesia and Aphris check activation separately for each bond, including copied traits', () => {
-  for (const [code, tier, bond, event] of [['astesi', 3, 'arcaneShip', 'prepEnd'], ['aphris', 6, 'preciShip', 'roundStart']]) {
-    for (const [form, n] of [['a', 1], ['b', 2]]) {
-      const s = setup();
-      give(s.m, s.ps, `chess_char_${tier}_columbia_${code}_${form}`, 'board', [10, 5]);
-      s.ps.round.spent = 6; s.ps.funds = 3;
-      s[event](); assert.equal(s.L('columbiaShip'), 0); assert.equal(s.L(bond), 0);
-      s.activate(bond); s[event]();
-      assert.equal(s.G(bond), 3 * n); assert.equal(s.G('columbiaShip'), 0);
-      s.activate('columbiaShip'); s[event]();
-      assert.equal(s.G(bond), 6 * n); assert.equal(s.G('columbiaShip'), 3 * n);
-      s.m.dispose();
-    }
+test('Aphris: funded thresholds, separate activation and Ptilopsis copies the selected form', () => {
+  for (const [form, step] of [['a', 2], ['b', 1]]) {
+    const s = setup();
+    give(s.m, s.ps, `chess_char_6_columbia_aphris_${form}`, 'board', [10, 5]);
+    s.ps.funds = 7;
+    s.roundStart(); assert.equal(s.G('columbiaShip'), 0); assert.equal(s.G('preciShip'), 0);
+    s.activate('preciShip'); s.roundStart();
+    const n = Math.floor(7 / step);
+    assert.equal(s.G('preciShip'), n); assert.equal(s.G('columbiaShip'), 0);
+    s.activate('columbiaShip');
+    give(s.m, s.ps, 'chess_char_4_21_a', 'board', [10, 4]);
+    s.roundStart();
+    assert.equal(s.G('preciShip'), 3 * n); assert.equal(s.G('columbiaShip'), 2 * n);
+    assert.equal(s.ps.funds, 7, 'funds are read, not spent');
+    s.ps.funds = 0; s.roundStart();
+    assert.equal(s.G('columbiaShip'), 2 * n);
+    s.m.dispose();
   }
 });
 
@@ -1007,18 +1033,10 @@ test('Columbia new prep traits, identity rewards and two-tile elite Saria copy',
     give(s.m, s.ps, `chess_char_6_columbia_aphris_${form}`, 'board', [10, 6]);
     s.activate('columbiaShip'); s.activate('preciShip');
     s.ps.funds = 7; s.roundStart();
-    assert.equal(s.L('columbiaShip'), 11 * n); assert.equal(s.L('preciShip'), 7 * n);
+    const grant = Math.floor(7 / (form === 'b' ? 1 : 2));
+    assert.equal(s.L('columbiaShip'), 4 * n + grant); assert.equal(s.L('preciShip'), grant);
     for (const code of ['tinman', 'silent', 'aphris']) cover(`garrison_columbia_${code}_${form}`);
     s.m.dispose();
-    const t = setup();
-    give(t.m, t.ps, `chess_char_3_columbia_astesi_${form}`, 'board', [10, 5]);
-    t.activate('columbiaShip'); t.activate('arcaneShip');
-    t.ps.round.spent = 19; t.prepEnd();
-    assert.equal(t.L('columbiaShip'), 9 * n); assert.equal(t.L('arcaneShip'), 9 * n);
-    t.m.round++; t.ps.round.spent = 100;
-    t.prepEnd(); assert.equal(t.L('columbiaShip'), 19 * n);
-    cover(`garrison_columbia_astesi_${form}`);
-    t.m.dispose();
   }
   const s = setup();
   s.ps.addLayers('columbiaShip', 24); assert.equal(itemUnits(s.ps, card), 0);
@@ -1029,11 +1047,11 @@ test('Columbia new prep traits, identity rewards and two-tile elite Saria copy',
   s.m.dispose();
   const t = setup();
   give(t.m, t.ps, 'chess_char_5_11_b', 'board', [10, 3]);
-  give(t.m, t.ps, 'chess_char_3_columbia_astesi_a', 'board', [10, 4]);
-  give(t.m, t.ps, 'chess_char_3_columbia_astesi_b', 'board', [10, 5]);
-  t.activate('columbiaShip'); t.activate('arcaneShip');
-  t.ps.round.spent = 4; t.prepEnd();
-  assert.equal(t.L('columbiaShip'), 12); assert.equal(t.L('arcaneShip'), 12);
+  give(t.m, t.ps, 'chess_char_2_sarkaz_hbisc2_a', 'board', [10, 4]);
+  give(t.m, t.ps, 'chess_char_2_sarkaz_hbisc2_b', 'board', [10, 5]);
+  t.prepEnd();
+  assert.equal(t.L('columbiaShip'), 6); assert.equal(t.L('steadShip'), 6);
+  assert.equal(t.L('sarkazShip'), 6); assert.equal(t.L('arcaneShip'), 6);
   cover('garrison_columbia_demkni_b'); t.m.dispose();
 });
 

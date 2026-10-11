@@ -43,9 +43,9 @@ const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : (ty
 /** ASPD blackboard values: a fraction (|v| < 1, e.g. −0.6 / −0.05) is ×100 ASPD, otherwise flat (+20). */
 const aspdOf = (v) => (Math.abs(v) < 1 ? v * 100 : v);
 
-export const TERRAIN = Object.freeze({ mire: 1, smog: 2, deepsea: 3, infection: 4 });
-const TERRAIN_NAME = ['', 'mire', 'smog', 'deepsea', 'infection'];
-const BUFF = { 1: 'terrain:mire', 2: 'terrain:smog', 3: 'terrain:deepsea', 4: 'terrain:infection' };
+export const TERRAIN = Object.freeze({ mire: 1, smog: 2, deepsea: 3, infection: 4, healing: 5 });
+const TERRAIN_NAME = ['', 'mire', 'smog', 'deepsea', 'infection', 'healing'];
+const BUFF = { 1: 'terrain:mire', 2: 'terrain:smog', 3: 'terrain:deepsea', 4: 'terrain:infection', 5: 'terrain:healing' };
 const AIRFLOW = 'terrain:airflow';
 const CRATE_KEY = 'trap_1105_accrate';
 const TURRET_KEY = 'trap_1104_aclasert';
@@ -361,6 +361,12 @@ function enterTerrain(battle, st, u, code) {
   m.mireTriggers = 0;
   if (!code) return;
   if (code === TERRAIN.smog) battle.addBuff(u, { key: BUFF[code], flags: { stealth: true } });
+  else if (code === TERRAIN.healing) {
+    const ratio = num(battle.stage?.special?.healing?.maxHpRatio, 0.03);
+    battle.addBuff(u, { key: BUFF[code], interval: 1, onTick: () => {
+      if (u.alive) battle.heal(u, u, u.s.maxHp * ratio, { self: true, regen: true });
+    } });
+  }
   else if (code === TERRAIN.deepsea) {
     const D = st.deepsea;
     battle.addBuff(u, { key: BUFF[code], mods: { aspd: D.aspd, moveMul: D.moveMul }, interval: 1, onTick: deepWaterDamage(battle, D.damage) });
@@ -427,6 +433,7 @@ function terrainFor(battle, st, u) {
   }
   let code = st.terrain[k];
   if (code === TERRAIN.smog && u.side !== 'ally') code = 0;
+  if (code === TERRAIN.healing && u.side !== 'ally') code = 0;
   if (code === TERRAIN.deepsea && u.side === 'ally') code = 0;
   return code;
 }

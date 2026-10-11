@@ -1,5 +1,10 @@
 # DATA.md — generated game data (`data/*.json`)
 
+Local map extension: `tools/relay-stage-data.mjs` adds `local_relay_lab` after building the original mode pools,
+bringing the atlas count to 14. Its `manualOnly: true` and `modes` fields control explicit selection through
+`shared/stages.js`; `q` is a healing ground tile and `v` is high-ground active originium.
+See [relay map](design/relay-map.md). No original random-pool entry is changed.
+
 Local fan squads bring the band count to **42**. `tools/recruitment-data.mjs`, invoked by `tools/build-data.mjs`,
 adds the two band/effect records; `bands[].recruitment` declares kind, bond, grant rounds, candidate count and
 optional initial chess. Concrete rules: [recruitment squads](design/recruitment-squads.md).

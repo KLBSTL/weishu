@@ -193,6 +193,8 @@ export function classifyStage(stage, area = null) {
       case 'g': t.surf = 'slats'; t.tint = [0.72, 0.76, 0.78]; break;
       case 'm': t.rot = (h % 4) * 90; t.tint = [0.78, 0.8, 0.7]; break;
       case 'i': t.rot = (h % 4) * 90; t.tint = [0.95, 0.88, 0.86]; break;
+      case 'v': t.surf = 'plateS'; t.side = 'goldSide'; t.tint = [1, 0.65, 0.35]; break;
+      case 'q': t.tint = [0.65, 1, 0.82]; break;
       case 'd': t.surf = 'concrete'; t.tint = [0.35, 0.42, 0.46]; break;
       // the own bench (rows 7–8): REINFORCEMENTS / EQUIPMENTS pads; the Final Assault benches (rows 0–1) are plain
       // 2×2-slab concrete plates in the official boss field
@@ -366,6 +368,19 @@ export function buildBoard(stage, opts = {}) {
     // per-glyph extras
     switch (t.glyph) {
       case 'S': gates.push({ r, c, kind: 'start', z: 0 }); break;
+      case 'q': case 'v': {
+        // Visible marks on both renderers without introducing a downloaded asset.
+        const surf = UVT.concrete;
+        if (surf) {
+          const z = zt + 0.008, col = t.glyph === 'q' ? [0.2, 1, 0.55] : [1, 0.3, 0.04];
+          const rect = (x, y, w, h) => decal.quad([[x, y, z], [x + w, y, z], [x + w, y + h, z], [x, y + h, z]], surfaceUV(surf), [0, 0, 1], col);
+          if (t.glyph === 'q') {
+            rect(c - 0.08, r - 0.3, 0.16, 0.6);
+            rect(c - 0.3, r - 0.08, 0.6, 0.16);
+          } else decal.quad([[c, r - 0.32, z], [c + 0.22, r, z], [c, r + 0.32, z], [c - 0.22, r, z]], surfaceUV(surf), [0, 0, 1], col);
+        }
+        break;
+      }
       case 'E': gates.push({ r, c, kind: 'end', z: 0 }); break;
       case 'I': case 'O': {
         const surf = UVT[t.glyph === 'I' ? 'arrowDown' : 'arrowUp'];

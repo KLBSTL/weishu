@@ -50,7 +50,7 @@ const PROC_UNIT = 112;
 export const MATERIALS = [
   'road', 'road2', 'road3', 'roadN', 'roadN2', 'floor', 'floor2', 'preview', 'wall', 'wallSide', 'forbid', 'forbid2', 'forbidSide',
   'sep', 'sepSide', 'fence', 'fenceSide', 'start', 'end', 'telin', 'telout', 'hand', 'temp', 'benchSide', 'benchSideTemp', 'mire',
-  'smog', 'deepsea', 'infection', 'infection2', 'cliff', 'blank', 'lowSide', 'margin',
+  'smog', 'deepsea', 'infection', 'infection2', 'cliff', 'blank', 'lowSide', 'margin', 'healing',
   // high-ground plates by connectivity (horizontal strip L/M/R, vertical strip B(near)/VM/T(far); 'wall' = single)
   'wallL', 'wallM', 'wallR', 'wallB', 'wallVM', 'wallT',
   // textured props
@@ -383,6 +383,12 @@ const MAT_DRAW = {
   },
   infection(ctx, x, y, s, r) { floorBase(ctx, x, y, s, r); originiumOverlay(ctx, x, y, s, false); },
   infection2(ctx, x, y, s, r) { floorBase(ctx, x, y, s, r); originiumOverlay(ctx, x, y, s, true); },
+  healing(ctx, x, y, s, r) {
+    floorBase(ctx, x, y, s, r);
+    ctx.fillStyle = '#62e6ae';
+    ctx.fillRect(x + s * 0.42, y + s * 0.22, s * 0.16, s * 0.56);
+    ctx.fillRect(x + s * 0.22, y + s * 0.42, s * 0.56, s * 0.16);
+  },
   cliff(ctx, x, y, s) {
     const g = ctx.createLinearGradient(x, y, x, y + s);
     g.addColorStop(0, 'rgba(70,80,86,1)'); g.addColorStop(0.08, 'rgba(38,45,49,1)'); g.addColorStop(1, 'rgba(10,13,14,0)');

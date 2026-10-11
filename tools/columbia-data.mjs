@@ -21,10 +21,10 @@ const descriptions = {
   tinman: ['获得时，获得1个随身身份牌。', '获得时，获得2个随身身份牌。'],
   silent: ['进入休整期时，哥伦比亚与远见分别+2层（无需激活）。', '进入休整期时，哥伦比亚与远见分别+4层（无需激活）。'],
   ctrail: ['获得时，灵巧+2层（无需激活）。', '获得时，灵巧+4层（无需激活）。'],
-  astesi: ['休整期结束时，本回合每消耗2资金，使已激活的哥伦比亚与奥术各+1层，每回合最多10次。', '休整期结束时，本回合每消耗2资金，使已激活的哥伦比亚与奥术各+2层，每回合最多10次。'],
+  astesi: ['在场时，每买入1名干员，使已激活哥伦比亚+1层；每卖出1名干员，使已激活奥术+1层。', '在场时，每买入1名干员，使已激活哥伦比亚+2层；每卖出1名干员，使已激活奥术+2层。'],
   halo: ['进入休整期时，使已激活哥伦比亚与奥术分别+2层。', '进入休整期时，使已激活哥伦比亚与奥术分别+4层。'],
   heyak: ['哥伦比亚与奥术记录层数之和每满3层，自身造成伤害+1%。', '哥伦比亚与奥术记录层数之和每满3层，自身造成伤害+2%。'],
-  aphris: ['进入休整期时，每持有1资金，使已激活的哥伦比亚与精准各+1层。', '进入休整期时，每持有1资金，使已激活的哥伦比亚与精准各+2层。'],
+  aphris: ['进入休整期时，每持有2资金，使已激活的哥伦比亚与精准各+1层。', '进入休整期时，每持有1资金，使已激活的哥伦比亚与精准各+1层。'],
 };
 export function prepareColumbia({ act }) {
   for (const [code, charId, tier, existing, addon, skillIndex] of [...COLUMBIA_ROSTER, ...RETIRED]) {
@@ -60,12 +60,13 @@ export function prepareColumbia({ act }) {
             { key: 'bond_id', value: 0, valueStr: code === 'halo' ? 'columbiaShip,arcaneShip' : 'columbiaShip' },
           ] : [] };
         if (['silent', 'aphris'].includes(code)) act.garrisonDataDict[gid].eventType = 'SERVER_PREP_START';
-        if (code === 'astesi') act.garrisonDataDict[gid].eventType = 'SERVER_PREP_FIN';
+        if (code === 'astesi') act.garrisonDataDict[gid].eventType = 'SERVER_TRANSACTION';
         if (['silent', 'aphris', 'astesi'].includes(code)) {
           act.garrisonDataDict[gid].blackboard = [
             { key: 'count', value: n, valueStr: null },
             { key: 'conditionkey', value: 0, valueStr: 'character_target_inboard' },
           ];
+          if (code === 'aphris') act.garrisonDataDict[gid].blackboard.push({ key: 'funds_per_trigger', value: suffix === 'b' ? 1 : 2, valueStr: null });
         }
       }
       if (code === 'demkni' && suffix === 'b') {
@@ -76,13 +77,15 @@ export function prepareColumbia({ act }) {
         g.description = g.garrisonDesc; act.garrisonDataDict[gid] = g; rec.garrisonIds = [gid];
       }
       if (code === 'f12yin') {
-        // Preserve the native Investor event/condition and copyability by Saria.
+        // Buy/sell observers require deployment and active bonds; Saria still copies prep-end traits only.
         const gid = `garrison_columbia_f12yin_${suffix}`;
         const g = structuredClone(act.garrisonDataDict[`garrison_34_${suffix}`]);
         const n = suffix === 'b' ? 2 : 1;
         g.effectType = 'COLUMBIA_F12YIN';
-        g.blackboard.push({ key: 'columbia_multi', value: n * 2, valueStr: null });
-        g.garrisonDesc = `休整期结束时，本回合每获得1名干员，使已激活投资人+${n}层、哥伦比亚+${n * 2}层。`;
+        g.eventType = 'SERVER_TRANSACTION';
+        g.blackboard = [{ key: 'count', value: n, valueStr: null },
+          { key: 'conditionkey', value: 0, valueStr: 'character_target_inboard' }];
+        g.garrisonDesc = `在场时，每买入1名干员，使已激活哥伦比亚+${n}层；每卖出1名干员，使已激活投资人+${n}层。`;
         g.description = g.garrisonDesc; act.garrisonDataDict[gid] = g; rec.garrisonIds = [gid];
       }
       if (code === 'halo') {
@@ -129,7 +132,7 @@ export function finishColumbia(files) {
     files.effects[effectId] = { ...structuredClone(files.effects[files.items[`${template}_${suffix}`].effectId]),
       effectId, name, desc, descRaw: desc, buffs: [], params };
   }
-  const desc = '累计每新增25层，获得1个随身身份牌。\n<在场3名不同【哥伦比亚】干员>【哥伦比亚】攻击力+20%，每层再+0.7%。\n<在场6名不同【哥伦比亚】干员>任一成员攻击敌人时，在主目标位置引发半径2.5格的圆形法术轰击，伤害为在场哥伦比亚干员当前总攻击力的200%，并附加实际轰击伤害10%的灼燃损伤。被轰击的敌人每秒受到总攻击力×层数×0.5%的法术持续伤害，持续5秒，不附加灼燃损伤；再次轰击刷新持续时间与快照，不叠加。范围同维什戴尔三技能。每名玩家的哥伦比亚全队共享10秒冷却，每满100层减少1秒，最低1秒；治疗、召唤物、持续伤害及独立追伤不触发。';
+  const desc = '累计每新增25层，获得1个随身身份牌。\n<在场3名不同【哥伦比亚】干员>【哥伦比亚】攻击力+20%，每层再+0.7%。\n<在场6名不同【哥伦比亚】干员>任一成员攻击敌人时，在主目标位置引发半径2.5格的圆形法术轰击，伤害为在场哥伦比亚干员当前总攻击力的200%。被轰击的敌人每秒受到总攻击力×层数×0.5%的法术持续伤害，持续5秒；再次轰击刷新持续时间与快照，不叠加。范围同维什戴尔三技能。每名玩家的哥伦比亚全队共享10秒冷却，每满100层减少1秒，最低1秒；治疗、召唤物、持续伤害及独立追伤不触发。';
   files.effects.bondeffect_columbia = { ...structuredClone(files.effects.bondeffect_yan), effectId: 'bondeffect_columbia',
     name: '拓界共振', desc, descRaw: desc, buffs: [], params: {} };
   const members = Object.values(files.chess).filter(c => !c.isGolden && c.bonds.includes('columbiaShip'));

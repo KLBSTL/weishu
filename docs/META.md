@@ -1,5 +1,16 @@
 # META.md — match & meta engine (server/match)
 
+Transaction garrisons (Columbia Astesia / Mountain): `garrisonHooks` declares `onBuy/onSold` and
+`ownedHooks` marks sale observers. A sold observer does not fire for its own sale; remaining board observers
+run once each, subject to the existing in-board condition. Ordinary self-sale and gain traits keep their dispatch
+semantics. `SERVER_TRANSACTION` cannot be copied by prep-start/end copiers.
+
+Map selection: `room.stageId` is null (default random pool) or an eligible stage ID.
+Host-only `room.setStage {stageId}` resets human readiness and rejects changes during a match.
+Difficulty changes revalidate it; reconnect receives it in the room state. `Match.opts.stageId` reaches
+`setupMatchWaves`; `m.public.selectedStageId` identifies an explicit choice for briefing text.
+Rules and compact boss geometry: [relay map](design/relay-map.md).
+
 Local recruitment squads: [rules](design/recruitment-squads.md). `PlayerRecruitment` runs from `startRound`, stores
 per-player charges/grant rounds/cached draws/reserved offers, and exposes only that player's `m.private.recruitment`.
 Prep intents: `g.recruitOpen {sampleUid?}`, `g.recruitCancel {offerId}`, `g.recruitPick {offerId,idx}`. All use `_gate`;
@@ -910,4 +921,4 @@ round was over. The official 1 s `broadcastBeginDelay` is not modelled.
 
 See [rules](design/sarkaz.md). `bondsMeta.js` counts unique Sarkaz identities; the content registry handles Vigna/Meteorite acquisition and Vigna promotion. Shining's formal-round counter is supplied in contentInfo and carried from the normal result into unite. `fields.js` preserves approved statistics and the once-per-round result marker.
 
-[Columbia](design/columbia.md) counts identities by charId, excluding Ifrit, who retains only Sarkaz/Farsight. Every 15 newly earned layers grants a native identity card. Beanstalk/Tin Man use acquisition hooks; deployed Silence/Aphris use prep-start; Astesia/Mountain use prep-end, and elite Saria copies both front tiles. Hibiscus now grants its own bonds 2/4 at prep-end without activation; Meteorite grants its own bonds 2/4 on acquisition. Typhon's 28/56 allowance still travels through contentInfo, result digest, unite and formal-round counters. Contrail/Astgenne and the existing 17 Aegir/Victoria recruits are hidden; old records remain. S3 Aphris starts with three placeable relays (all other skills retain one). Normal Columbia chip/field equipment enter the tier-3/6 shop pools and merge in pairs; golden variants never roll directly.
+[Columbia](design/columbia.md) counts identities by charId, excluding Ifrit, who retains only Sarkaz/Farsight. Every 25 newly earned layers grants a native identity card. Beanstalk/Tin Man use acquisition hooks; deployed Silence/Aphris use prep-start; Astesia/Mountain watch operator purchases and sales while deployed; elite Saria still copies prep-end traits in both front tiles. Hibiscus now grants its own bonds 2/4 at prep-end without activation; Meteorite grants its own bonds 2/4 on acquisition. Each Typhon copy's independent 28/56 allowance travels through contentInfo, result digest, unite and formal-round counters. Contrail/Astgenne and the existing 17 Aegir/Victoria recruits are hidden; old records remain. S3 Aphris starts with three placeable relays (all other skills retain one). Normal Columbia chip/field equipment enter the tier-3/6 shop pools and merge in pairs; golden variants never roll directly.

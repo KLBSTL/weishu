@@ -279,7 +279,7 @@ test('config: modes, rounds and templates', () => {
 });
 
 test('stages: 19 rows × 21 cols with known glyphs; paths are contiguous', () => {
-  const glyphs = new Set('#XrRfphbaASEIOmgdi'.split(''));
+  const glyphs = new Set('#XrRfphbaASEIOmgdiqv'.split(''));
   for (const s of Object.values(stages)) {
     assert.equal(s.rows.length, 19, `${s.id}: rows`);
     for (const row of s.rows) {
@@ -300,7 +300,8 @@ test('stages: 19 rows × 21 cols with known glyphs; paths are contiguous', () =>
     }
     assert.ok(s.groundPaths['9,10->9,2'], `${s.id}: lower gate path`);
   }
-  assert.equal(Object.values(stages).filter((s) => s.active).length, 8);
+  assert.equal(Object.values(stages).filter((s) => s.active && !s.manualOnly).length, 8);
+  assert.equal(Object.values(stages).filter((s) => s.active && s.manualOnly).length, 1);
 });
 
 test('bosses, factions, tokens and choices resolve', () => {
@@ -668,7 +669,8 @@ test('stages: player-facing names are clean Chinese "战场#NN…" labels (no re
   // briefing BATTLEFIELD row. Names come from research only, so the build must strip such notes.
   for (const s of Object.values(stages)) {
     if (s.kind === 'unite') continue; // the escaped levels' two maps: the remake's own label, checked in the test below
-    assert.match(s.name, /^战场#\d{2}(?:\((?:上半|下半)\))?(?: \S.*)?$/, `${s.id}: name ${JSON.stringify(s.name)}`);
+    if (s.manualOnly) assert.equal(s.name, '中继试验场·双廊');
+    else assert.match(s.name, /^战场#\d{2}(?:\((?:上半|下半)\))?(?: \S.*)?$/, `${s.id}: name ${JSON.stringify(s.name)}`);
     assert.doesNotMatch(s.name, /[A-Za-z]/, `${s.id}: Latin text in name ${JSON.stringify(s.name)}`);
     assert.equal(s.name, s.name.trim().replace(/\s+/g, ' '), `${s.id}: stray whitespace in name`);
   }

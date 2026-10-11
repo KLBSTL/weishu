@@ -178,7 +178,7 @@ function scheduleRng(rng) {
  *   `factions` also carries the schedule as a non-enumerable `schedule` property ({ typeSlots, picks }), so callers
  *   that keep only the factions array (Match: buildNormalWave(gd, rng, this.factions, r)) get the official rounds.
  */
-export function setupMatchWaves(gd, rng) {
+export function setupMatchWaves(gd, rng, selectedStageId = null) {
   // stage
   const stageIds = Array.isArray(gd.mode.stages) ? gd.mode.stages : [];
   const stagePairs = stageIds.map((id) => [id, gd.stage(id)]).filter(([, s]) => s && s.active !== false && Number(s.weight) > 0).map(([id, s]) => [id, s.weight]);
@@ -186,6 +186,14 @@ export function setupMatchWaves(gd, rng) {
   if (!stageId) {
     const any = Object.keys(gd.raw.stages || {}).filter((id) => gd.stage(id) && gd.stage(id).active);
     stageId = any.length ? any.sort()[0] : null;
+  }
+  // Consume the same random draw before overriding: choosing a map must not reroll the enemy schedule.
+  if (selectedStageId !== null) {
+    const stage = gd.stage(selectedStageId);
+    if (!stage || stage.active === false || (!stageIds.includes(selectedStageId) && !(stage.manualOnly && stage.modes.includes(gd.modeId)))) {
+      throw new Error('Stage is unavailable in this mode');
+    }
+    stageId = selectedStageId;
   }
   // factions
   const types = gd.factions.types && typeof gd.factions.types === 'object' ? gd.factions.types : {};

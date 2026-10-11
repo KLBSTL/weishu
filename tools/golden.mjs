@@ -250,7 +250,8 @@ const ENEMY_COLS = Object.freeze(['spawned', 'killed', 'leaked', 'dmg', 'taken']
 const CHESS = Object.values(data.chess).sort((a, b) => byId(a.chessId, b.chessId));
 const VISIBLE = CHESS.filter((c) => c.visible);
 // the battle stages (data/stages.json also keeps the escaped levels' two maps, kind 'unite', which no field uses)
-const STAGES = Object.keys(data.stages).filter((id) => data.stages[id].kind !== 'unite').sort(byId);
+// Manual-only expansions get dedicated cases, preserving the original stage rotation and baselines.
+const STAGES = Object.keys(data.stages).filter((id) => data.stages[id].kind !== 'unite' && !data.stages[id].manualOnly).sort(byId);
 const BANDS = Object.keys(data.bands).sort(byId);
 const EQUIPS = Object.values(data.items).filter((i) => i.itemType === 'EQUIP').map((i) => i.id).sort(byId);
 const BOSSES = Object.keys(data.bosses).sort((a, b) => Number(a.replace(/\D/g, '')) - Number(b.replace(/\D/g, '')));
@@ -425,6 +426,22 @@ const LAYER_STEPS = Object.freeze([0, 2, 10, 40, 120]);
 // ---------------------------------------------------------------------------------------------------------------
 // family: roster
 
+function relayScenario(source) {
+  const sc = structuredClone(source);
+  sc.id = `relay-${source.id}`;
+  sc.stageId = 'local_relay_lab';
+  sc.about = `Relay lab: ${source.about}`;
+  let uid = 1;
+  for (const p of sc.players) {
+    const wanted = p.units.filter(u => u.kind === 'chess');
+    const field = sc.kind === 'boss' ? (p.side === 'R' ? 'bossR' : 'bossL') : 'normal';
+    const placed = layout(gdFor(sc.modeId), sc.stageId, wanted, { field, uid0: uid, colOffset: sc.kind === 'unite' ? p.colOffset : 0 });
+    p.units = placed.units;
+    uid = placed.nextUid;
+  }
+  return sc;
+}
+
 export function rosterScenarios() {
   // every loadout variant of every visible record, by variant pass, then strength band (tier + elite), then id; a
   // battle takes up to 12 of them with distinct chess ids and bands within one of the first waiting instance's
@@ -488,6 +505,7 @@ export function rosterScenarios() {
     sc.spawns = sc.spawns.concat(extraSpawns(gdFor(sc.modeId), sc.routes, sc._extra, sc.round, 'p1'));
     delete sc._extra;
   }
+  scenarios.push(relayScenario(scenarios[0]));
   return scenarios;
 }
 
@@ -643,6 +661,7 @@ export function fieldScenarios() {
       about: `联防 ${helpers} helper(s), ${leaked.length} leaked: ${players.map((p) => placeName(p.units).join(' ')).join(' | ')}`,
     });
   }
+  for (const id of ['boss-boss_1-pair', 'boss-boss_1-solo', 'unite-2']) scenarios.push(relayScenario(scenarios.find(sc => sc.id === id)));
   return scenarios;
 }
 
@@ -1033,6 +1052,7 @@ const ABOUT = {
 const FAST_MATCHES = new Set(['solo-FUNNY-1', 'solo-HARD-1', 'coop2-NORMAL-3', 'coop4-ABYSS-7', 'solo-HARD-9-boosted', 'coop2-NORMAL-14-standins', `coop2-NORMAL-${MATCH_DIY_SEED}-diy`]);
 const FAST_FIELDS = new Set(['boss-boss_1-pair', 'boss-boss_4-solo', 'boss-boss_7-pair', 'hidden-boss_9-pair', 'unite-1', 'unite-2']);
 export function isFast(sc) {
+  if (sc.id.startsWith('relay-')) return true;
   if (sc.family === 'matches') return FAST_MATCHES.has(sc.id);
   if (sc.family === 'standins') return sc.pass === 0; // the normal records (the elites with GOLDEN_FULL)
   if (sc.family === 'fields') return FAST_FIELDS.has(sc.id);

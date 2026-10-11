@@ -29,6 +29,8 @@ export const GLYPH = Object.freeze({
   g: { mat: 'smog', h: null },
   d: { mat: 'deepsea', h: null },
   i: { mat: 'infection', h: null },
+  v: { mat: 'infection', h: 'wall' },
+  q: { mat: 'healing', h: null },
 });
 
 /** tileKey (when a stage uses glyphs outside the legend) → glyph. */

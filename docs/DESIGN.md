@@ -10,9 +10,11 @@ Versions: the first public release was **0.1.0** (2026-10-02, the state of §0�
 
 ## Where each section lives
 
+Local selectable map: [Relay lab and map selection](design/relay-map.md) (§31), compact two-lane terrain with healing runes and active originium, including paired boss fields.
+
 Local fan expansion: [Sarkaz rules](design/sarkaz.md) defines the user-approved nine-operator roster, 3/6-member covenant, per-round traits and combat statistics. These explicit deviations apply to this working copy.
 
-[Columbia and recruitment](design/columbia.md) defines the revised Columbia roster, ATK-based area explosions with lingering Arts damage and Burn buildup, Identity Badge rewards, and two exclusive items. Aegir/Victoria recruits remain hidden except Blaze the Igniting Spark and Harold. Sarkaz uses 3% skill-start barriers, a shared 50%-HP shield cap and a 30%-shield true-damage rider.
+[Columbia and recruitment](design/columbia.md) defines the revised Columbia roster, ATK-based area explosions with lingering Arts damage, Identity Badge rewards, and two exclusive items. Aegir/Victoria recruits remain hidden except Blaze the Igniting Spark and Harold. Sarkaz uses 3% skill-start barriers, a shared 50%-HP shield cap and a 30%-shield true-damage rider.
 
 Section numbers are global and never change: code, tests and the other documents cite them as "DESIGN §N". The
 current rules by area are in `docs/design/`, the per-release revisions (the evidence behind each rule) in
@@ -41,3 +43,4 @@ normative lines it rewrote).
 | §28 | [design/sarkaz.md](design/sarkaz.md) | Local fan expansion — Sarkaz |
 | §29 | [design/columbia.md](design/columbia.md) | Local fan expansion — Columbia and recruitment |
 | §30 | [design/recruitment-squads.md](design/recruitment-squads.md) | Local fan expansion — fixed-round recruitment squads |
+| §31 | [design/relay-map.md](design/relay-map.md) | Local fan expansion — compact map and lobby selection |

@@ -1,5 +1,10 @@
 # SIM.md — battle simulation engine reference (server/sim)
 
+Local healing terrain: `tile_healing` maps to `healing` in the grid, with an allied terrain buff ticking once
+per second through `heal(..., {self: true, regen: true})`. Its `stage.special.healing.maxHpRatio` is 0.03.
+It stops on leaving the tile, never heals enemies and does not overflow into shields.
+The relay stage also uses the existing infection pipeline; see [map rules](design/relay-map.md).
+
 Audience: **content authors** (kits, bonds, garrisons, items, bands, enemies, bosses, devices, choices) and the
 **match owner** who drives `Battle`. The normative contract is DESIGN.md §5 ([design/engine.md](design/engine.md));
 this file documents the concrete implementation, every hook and helper, the SkillSpec schema with worked examples,

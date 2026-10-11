@@ -42,7 +42,7 @@ export function BriefingScreen() {
   const stage = pub.stageId ? gd.stage(pub.stageId) : null;
   // the mode's battlefield pool (config.json modes[].stages): 标准 is always 战场#01, 险境+ draw one at random
   const poolN = Array.isArray(mode?.stages) ? mode.stages.length : 0;
-  const pool = poolN > 1 ? t('战场随机（共{poolN}张）', { poolN }) : poolN === 1 ? t('战场固定') : '';
+  const pool = pub.selectedStageId ? t('战场固定') : poolN > 1 ? t('战场随机（共{poolN}张）', { poolN }) : poolN === 1 ? t('战场固定') : '';
   const types = factionTypes(pub.factions);
   const factions = gd.factions?.types || {};
   const m = gd.m;
@@ -77,7 +77,7 @@ export function BriefingScreen() {
         </div>
         <div class="brief-stage">
           <span class="brief-stage__k"><${MicroLabel}>BATTLEFIELD</${MicroLabel}>${pool ? html`<span class="brief-stage__pool">${pool}</span>` : null}</span>
-          <span class="brief-stage__name"><${Icon} name="rook" />${stage?.name || pub.stageId || '—'}</span>
+          <span class="brief-stage__name"><${Icon} name="rook" />${stage?.manualOnly ? t('中继试验场·双廊') : stage?.name || pub.stageId || '—'}</span>
         </div>
         <div class="brief-factions">
           <h3 class="brief-h"><span>${t('特训敌人')}</span><${MicroLabel}>SPECIAL ENEMIES</${MicroLabel}></h3>

@@ -36,6 +36,12 @@ battles of the normal records, the first 自选 battle of the operator kits and 
 
 ## Workflow
 
+Columbia transaction revision: [scenario audit](../../docs/columbia-trade-golden.md) lists the five changed complete-match scenarios; all other 285 scenarios stay unchanged relative to the relay-map baseline.
+
+Relay map extension: the four dedicated `relay-*` scenarios cover normal, solo/paired boss and unite fields.
+Manual-only maps are excluded from the original stage rotation so existing baselines remain comparable.
+Rules and scenario names: [relay map](../../docs/design/relay-map.md).
+
 Latest Typhon allowance and bond-tag update: [scenario audit](../../docs/typhon-independent-golden.md), compared with 04cc838.
 
 Latest numeric-only Columbia update: [scenario audit](../../docs/columbia-numeric-golden.md), compared with fa3c798.

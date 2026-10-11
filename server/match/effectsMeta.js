@@ -18,6 +18,8 @@
 // onRoundStart, SERVER_PREP_FIN→onPrepEnd, SERVER_CHESS_SOLD→onSold of the sold piece, SERVER_PRICE→onPrice of the
 // slot's chess, SERVER_REFRESH_SHOP→onRefresh); the dispatcher calls `handler[hook] ?? handler.run`. A handler may
 // widen that per garrison with `garrisonHooks(garrison) → hook[]` (e.g. "<进入休整期时><休整期结束时>"). Owned-piece
+// transaction observers declare ownedHooks: ['onBuy', 'onSold']; onSold then watches other sales while still owned,
+// instead of firing as the sold piece. Their existing in-board condition excludes hand observers.
 // garrisons fire for board pieces, and for hand pieces unless bbStr.conditionkey is 'character_target_inboard'. A
 // refresh (onRefresh) runs those that stood on the board / in the hand when it happened (taken before its first
 // handler): a chess gained during its dispatch — 贾维's gift, the elite that gift completes — waits for the next refresh.
@@ -301,6 +303,11 @@ export class EffectDispatcher {
         const key = `garrison:${g.effectKey}`;
         const h = this.registry.get(key);
         if (!h || !this._garrisonHooks(h, g).includes(hook)) continue;
+        if (hook === 'onSold') {
+          const observesSales = h.ownedHooks?.includes(hook);
+          if (where === 'sold' && observesSales) continue;
+          if (where !== 'sold' && !observesSales) continue;
+        }
         if (where === 'hand' && g.bbStr && g.bbStr.conditionkey === 'character_target_inboard') continue;
         const repeat = hook === 'onGain' ? this.investRepeat(ps) : 1;
         this._call(ps, key, h, hook, { kind: 'garrison', key, piece, garrisonId: gid, garrison: g, bb: g.bb || {}, bbStr: g.bbStr || {}, where }, ev, repeat);
@@ -308,13 +315,13 @@ export class EffectDispatcher {
     };
     if (hook === 'onGain' || hook === 'onSold') {
       if (ev && ev.piece && ev.piece.kind === 'chess') run(ev.piece, hook === 'onGain' ? 'gained' : 'sold');
-      return;
+      if (hook === 'onGain') return;
     }
     if (hook === 'onPrice') {
       if (ev && ev.slot && ev.slot.kind === 'chess') run({ uid: 0, kind: 'chess', id: ev.slot.id, items: [] }, 'shop');
       return;
     }
-    if (hook !== 'onRoundStart' && hook !== 'onPrepEnd' && hook !== 'onRefresh') return;
+    if (!['onRoundStart', 'onPrepEnd', 'onRefresh', 'onBuy', 'onSold'].includes(hook)) return;
     if (refreshed) {
       for (const piece of refreshed) {
         const loc = ps.find(piece.uid);

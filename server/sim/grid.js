@@ -99,7 +99,7 @@ export const DEFAULT_LEGEND = Object.freeze({
  */
 export const DEPLOY_REFUSED_TILES = Object.freeze(new Set(['tile_deepsea']));
 
-const TERRAIN_BY_KEY = { tile_mire: 'mire', tile_smog: 'smog', tile_deepsea: 'deepsea', tile_infection: 'infection', tile_deepwater: 'deepsea' };
+const TERRAIN_BY_KEY = { tile_mire: 'mire', tile_smog: 'smog', tile_deepsea: 'deepsea', tile_infection: 'infection', tile_deepwater: 'deepsea', tile_healing: 'healing' };
 const SPECIAL_BY_KEY = { tile_start: 'start', tile_end: 'end', tile_telin: 'telin', tile_telout: 'telout' };
 
 function normPass(v) {
