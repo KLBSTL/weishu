@@ -54,13 +54,16 @@ export function install(battle) {
   }
 }
 export function registerMeta(registry) {
-  const transactionTrait = sellBond => ({
-    ownedHooks: ['onBuy', 'onSold'],
-    garrisonHooks: () => ['onBuy', 'onSold'],
-    onBuy(ctx, ev) { if (ev.kind === 'chess') ctx.addLayers(BOND, ctx.source.bb.count, { requireActive: true }); },
-    onSold(ctx, ev) { if (ev.piece?.kind === 'chess') ctx.addLayers(sellBond, ctx.source.bb.count, { requireActive: true }); },
+  const spendingTrait = secondaryBond => ({
+    run(ctx) {
+      const { count, columbia_count, funds_per_trigger, max_layers } = ctx.source.bb;
+      const triggers = Math.floor(ctx.roundStats().spent / funds_per_trigger);
+      const capped = n => Number.isFinite(max_layers) ? Math.min(n, max_layers) : n;
+      ctx.addLayers(BOND, capped(triggers * (columbia_count ?? count)), { requireActive: true });
+      ctx.addLayers(secondaryBond, capped(triggers * count), { requireActive: true });
+    },
   });
-  registry.garrison('COLUMBIA_F12YIN', transactionTrait('investShip'));
+  registry.garrison('COLUMBIA_F12YIN', spendingTrait('investShip'));
   registry.garrison('COLUMBIA_BSTALK', {
     onGain(ctx) { ctx.addLayers(BOND, ctx.chessRecord(ctx.source.piece.id)?.isGolden ? 4 : 2, { requireActive: false }); },
   });
@@ -73,10 +76,10 @@ export function registerMeta(registry) {
   registry.garrison('COLUMBIA_SILENT', {
     run(ctx) { for (const id of [BOND, 'visiShip']) ctx.addLayers(id, 2 * ctx.source.bb.count, { requireActive: false }); },
   });
-  registry.garrison('COLUMBIA_ASTESI', transactionTrait('arcaneShip'));
+  registry.garrison('COLUMBIA_ASTESI', spendingTrait('arcaneShip'));
   registry.garrison('COLUMBIA_APHRIS', {
     run(ctx) {
-      const n = Math.floor(ctx.funds() / ctx.source.bb.funds_per_trigger);
+      const n = Math.floor(ctx.funds()) * ctx.source.bb.count;
       for (const id of [BOND, 'preciShip']) ctx.addLayers(id, n, { requireActive: true });
     },
   });

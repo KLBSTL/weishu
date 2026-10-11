@@ -21,10 +21,10 @@ const descriptions = {
   tinman: ['获得时，获得1个随身身份牌。', '获得时，获得2个随身身份牌。'],
   silent: ['进入休整期时，哥伦比亚与远见分别+2层（无需激活）。', '进入休整期时，哥伦比亚与远见分别+4层（无需激活）。'],
   ctrail: ['获得时，灵巧+2层（无需激活）。', '获得时，灵巧+4层（无需激活）。'],
-  astesi: ['在场时，每买入1名干员，使已激活哥伦比亚+1层；每卖出1名干员，使已激活奥术+1层。', '在场时，每买入1名干员，使已激活哥伦比亚+2层；每卖出1名干员，使已激活奥术+2层。'],
+  astesi: ['休整期结束时，本回合每消耗2资金，使已激活哥伦比亚与奥术各+1层，每回合各最多+7层。', '休整期结束时，本回合每消耗2资金，使已激活哥伦比亚与奥术各+2层，无额外回合上限。'],
   halo: ['进入休整期时，使已激活哥伦比亚与奥术分别+2层。', '进入休整期时，使已激活哥伦比亚与奥术分别+4层。'],
   heyak: ['哥伦比亚与奥术记录层数之和每满3层，自身造成伤害+1%。', '哥伦比亚与奥术记录层数之和每满3层，自身造成伤害+2%。'],
-  aphris: ['进入休整期时，每持有2资金，使已激活的哥伦比亚与精准各+1层。', '进入休整期时，每持有1资金，使已激活的哥伦比亚与精准各+1层。'],
+  aphris: ['进入休整期时，每持有1资金，使已激活哥伦比亚与精准各+1层，不消耗资金。', '进入休整期时，每持有1资金，使已激活哥伦比亚与精准各+2层，不消耗资金。'],
 };
 export function prepareColumbia({ act }) {
   for (const [code, charId, tier, existing, addon, skillIndex] of [...COLUMBIA_ROSTER, ...RETIRED]) {
@@ -60,13 +60,16 @@ export function prepareColumbia({ act }) {
             { key: 'bond_id', value: 0, valueStr: code === 'halo' ? 'columbiaShip,arcaneShip' : 'columbiaShip' },
           ] : [] };
         if (['silent', 'aphris'].includes(code)) act.garrisonDataDict[gid].eventType = 'SERVER_PREP_START';
-        if (code === 'astesi') act.garrisonDataDict[gid].eventType = 'SERVER_TRANSACTION';
+        if (code === 'astesi') act.garrisonDataDict[gid].eventType = 'SERVER_PREP_FIN';
         if (['silent', 'aphris', 'astesi'].includes(code)) {
           act.garrisonDataDict[gid].blackboard = [
             { key: 'count', value: n, valueStr: null },
             { key: 'conditionkey', value: 0, valueStr: 'character_target_inboard' },
           ];
-          if (code === 'aphris') act.garrisonDataDict[gid].blackboard.push({ key: 'funds_per_trigger', value: suffix === 'b' ? 1 : 2, valueStr: null });
+          if (code === 'astesi') {
+            act.garrisonDataDict[gid].blackboard.push({ key: 'funds_per_trigger', value: 2, valueStr: null });
+            if (suffix === 'a') act.garrisonDataDict[gid].blackboard.push({ key: 'max_layers', value: 7, valueStr: null });
+          }
         }
       }
       if (code === 'demkni' && suffix === 'b') {
@@ -77,15 +80,17 @@ export function prepareColumbia({ act }) {
         g.description = g.garrisonDesc; act.garrisonDataDict[gid] = g; rec.garrisonIds = [gid];
       }
       if (code === 'f12yin') {
-        // Buy/sell observers require deployment and active bonds; Saria still copies prep-end traits only.
+        // Round spending is counted by the economy; Saria can copy this prep-end trait again.
         const gid = `garrison_columbia_f12yin_${suffix}`;
         const g = structuredClone(act.garrisonDataDict[`garrison_34_${suffix}`]);
         const n = suffix === 'b' ? 2 : 1;
         g.effectType = 'COLUMBIA_F12YIN';
-        g.eventType = 'SERVER_TRANSACTION';
+        g.eventType = 'SERVER_PREP_FIN';
         g.blackboard = [{ key: 'count', value: n, valueStr: null },
+          { key: 'columbia_count', value: 2 * n, valueStr: null },
+          { key: 'funds_per_trigger', value: 2, valueStr: null },
           { key: 'conditionkey', value: 0, valueStr: 'character_target_inboard' }];
-        g.garrisonDesc = `在场时，每买入1名干员，使已激活哥伦比亚+${n}层；每卖出1名干员，使已激活投资人+${n}层。`;
+        g.garrisonDesc = `休整期结束时，本回合每消耗2资金，使已激活投资人+${n}层、哥伦比亚+${2 * n}层，无额外回合上限。`;
         g.description = g.garrisonDesc; act.garrisonDataDict[gid] = g; rec.garrisonIds = [gid];
       }
       if (code === 'halo') {

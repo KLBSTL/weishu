@@ -2009,6 +2009,9 @@ const SHOP_EXCLUDED_ITEMS = Object.freeze({
  *     what a player gains goes to the 手牌区; pointed out in PR #2).
  */
 const ITEM_RULES = Object.freeze({
+  chess_item_3_12_e_a: {
+    note: '普通品质获得1～6资金，精锐品质获得2～12资金；持有两个普通储蓄罐会自动合成一个精锐储蓄罐。',
+  },
   chess_item_5_08_e_a: {
     note: '生效时原干员销毁，突变细胞与其他装备退回整备区，可再次配发；随后获得一名高一阶的随机初始干员（最高6阶），进入整备区，需要重新部署',
     implFormula: 'After the battle: the carrier is destroyed wherever it stands (a board tile is freed); its equipment, the '

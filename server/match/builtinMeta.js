@@ -70,9 +70,17 @@ function mostBondMate(ctx, bonds) {
 const ITEM_HANDLERS = {
   equip_destory_gain_random_coin: {
     onEquip(ctx, ev) {
-      const p = paramsOf(ctx, ev.item);
-      const lo = int(p.min, 1);
-      const hi = Math.max(lo, int(p.max, lo));
+      const rec = ctx.gd.item(ev.item.id);
+      // Read this quality's coin buff, rather than flattened params which can contain unrelated/old values.
+      const p = rec?.buffs?.find(b => b.key === 'equip_destory_gain_random_coin')?.bb || {};
+      let lo = int(p.min, 1);
+      let hi = Math.max(lo, int(p.max, lo));
+      if (itemKey(ev.item.id) === 'chess_item_3_12_e') {
+        // Keep the reported normal-quality overpayment impossible even with stale payout data.
+        const min = rec.isGolden ? 2 : 1, max = rec.isGolden ? 12 : 6;
+        lo = Math.max(min, Math.min(max, lo));
+        hi = Math.max(lo, Math.min(max, hi));
+      }
       ctx.addFunds(lo + ctx.rng.int(hi - lo + 1), 'item');
     },
   },

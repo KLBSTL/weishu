@@ -11,6 +11,16 @@ rooms) and a deterministic battle sim shared by the server and the browser. It a
 
 ## Read first
 
+For this weishu fork, every update starts with a reviewable draft in `docs/`, before implementation
+(the ark workspace may also keep its working draft in `../docs/`).
+Use the installed `stronghold-protocol-design` skill and its relevant design guidelines. The draft records sources,
+current support, proposed behavior, unresolved choices, affected areas and verification; distinguish confirmed
+requirements, suggestions, verified evidence, unimplemented work and pending checks. Then follow the user's current
+authorization: research/draft-only requests stop at the draft; already-authorized implementation continues without
+repeated formal confirmation. Before publishing existing changes, check their draft, implementation record and tests.
+In the ark workspace also follow the parent `../AGENTS.md`. The current published draft and validation record is
+[the round economy update](docs/columbia-economy-update.md); keep future drafts accessible inside this repository.
+
 1. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — the code map: where things live, data flow, golden results,
    import boundaries, where common changes start.
 2. [docs/DESIGN.md](docs/DESIGN.md) — the index of the rules: current rules in `docs/design/`, each release's

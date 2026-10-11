@@ -1,9 +1,9 @@
 # META.md — match & meta engine (server/match)
 
-Transaction garrisons (Columbia Astesia / Mountain): `garrisonHooks` declares `onBuy/onSold` and
-`ownedHooks` marks sale observers. A sold observer does not fire for its own sale; remaining board observers
-run once each, subject to the existing in-board condition. Ordinary self-sale and gain traits keep their dispatch
-semantics. `SERVER_TRANSACTION` cannot be copied by prep-start/end copiers.
+Columbia spending garrisons (Astesia / Mountain) are `SERVER_PREP_FIN`: `roundStats().spent` counts actual payments,
+reset by `PlayerRound.startRound`. Every 2 funds grant active Columbia/Arcane 1/2 layers for Astesia (normal capped
+at 7 per bond, elite uncapped), or Investor 1/2 and Columbia 2/4 for Mountain (uncapped). Saria can copy them.
+Aphris is `SERVER_PREP_START`: every held fund grants each active Columbia/Precision bond 1/2 layers, without spending.
 
 Map selection: `room.stageId` is null (default random pool) or an eligible stage ID.
 Host-only `room.setStage {stageId}` resets human readiness and rejects changes during a match.
@@ -482,6 +482,11 @@ is not consumed: PRTS 下半 记录 备注 "生效时，原干员销毁，获得
 装备无法手动卸除，在失去该干员（干员出售、销毁、合并等）…时自动卸除", players re-inject it every round; player feedback after
 0.1.0), 画卷 (copy the operator in range with its
 items — the copied items arrive unequipped in the hand, PRTS 画卷 备注 "获得的装备为未装备状态"), 教鞭 (a personal choice of three 战术特训 cards), “神秘顾客” (a random bounty is added).
+
+Coin consumables read `equip_destory_gain_random_coin` from the concrete item's buff blackboard. Knight Piggy Bank
+additionally enforces its quality's inclusive bounds: normal 1–6, elite 2–12, regardless of stale flattened params.
+It is destroyed after one equip; a repeated command with the consumed UID is rejected. Two normal copies auto-merge
+to an elite with a new ID and golden view flag; an elite payout of 8 is valid.
 
 **教鞭 offers a personal choice of three 战术特训 cards (0.2.2); “神秘顾客” stays a random bounty.** The official Arts open a
 personal 悬赏 choice ("选择一项（特殊）悬赏任务进行挑战", `choice_event hunter_band_1`, choiceType `PERSONAL_CHOOSE`). 教鞭

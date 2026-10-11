@@ -721,8 +721,8 @@ test('lendItemEffects (萨尔贡 × 娜仁图亚): tier ≤ V battle effects len
 // ---------------------------------------------------------------------------------------------------------------
 // prep side
 
-function setup({ mode = 'solo', humans = 1, seed = 41 } = {}) {
-  const h = makeMatch({ mode, humans, seed, registry: REG, fake: true }).start();
+function setup({ mode = 'solo', humans = 1, seed = 41, data = DATA } = {}) {
+  const h = makeMatch({ mode, humans, seed, data, registry: REG, fake: true }).start();
   h.toPrep(1);
   const m = h.m;
   for (const ps of m.players.values()) {
@@ -798,6 +798,53 @@ test('盟约之币 +1 / +2, 骑士储蓄罐 1–6 / 2–12 funds (random, both e
     assert.equal(seen.size, hi - lo + 1, `${id} covers ${lo}..${hi}`);
     cover(id);
   }
+});
+
+test('骑士储蓄罐: concrete quality bounds survive stale params and payout data, consumed UID cannot pay twice', () => {
+  for (const [id, lo, hi] of [[A('3_12'), 1, 6], [B('3_12'), 2, 12]]) {
+    const rec = DATA.items[id];
+    const data = { ...DATA, items: { ...DATA.items, [id]: { ...rec,
+      params: { min: 1, max: 8 }, // regression input: stale flattened values can make a normal item pay 8
+      buffs: rec.buffs.map(b => ({ ...b, bb: { ...b.bb, max: hi + 8 } })),
+    } } };
+    const { m, ps, equip } = setup({ seed: 321, data });
+    const t = give(m, ps, plain(c => c.tier === 1)[0], 'hand');
+    const seen = new Set();
+    for (let k = 0; k < 120; k++) {
+      const it = giveItem(m, ps, id, k % 2 ? 'temp' : 'hand');
+      const before = ps.funds;
+      assert.deepEqual(equip(it, t), OK);
+      const amount = ps.funds - before;
+      assert.ok(amount >= lo && amount <= hi, `${id}: ${amount}`); seen.add(amount);
+      assert.equal(ps.find(it.uid), null, 'consumed once');
+      assert.equal(equip(it, t).error, 'BAD_TARGET', 'replayed equip is rejected');
+      assert.equal(ps.funds, before + amount);
+    }
+    assert.equal(seen.size, hi - lo + 1); assert.equal(t.items.length, 0);
+    m.dispose();
+  }
+});
+
+test('骑士储蓄罐: all seeded normal payouts stay 1–6; automatic merge changes the ID, displayed quality and range', () => {
+  const { m, ps, equip } = setup({ seed: 514 });
+  const t = give(m, ps, plain(c => c.tier === 1)[0], 'hand');
+  for (let k = 0; k < 1000; k++) {
+    const it = ps.acquireItem(A('3_12'));
+    assert.equal(it.id, A('3_12')); assert.equal(ps.pieceView(it).golden, false);
+    const before = ps.funds; assert.deepEqual(equip(it, t), OK);
+    assert.ok(ps.funds - before >= 1 && ps.funds - before <= 6);
+  }
+  const first = ps.acquireItem(A('3_12'));
+  const merged = ps.acquireItem(A('3_12'));
+  assert.equal(ps.find(first.uid), null); assert.equal(merged.id, B('3_12'));
+  assert.equal(ps.pieceView(merged).golden, true);
+  assert.match(DATA.items[merged.id].desc, /2~12/);
+  // Force the legitimate elite payout 8 using the RNG's documented [0,n) contract.
+  m.rngMeta.int = n => { assert.equal(n, 11); return 6; };
+  const before = ps.funds; assert.deepEqual(equip(merged, t), OK);
+  assert.equal(ps.funds - before, 8);
+  assert.equal(equip(merged, t).error, 'BAD_TARGET'); assert.equal(ps.funds - before, 8);
+  m.dispose();
 });
 
 test('随身身份牌: every bond of the target +3 / +6 layers, active or not', () => {
