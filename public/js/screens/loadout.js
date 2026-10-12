@@ -389,6 +389,7 @@ function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset,
     <div class="lo-detail__body" ref=${bodyRef}>
       <${CultivationSection} charId=${chess.charId} ops=${ops} onSet=${onOps} standIn=${notOwned} />
       <${LoadoutGarrisons} chess=${level === 'elite' && golden ? golden : chess} m=${m} />
+      <${AppearanceControls} key=${chess.charId} charId=${chess.charId} manifest=${m} />
       <section class="lo-sec">
         <header class="lo-sec__head">
           <h3>${t('技能')}<${MicroLabel}>SKILL<//></h3>
@@ -855,3 +856,4 @@ export function LoadoutButton({ from, size = 'md', variant = 'secondary', class:
     ${nDiy ? html`<span class="lo-entry__own lo-entry__diy" aria-label=${t('{n} 个自选名额已选择', { n: nDiy })} title=${t('{n} 个自选名额已选择', { n: nDiy })}>${t('自选')} <b class="num">${nDiy}</b></span>` : null}
   </button>`;
 }
+import { AppearanceControls } from '../ui/appearanceControls.js';

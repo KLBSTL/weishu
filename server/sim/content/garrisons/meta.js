@@ -424,7 +424,7 @@ H.SERVER_FRONT_SAME_EFFECT_PREP_FIN = {
 };
 H.COLUMBIA_DEMKNI = {
   run(ctx) {
-    for (const distance of [1, 2]) copyFront(ctx, 'SERVER_PREP_FIN', 'COLUMBIA_DEMKNI', distance);
+    copyFront(ctx, 'SERVER_PREP_FIN', 'COLUMBIA_DEMKNI');
   },
 };
 H.SERVER_FRONT_SAME_EFFECT_PREP_START = {

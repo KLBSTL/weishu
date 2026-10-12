@@ -4,6 +4,7 @@ import { hasHp } from '../../damage.js';
 export const BOND = 'columbiaShip';
 export const BLAST_RADIUS = 2.5; // Same as op-wisdel.js S3_SPLASH.
 export const IDENTITY_CARD = 'chess_item_1_04_e_a';
+export const PRESIDENT_DOLL = 'chess_item_4_columbia_doll_e_a';
 const has = (u, code, form) => (u?.def?.raw?.garrisonIds ?? []).includes(`garrison_columbia_${code}_${form}`);
 const elite = (u, code) => has(u, code, 'b');
 const owns = (u, code) => has(u, code, 'a') || elite(u, code);
@@ -15,6 +16,11 @@ export function install(battle) {
     const refresh = () => {
       for (const u of ops) {
         if (active() && member(u)) S.passiveBuff(battle, u, 'bond:columbia:attack', S.directMods({ atk: .20 + .007 * L() }));
+        if (owns(u, 'tinman')) {
+          const gold = elite(u, 'tinman');
+          S.passiveBuff(battle, u, 'garrison:columbia:tinman', S.directMods({ atk: gold ? .4 : .2, hp: gold ? .4 : .2 },
+            { spRecoveryFlat: Math.floor(L() / 10) * (gold ? .1 : .05) }));
+        }
         if (owns(u, 'heyak')) S.passiveBuff(battle, u, 'garrison:columbia:heyak', {
           dmgDealtMul: 1 + (elite(u, 'heyak') ? .02 : .01) * Math.floor((L() + S.bondLayers(battle, pid, 'arcaneShip')) / 3),
         });
@@ -26,29 +32,44 @@ export function install(battle) {
     });
     if (!S.bondActive(battle, pid, BOND, 2)) continue;
     let readyAt = 0;
-    const afflictions = new WeakMap(); // One refreshed DoT per player and enemy, independent of its position.
-    battle.on('attack', ({ attacker: source, targets }) => {
-      const target = targets?.find(t => t?.side === 'enemy');
-      if (!member(source) || !S.onField(source) || !target || battle.time + 1e-9 < readyAt) return;
+    const zones = new Map(), lastBurnAt = new WeakMap();
+    battle.on('damaged', ({ source, target, amount, type, dmg }) => {
+      if (!member(source) || !S.onField(source) || target?.side !== 'enemy' || !(amount > 0) || type === 'element'
+        || dmg?.tags?.some(tag => tag.startsWith('bond:columbia:')) || battle.time + 1e-9 < readyAt) return;
       const layers = L();
-      readyAt = battle.time + Math.max(1, 10 - Math.floor(layers / 100));
+      readyAt = battle.time + Math.max(1, 10 - Math.floor(layers / 10) * .1);
       // Reserve a shared cooldown before extra damage; snapshot living, deployed operators only.
       const atk = ops.filter(u => member(u) && S.onField(u)).reduce((sum, u) => sum + u.s.atk, 0);
       const x = target.x, y = target.y;
       battle.after(0, () => {
         battle.fx('aoe', { x, y, radius: BLAST_RADIUS, id: source.id, skill: 'columbia:blast' });
         for (const e of battle.foesInRadius(x, y, BLAST_RADIUS, true)) {
-          battle.dealDamage(source, e, { amount: atk * 2, type: 'arts', canDodge: false, tags: ['bond:columbia:burst'] });
-          if (!hasHp(e)) continue;
-          const mark = {};
-          afflictions.set(e, mark);
-          for (let second = 1; second <= 5; second++) battle.after(second, () => {
-            if (afflictions.get(e) !== mark || !hasHp(e)) return;
-            battle.dealDamage(source, e, { amount: atk * layers * .005, type: 'arts', canDodge: false,
-              tags: ['dot', 'bond:columbia:dot'] });
-            if (second === 5) afflictions.delete(e);
-          });
+          battle.dealDamage(source, e, { amount: atk * 1.5, type: 'arts', canDodge: false, tags: ['bond:columbia:burst'] });
         }
+        const key = `${Math.round(x)}:${Math.round(y)}`, previous = zones.get(key);
+        battle.fx('aoe', { x, y, radius: BLAST_RADIUS, duration: 5, id: source.id, skill: 'columbia:burn' });
+        if (previous && previous.until + 1e-9 >= battle.time) {
+          Object.assign(previous, { x, y, atk, source, until: battle.time + 5 });
+          return; // Refresh expiry and snapshot without postponing the next tick indefinitely.
+        }
+        const zone = { x, y, atk, source, until: battle.time + 5 };
+        zones.set(key, zone);
+        const burn = () => {
+          if (zones.get(key) !== zone) return;
+          if (battle.time > zone.until + 1e-9) { zones.delete(key); return; }
+          for (const e of battle.foesInRadius(zone.x, zone.y, BLAST_RADIUS)) {
+            if (!hasHp(e) || battle.time - (lastBurnAt.get(e) ?? -Infinity) < 1 - 1e-9) continue;
+            // Independent regions may coexist; their overlap still gives an enemy only one burn per second.
+            let strongest = zone;
+            for (const other of zones.values()) if (other.until + 1e-9 >= battle.time && other.atk > strongest.atk
+              && battle.foesInRadius(other.x, other.y, BLAST_RADIUS).includes(e)) strongest = other;
+            lastBurnAt.set(e, battle.time);
+            battle.dealDamage(strongest.source, e, { amount: strongest.atk * .5, type: 'arts', canDodge: false,
+              tags: ['dot', 'bond:columbia:dot'] });
+          }
+          battle.after(1, burn);
+        };
+        battle.after(1, burn);
       });
     });
   }
@@ -56,32 +77,39 @@ export function install(battle) {
 export function registerMeta(registry) {
   const spendingTrait = secondaryBond => ({
     run(ctx) {
-      const { count, columbia_count, funds_per_trigger, max_layers } = ctx.source.bb;
+      const { count, funds_per_trigger } = ctx.source.bb;
       const triggers = Math.floor(ctx.roundStats().spent / funds_per_trigger);
-      const capped = n => Number.isFinite(max_layers) ? Math.min(n, max_layers) : n;
-      ctx.addLayers(BOND, capped(triggers * (columbia_count ?? count)), { requireActive: true });
-      ctx.addLayers(secondaryBond, capped(triggers * count), { requireActive: true });
+      ctx.addLayers(secondaryBond, triggers * count, { requireActive: true });
     },
   });
   registry.garrison('COLUMBIA_F12YIN', spendingTrait('investShip'));
+  registry.garrison('COLUMBIA_F12YIN_START', {
+    run(ctx) { ctx.addLayers(BOND, Math.floor(ctx.funds() / ctx.source.bb.funds_per_trigger) * ctx.source.bb.count, { requireActive: true }); },
+  });
   registry.garrison('COLUMBIA_BSTALK', {
     onGain(ctx) { ctx.addLayers(BOND, ctx.chessRecord(ctx.source.piece.id)?.isGolden ? 4 : 2, { requireActive: false }); },
   });
-  registry.garrison('COLUMBIA_TINMAN', {
-    onGain(ctx) {
-      const count = ctx.chessRecord(ctx.source.piece.id)?.isGolden ? 2 : 1;
-      for (let i = 0; i < count; i++) ctx.grantItem(IDENTITY_CARD);
+  registry.garrison('COLUMBIA_SILENT', {
+    run(ctx) {
+      const { count, funds_per_trigger, max_triggers } = ctx.source.bb;
+      ctx.addLayers('visiShip', count, { requireActive: true });
+      if (!ctx.bondActive(BOND)) return;
+      const triggers = Math.min(max_triggers, Math.floor(ctx.funds() / funds_per_trigger));
+      if (triggers > 0 && ctx.spendFunds(triggers)) ctx.addLayers(BOND, triggers * count, { requireActive: true });
     },
   });
-  registry.garrison('COLUMBIA_SILENT', {
-    run(ctx) { for (const id of [BOND, 'visiShip']) ctx.addLayers(id, 2 * ctx.source.bb.count, { requireActive: true }); },
+  registry.garrison('COLUMBIA_ASTESI', {
+    run(ctx) {
+      const paid = Math.min(ctx.funds(), ctx.source.bb.max_cost);
+      if (paid > 0 && ctx.spendFunds(paid)) for (const id of [BOND, 'arcaneShip']) ctx.addLayers(id, paid * ctx.source.bb.count, { requireActive: true });
+      ctx.addPendingFunds(1);
+    },
   });
-  registry.garrison('COLUMBIA_ASTESI', spendingTrait('arcaneShip'));
   registry.garrison('COLUMBIA_APHRIS', {
     run(ctx) {
       if (!ctx.bondActive(BOND) || !ctx.bondActive('preciShip')) return;
-      const { count, funds_per_trigger } = ctx.source.bb;
-      const triggers = Math.floor(ctx.funds() / funds_per_trigger);
+      const { count, funds_per_trigger, max_triggers } = ctx.source.bb;
+      const triggers = Math.min(max_triggers, Math.floor(ctx.funds() / funds_per_trigger));
       if (triggers <= 0 || !ctx.spendFunds(triggers)) return;
       const n = triggers * count;
       for (const id of [BOND, 'preciShip']) ctx.addLayers(id, n, { requireActive: true });
@@ -95,7 +123,7 @@ export function registerMeta(registry) {
       if (ev.bondId !== BOND || !(ev.to > ev.from)) return;
       const before = ctx.counter('columbia:earnedLayers'), after = before + ev.to - ev.from;
       ctx.setCounter('columbia:earnedLayers', after);
-      for (let n = Math.floor(before / 25); n < Math.floor(after / 25); n++) ctx.grantItem(IDENTITY_CARD);
+      for (let n = Math.floor(before / 10); n < Math.floor(after / 10); n++) ctx.grantItem(PRESIDENT_DOLL);
     },
   });
 }

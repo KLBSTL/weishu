@@ -4,8 +4,16 @@ Local Sarkaz extension: `tools/assets/plan.mjs` maps the original covenant SVG t
 
 Owner: `tools/fetch-assets.mjs` and `tools/assets/*`. Research background: `docs/research/07-assets.md`.
 
-All art, Spine models and audio are **downloaded at install time**. They are never committed; `public/assets/` is git-ignored.
+The weishu distribution includes downloaded art, Spine models, audio, fonts and browser vendors so a fresh clone runs offline; ignored asset directories are explicitly staged for releases. Preserve upstream credits and licences. See [distribution rules](LOCAL-EXPANSION.md). The original upstream setup can still download them at install time.
 Everything the client needs is listed in **`data/assets.json`**. The client should only request URLs that appear in that manifest.
+
+## Selectable skins and actions in weishu
+
+The first batch includes 38 additional battle skins for 18 extension operators, with Front and Back models for all 38 and Base action models for 37: 113 validated Spine models, 339 skeleton/atlas/PNG files plus `public/assets/skins/catalogue.json`. Files come from [fexli/ArknightsResource at d7bdc0146f99f6fa88ecdc1bbf79021c012c21c5](https://github.com/fexli/ArknightsResource/tree/d7bdc0146f99f6fa88ecdc1bbf79021c012c21c5/spine). Chinese skin names come from the official-format [Kengxxiao/ArknightsGameData skin table](https://github.com/Kengxxiao/ArknightsGameData/blob/master/zh_CN/gamedata/excel/skin_table.json). Game art belongs to its original rights holders; the project remains an unofficial, non-commercial fan remake. Existing credits and licences apply unchanged.
+
+`tools/build-skins.mjs` validates PNG headers, atlas regions, skeleton parsing and animation lists, normalizes PMA and page sizes, generates the catalogue and updates the asset hash/counts. A clone rebuilds from the committed catalogue; maintainers may supply a downloaded report as the first argument and cached official skin names. `tools/fetch-assets.mjs` incorporates this catalogue and protects these files from orphan pruning. `chars[charId].skins` stores the Front/Back models and optional Base model; `skinSource` records the pinned source and `skinStats` records this batch's files, bytes and model count.
+
+Operator details and loadouts save skin selection and the action toggle locally by charId, shared by normal/elite forms. Front/Back models are used in battle, Base models only in the action preview. Animation timestamps used by the simulation still come from the default model; skin choice does not change damage, hit timing or deterministic RNG. The out-of-game bond library opens the same current rules and member details without creating a match. [Draft and verification](appearance-and-bond-library.md).
 
 ## Running
 

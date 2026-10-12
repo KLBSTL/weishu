@@ -113,7 +113,7 @@ export function registerMeta(registry) {
   });
   registry.garrison('SARKAZ_METEO', {
     onGain(ctx) {
-      const n = ctx.chessRecord(ctx.source.piece.id)?.isGolden ? 4 : 2;
+      const n = ctx.chessRecord(ctx.source.piece.id)?.isGolden ? 8 : 4;
       for (const bond of ctx.pieceBonds(ctx.source.piece.uid)) ctx.addLayers(bond, n, { requireActive: false });
     },
   });

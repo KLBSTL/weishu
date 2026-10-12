@@ -558,6 +558,7 @@ export class SpineActor {
   }
 
   update(dt) {
+    if (this.visualAnimate === false) dt = 0;
     this.clock += dt;
     if (this.endClip && this.clock >= this.endAt) {
       const clip = this.endClip;

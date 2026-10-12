@@ -163,9 +163,9 @@ test('garrisons: all referenced exist; 60 distinct effect keys', () => {
   }
 });
 
-test('items: 123 item chess with valid effects, bonds and golden links', () => {
-  assert.equal(Object.keys(items).length, 123);
-  assert.equal(Object.values(items).filter((i) => i.itemType === 'EQUIP' && !i.isGolden).length, 60);
+test('items: 125 item chess with valid effects, bonds and golden links', () => {
+  assert.equal(Object.keys(items).length, 125);
+  assert.equal(Object.values(items).filter((i) => i.itemType === 'EQUIP' && !i.isGolden).length, 61);
   assert.equal(Object.values(items).filter((i) => i.itemType === 'MAGIC').length, 3);
   for (const it of Object.values(items)) {
     assert.ok(effects[it.effectId], `${it.id}: effect ${it.effectId}`);

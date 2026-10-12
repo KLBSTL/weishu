@@ -11,6 +11,22 @@ export class PlayerRecruitment {
     const spec = this.recruitmentSpec();
     if (!spec || !this.alive) return;
     const state = this.recruitment;
+    if (spec.kind === 'columbia-income') {
+      if (state.granted.includes(r)) return;
+      state.granted.push(r); // Check once after income, before deployed prep-start traits; never retry this round.
+      if (this.funds >= spec.minFunds && (freeSlot(this.hand) >= 0 || freeSlot(this.temp) >= 0)) {
+        const id = this.m.pool.roll(this.m.rngShop, { maxTier: this.shop.level, filter: candidate => {
+          const c = this.gd.chess(candidate);
+          return c?.visible && !c.isGolden && !c.isDiy && c.bonds.includes(spec.bond);
+        } });
+        if (id && this.spend(spec.cost)) {
+          this.acquireChess(id, { source: 'recruitment' });
+          this._afterSpend(spec.cost, 'band');
+        }
+      }
+      this.dirty();
+      return;
+    }
     if (spec.rounds.includes(r) && !state.granted.includes(r)) {
       state.granted.push(r); state.charges++;
     }
@@ -118,7 +134,7 @@ export class PlayerRecruitment {
 
   recruitmentView() {
     const spec = this.recruitmentSpec();
-    if (!spec) return null;
+    if (!spec || spec.kind === 'columbia-income') return null;
     const state = this.recruitment, offer = state.pending;
     return { kind: spec.kind, charges: state.charges, rounds: spec.rounds, granted: [...state.granted],
       samples: spec.kind === 'columbia' ? this.allChess().filter(p => this.recruitmentSample(p.uid)).map(p => ({ uid: p.uid, id: p.id })) : [],

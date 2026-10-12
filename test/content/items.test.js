@@ -769,7 +769,7 @@ const targetWithCandidates = (m, tier, maxTier, need, skip = 0) => plain((c) => 
 
 test('consume-on-equip items resolve once, are destroyed and never take a slot', () => {
   const consume = Object.values(DATA.items).filter((r) => typeof r.kind === 'string' && r.kind.startsWith('consume_on_equip') && r.id !== A('5_06'));
-  assert.equal(consume.length, 23, '11 consume items ×2 + golden 博士投影');
+  assert.equal(consume.length, 25, 'native consumables plus normal/elite president doll');
   const { m, ps, equip } = setup({ seed: 11 });
   const pool = plain((c) => c.tier === 1 && c.bonds.length);
   for (const [k, rec] of consume.entries()) {
@@ -1323,54 +1323,59 @@ test('merging: two identical normal items become the golden one (upgradeNum 2); 
   cover(A('3_07'), B('3_07'));
 });
 
-test('Columbia chip and field: skill stats, shield budget, combo, damage and merge', () => {
-  for (const form of ['a', 'b']) {
-    const chip = `chess_item_3_columbia_chip_e_${form}`, field = `chess_item_6_columbia_field_e_${form}`;
-    const gold = form === 'b';
-    const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [chip, field] }] });
+test('Columbia DOCX armor and field: mitigation, 300/600 shields, 3000/6000 caps, retained shield and real shop merges', () => {
+  for (const form of ['a', 'b']) for (const combo of [false, true]) {
+    const chip = 'chess_item_3_columbia_chip_e_' + form, field = 'chess_item_6_columbia_field_e_' + form, gold = form === 'b';
+    const h = fight({ ops: { t_op: op('t_op', { skill: { duration: 40 } }) },
+      units: [{ chessId: 't_op', row: 10, col: 4, items: combo ? [chip, field] : [field] }],
+      enemies: { enemy_attacker: DUMMY('enemy_attacker', { atk: 1000 }) } });
     h.step(); const u = h.unit('t_op');
-    close(u.s.atk, gold ? 650 : 600, 'chip attack'); close(u.s.maxHp, gold ? 4000 : 3000, 'combo HP');
-    close(u.s.dmgTakenMul, gold ? .5 : .7, 'combo resistance');
-    close(u.s.aspd, 100, 'no skill speed before activation');
-    u.skill.activate('test', { free: true }); h.step();
-    close(u.s.aspd, gold ? 130 : 120, 'skill speed');
-    h.run(1); close(numericShieldTotal(u), gold ? 1000 : 500, 'first second');
-    const e = h.spawn('e_d', { pos: [7, 9] });
-    close(hitTrue(h, u, e, 100), gold ? 150 : 130, 'shield damage bonus');
-    h.run(2); assert.ok(numericShieldTotal(u) <= u.s.maxHp);
-    u.skill.end('test'); h.step(); close(u.s.aspd, 100, 'speed expires');
-    const shield = numericShieldTotal(u); h.run(1.1); close(numericShieldTotal(u), shield, 'shield production stops');
-    assert.deepEqual(h.b.errors, []);
-    cover(chip, field);
+    close(u.s.maxHp, 2000 * (combo ? (gold ? 1.3 : 1.2) : 1));
+    close(u.s.physTakenMul, combo ? (gold ? .75 : .85) : 1); close(u.s.artsTakenMul, u.s.physTakenMul);
+    close(u.s.atk, 500); close(u.s.dmgDealtMul, 1); close(h.b.resistOf(u), combo ? .5 : 0);
+    const e = h.spawn('enemy_attacker', { pos: [10, 7] }); h.run(.2); close(e.s.atk, gold ? 750 : 850);
+    e.x = 16; h.run(.3); close(e.s.atk, 1000);
+    u.skill.activate('test', { free: true }); h.run(1.01); close(numericShieldTotal(u), gold ? 600 : 300);
+    h.run(21); close(numericShieldTotal(u), combo ? 6000 : 3000);
+    u.skill.end('test'); const retained = numericShieldTotal(u); h.run(3); close(numericShieldTotal(u), retained);
+    cover(chip, field); assert.deepEqual(h.b.errors, []);
   }
-  const h = fight({ ops: { t_op: op('t_op', { bonds: ['sarkazShip'] }) },
-    units: [{ chessId: 't_op', row: 10, col: 4, items: [A('6_columbia_field')] }],
-    bonds: { sarkazShip: { active: true, count: 6, tier: 2, layers: 0 } } });
-  h.step(); const u = h.unit('t_op'); u.skill.activate('test', { free: true }); h.run(4);
-  close(numericShieldTotal(u), 1000, 'Sarkaz half-HP cap overrides field full-HP cap');
-  const s = setup();
-  for (const k of ['3_columbia_chip', '6_columbia_field']) {
-    s.ps.acquireItem(A(k)); s.ps.acquireItem(A(k));
-    assert.ok(handIds(s.ps, 'item').includes(B(k)), k);
+  const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [A('6_columbia_field')] }],
+    ops: { t_op: op('t_op', { bonds: ['sarkazShip'] }) }, bonds: { sarkazShip: { active: true, count: 6, tier: 2, layers: 0 } } });
+  h.step(); const u = h.unit('t_op'); u.skill.duration = 20; u.skill.activate('test', { free: true }); h.run(4.1);
+  close(numericShieldTotal(u), 1000, 'shared Sarkaz half-HP budget still applies');
+  const s = setup(); for (const k of ['3_columbia_chip', '6_columbia_field']) {
+    s.ps.acquireItem(A(k)); s.ps.acquireItem(A(k)); assert.ok(handIds(s.ps, 'item').includes(B(k)));
     assert.ok(s.m.gd.shopItemsByTier[DATA.items[A(k)].tier].includes(A(k)));
     assert.ok(!s.m.gd.shopItemsByTier[DATA.items[A(k)].tier].includes(B(k)));
   }
-  s.m.dispose();
+  assert.equal(DATA.items[A('3_columbia_chip')].tier, 4); assert.equal(DATA.items[A('3_columbia_chip')].price, 3);
+  assert.equal(DATA.items[A('6_columbia_field')].price, 4); s.m.dispose();
 });
 
-test('Columbia field tracks reduced maximum HP and borrowed chip expiration without losing the cap', () => {
-  const h = fight({ ops: { from: op('from'), to: op('to') }, units: [
+test('President doll: consume once, delayed 1/2 funds, pair merge, reward-only price zero', () => {
+  for (const [form, n] of [['a', 1], ['b', 2]]) {
+    const { m, ps, equip } = setup(); const id = 'chess_item_4_columbia_doll_e_' + form;
+    const t = give(m, ps, plain(c => c.tier === 1)[0], 'hand'), it = giveItem(m, ps, id);
+    const funds = ps.funds; assert.deepEqual(equip(it, t), OK);
+    assert.equal(ps.find(it.uid), null); assert.equal(ps.pendingFunds, n); assert.equal(ps.funds, funds);
+    assert.notDeepEqual(equip(it, t), OK); assert.equal(ps.pendingFunds, n);
+    m.round = 2; ps.startRound(2); assert.equal(ps.funds, funds + ps.gd.income(2) + n); assert.equal(ps.pendingFunds, 0);
+    assert.equal(DATA.items[id].price, 0); assert.ok(DATA.items[id].shopExcluded); cover(id); m.dispose();
+  }
+  const { m, ps } = setup(); ps.acquireItem(A('4_columbia_doll')); ps.acquireItem(A('4_columbia_doll'));
+  assert.ok(handIds(ps, 'item').includes(B('4_columbia_doll'))); m.dispose();
+});
+
+test('Columbia field borrowed armor expiration removes resistance and restores the 3000 budget', () => {
+  const h = fight({ ops: { from: op('from'), to: op('to', { skill: { duration: 40 } }) }, units: [
     { chessId: 'from', row: 10, col: 4, items: [A('3_columbia_chip')] },
     { chessId: 'to', row: 10, col: 6, items: [B('6_columbia_field')] },
-  ] });
-  h.step(); const from = h.unit('from'), to = h.unit('to');
-  lendItemEffects(h.b, from, to, { maxTier: 5, duration: 2 });
-  h.run(.2); close(to.s.maxHp, 4000, 'borrowed chip combo');
-  h.b.addBuff(to, { key: 'test:shield', shield: 5000 });
-  close(numericShieldTotal(to), 4000, '100% aggregate cap');
-  h.run(2.2); close(to.s.maxHp, 2000, 'combo removed');
-  close(numericShieldTotal(to), 2000, 'cap follows maximum HP');
-  close(to.s.dmgTakenMul, 1, 'combo reduction removed');
+  ] }); h.step(); const from = h.unit('from'), to = h.unit('to');
+  lendItemEffects(h.b, from, to, { maxTier: 5, duration: 2 }); h.run(.2);
+  close(to.s.maxHp, 2400); close(h.b.resistOf(to), .5); to.skill.activate('test', { free: true }); h.run(1.1);
+  const shield = to.buffs.find(b => b.key.includes('columbia_field') && b.shield > 0); assert.ok(shield); shield.shield = 5000;
+  h.run(1.1); close(to.s.maxHp, 2000); close(numericShieldTotal(to), 3000); close(h.b.resistOf(to), 0);
   assert.deepEqual(h.b.errors, []);
 });
 
@@ -1418,5 +1423,5 @@ test('coverage: every equipment (normal + golden) and every Art is exercised by 
   // items whose numbers are asserted in the stat table, the proc tests or the meta tests
   const missing = Object.keys(DATA.items).filter((id) => !COVER.has(id)).sort();
   assert.deepEqual(missing, []);
-  assert.equal(Object.keys(DATA.items).length, 123);
+  assert.equal(Object.keys(DATA.items).length, 125);
 });

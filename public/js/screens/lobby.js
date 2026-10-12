@@ -317,6 +317,7 @@ export function LobbyScreen() {
         <${SettingsButton} class="lobby-settings" variant="secondary" label=${t('设置')} />
         <${GuideButton} class="lobby-guide" variant="secondary" label=${t('玩法说明')} />
         <${LoadoutButton} from="lobby" size="sm" class="lobby-loadout" label=${t('干员调配')} />
+        <${BondLibraryButton} class="lobby-bond-library" />
         <div class="me-chip">
           <${AvatarFrame} size="sm" name=${me.name} seat=${0} self=${true} />
           <div class="me-chip__text">
@@ -375,3 +376,4 @@ export function LobbyScreen() {
     </div>
   </div>`;
 }
+import { BondLibraryButton } from '../ui/bondLibrary.js';

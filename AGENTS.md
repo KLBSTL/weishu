@@ -19,7 +19,7 @@ requirements, suggestions, verified evidence, unimplemented work and pending che
 authorization: research/draft-only requests stop at the draft; already-authorized implementation continues without
 repeated formal confirmation. Before publishing existing changes, check their draft, implementation record and tests.
 In the ark workspace also follow the parent `../AGENTS.md`. The current published draft and validation record is
-[the round economy update](docs/columbia-economy-update.md); keep future drafts accessible inside this repository.
+[the Columbia document update](docs/columbia-docx-update.md); keep future drafts accessible inside this repository.
 
 1. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — the code map: where things live, data flow, golden results,
    import boundaries, where common changes start.

@@ -67,6 +67,7 @@
 
 import { UF, ANIM } from '../../../shared/constants.js';
 import { SpineActor } from './spine.js';
+import { readAppearance } from '../appearance.js';
 import { diamondTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTexture, hudRings, ringArc, HUD_DISC, ELEMENT_RING } from './textures.js';
 import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIconSuppressed } from './style.js';
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
@@ -609,6 +610,11 @@ export class UnitView {
    */
   retryAssets() {
     if (this.destroyed) return;
+    const modelId = this.info.spine || this.info.defId;
+    if (this.actor && this.ctx.assets?.spineEntry?.(modelId, { back: this._wantsBack() }) !== this.entry) {
+      this._loadSpine(true);
+      return;
+    }
     if (!this._pic || this._pic.state === 'none') this._loadPicture();
     if (this.actor) return;
     if (!this._spineBusy) { this._retryAt = 0; this._loadSpine(true); return; }
@@ -1212,6 +1218,7 @@ export class UnitView {
       else if (this.flags & UF.COLD) tint = 0xcfe6ff;
       if (flashK > 0) tint = mixTint(tint, 0xff8a80, flashK * 0.8);
       let animDt = dt * (this.ctx.animRate?.() || 1);
+      this.actor.visualAnimate = readAppearance(this.info.spine || this.info.defId).animate;
       if (this._offDt > 0) { animDt += Math.min(0.5, this._offDt); this._offDt = 0; }
       let interval = this.ctx.impostorInterval ? this.ctx.impostorInterval() : 0;
       if (this.lodIdle) interval = Math.max(interval, 3);

@@ -1,5 +1,10 @@
 # Golden results
 
+Current weishu corpus (2026-10-12): 48 roster, 50 bonds, 25 fields, 18 matches, 11 stand-ins and 138 DIY scenarios,
+290 total. The Columbia DOCX update recomputed all six families: 110 changed, no additions/removals, all DIY
+digests unchanged. [Full current audit](../../docs/columbia-docx-golden.md) names every changed case and its reason;
+the older counts and release notes below are retained as history.
+
 The simulation is deterministic: the same seed and inputs give the same battle and the same match, bit for bit. These
 files record the exact outcome of a fixed corpus of seeded scenarios, so a change that alters gameplay — even one meant
 to be a pure refactor that only reorders random draws, hook order or iteration order — fails loudly instead of slipping

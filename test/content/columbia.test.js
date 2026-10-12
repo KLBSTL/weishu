@@ -87,7 +87,7 @@ test('Columbia blast snapshots field ATK without Burn, ticks five times and shar
   h.b.on('damaged', c => { if (c.dmg.tags?.some(t => t.startsWith('bond:columbia:'))) seen.push(c); });
   const total = ops.reduce((n, u) => n + u.s.atk, 0);
   hit(); h.step();
-  close(seen.find(c => c.dmg.tags.includes('bond:columbia:burst')).amount, total * 2);
+  close(seen.find(c => c.dmg.tags.includes('bond:columbia:burst')).amount, total * 1.5);
   assert.equal(e.elem.burn || 0, 0); assert.ok(!e.findBuff('burnBurst'));
   h.b.emit('attack', { attacker: ops[1], targets: [e] }); h.step();
   assert.equal(seen.filter(c => c.dmg.tags.includes('bond:columbia:burst')).length, 1);
@@ -95,7 +95,7 @@ test('Columbia blast snapshots field ATK without Burn, ticks five times and shar
   h.run(5.1);
   const ticks = seen.filter(c => c.dmg.tags.includes('bond:columbia:dot'));
   assert.equal(ticks.length, 5);
-  for (const c of ticks) close(c.amount, total * .1);
+  for (const c of ticks) close(c.amount, total * .5);
   h.run(5); hit(); h.step();
   assert.equal(seen.filter(c => c.dmg.tags.includes('bond:columbia:burst')).length, 2);
   assert.deepEqual(h.b.errors, []);
@@ -113,14 +113,14 @@ test('Columbia radius 2.5 and cooldown floor 1s; own damage cannot recursively t
   h.run(.6); hit(); h.step(); assert.equal(targets.length, 2);
 });
 
-test('Columbia shared cooldown changes only at complete 100-layer boundaries', () => {
-  for (const [layers, seconds] of [[0, 10], [99, 10], [100, 9], [899, 2], [900, 1], [999, 1]]) {
+test('Columbia shared cooldown changes only at complete 10-layer boundaries', () => {
+  for (const [layers, seconds] of [[0, 10], [9, 10], [10, 9.9], [99, 9.1], [100, 9], [899, 1.1], [900, 1], [999, 1]]) {
     const { h, ops, e, hit } = setup(layers);
     let blasts = 0;
     h.b.on('damaged', c => { if (c.dmg.tags?.includes('bond:columbia:burst')) blasts++; });
     hit(); h.step(); assert.equal(blasts, 1);
     h.run(seconds - .2);
-    h.b.emit('attack', { attacker: ops[1], targets: [e] }); h.step();
+    h.b.dealDamage(ops[1], e, { amount: 1, type: 'true', isAttack: true }); h.step();
     assert.equal(blasts, 1, `not ready at ${layers} layers`);
     h.run(.3); hit(); h.step();
     assert.equal(blasts, 2, `ready after ${seconds}s at ${layers} layers`);
@@ -137,48 +137,63 @@ test('Hoolheyak reads combined stored Columbia/Arcane layers in complete groups 
   }
 });
 
-test('Columbia DoT follows struck enemies, refreshes one timer and snapshots the newest blast', () => {
-  const { h, ops, e, hit } = setup(800);
-  for (const u of ops) h.b.addBuff(u, { key: 'manual-attacks-only', flags: { disarm: true }, duration: 30 });
-  const late = h.spawn('dummy', { pos: [7, 12] });
-  late.x = e.x + 10; late.y = e.y;
-  for (const enemy of [e, late]) h.b.addBuff(enemy, { key: 'freeze-test-position', flags: { stun: true }, duration: 30 });
-  const damage = [], burns = [];
-  h.b.on('damaged', c => { if (c.dmg.tags?.includes('bond:columbia:dot')) damage.push(c); });
-  const deal = h.b.dealDamage.bind(h.b);
-  h.b.dealDamage = (source, target, dmg) => {
-    if (dmg.tags?.includes('bond:columbia:burn')) burns.push(dmg);
-    return deal(source, target, dmg);
-  };
-  const x = e.x, y = e.y;
-  hit(); h.step(); assert.equal(burns.length, 0);
-  e.x = x + 7; late.x = x; late.y = y;
-  h.run(2.1);
-  assert.equal(damage.length, 2); assert.ok(damage.every(c => c.target === e));
-  h.b.dealDamage(ops[0], late, { amount: 1e10, type: 'true' }); // Refresh only the original target.
-  const old = damage[0].amount;
-  h.b.addBuff(ops[1], { key: 'new-snapshot', mods: { atkFlat: 10000 } });
-  const latest = ops.reduce((n, u) => n + u.s.atk, 0) * 800 * .005;
-  hit(); h.step(); assert.equal(burns.length, 0);
-  h.run(5.1);
-  assert.equal(damage.length, 7, `old remaining ticks cancelled; five replacements: ${JSON.stringify(damage.map(c => [c.target.id, c.amount]))}`);
-  for (const c of damage.slice(2)) { assert.equal(c.target, e); close(c.amount, latest); }
-  assert.ok(latest > old);
-  assert.equal(burns.length, 0, 'neither blast nor DoT applies Burn');
-  h.run(1); assert.equal(damage.length, 7);
+test('Tin Man DOCX: fixed HP/ATK and stepped Columbia SP recovery update with stored layers', () => {
+  for (const [form, n] of [['a', 1], ['b', 2]]) {
+    const { h, ops } = setup(9, { 0: ['garrison_columbia_tinman_' + form] }, 2); const u = ops[0];
+    close(u.s.atk, 1000 * (1 + .2 * n)); close(u.s.maxHp, 4000 * (1 + .2 * n)); close(u.s.spRecovery, 1);
+    h.b.players[0].bonds.columbiaShip.layers = 20;
+    h.b.emit('layerGain', { playerId: u.ownerId, bondId: 'columbiaShip' }); h.step();
+    close(u.s.spRecovery, 1 + .1 * n); assert.deepEqual(h.b.errors, []);
+  }
 });
 
-test('Columbia triggers only enemy attacks, not healing, summons or standalone damage', () => {
-  const { h, ops, e } = setup();
-  let blasts = 0;
+test('Columbia fixed fire region: leaving stops damage, entering takes it, refresh preserves cadence and latest snapshot', () => {
+  const { h, ops, e, hit } = setup(800);
+  for (const u of ops) h.b.addBuff(u, { key: 'manual-only', flags: { disarm: true }, duration: 30 });
+  const late = h.spawn('dummy', { pos: [7, 12] }); late.x = e.x + 10; late.y = e.y;
+  const damage = []; h.b.on('damaged', c => { if (c.dmg.tags?.includes('bond:columbia:dot')) damage.push(c); });
+  const x = e.x, y = e.y; hit(); h.step(); e.x = 2; late.x = x; late.y = y;
+  h.run(2.1); assert.equal(damage.length, 2); assert.ok(damage.every(c => c.target === late));
+  const old = damage[0].amount; h.b.addBuff(ops[1], { key: 'latest', mods: { atkFlat: 10000 } });
+  const latest = ops.reduce((n, u) => n + u.s.atk, 0) * .5;
+  hit([], 1, late); h.step(); h.run(5.1); assert.equal(damage.length, 7);
+  for (const c of damage.slice(2)) { assert.equal(c.target, late); close(c.amount, latest); }
+  assert.ok(latest > old); h.run(1); assert.equal(damage.length, 7); assert.equal(late.elem.burn || 0, 0);
+});
+
+test('Columbia regions refresh every second without starving burn; overlapping regions do not stack on one enemy', () => {
+  const { h, ops, e, hit } = setup(999);
+  for (const u of ops) h.b.addBuff(u, { key: 'manual-only', flags: { disarm: true }, duration: 30 });
+  const late = h.spawn('dummy', { pos: [7, 10] }); const ticks = [];
+  h.b.on('damaged', c => { if (c.dmg.tags?.includes('bond:columbia:dot')) ticks.push({ ...c, t: h.b.time }); });
+  hit(); h.step();
+  for (let i = 0; i < 4; i++) { h.run(1.05); hit([], 1, i % 2 ? e : late); h.step(); }
+  assert.ok(ticks.length >= 8, 'refreshing never cancels all burning ticks');
+  for (const target of [e, late]) {
+    const times = ticks.filter(c => c.target === target).map(c => c.t);
+    assert.ok(times.length <= 5);
+    for (let i = 1; i < times.length; i++) assert.ok(times[i] - times[i - 1] >= 1 - 1e-6);
+  }
+  assert.deepEqual(h.b.errors, []);
+});
+
+test('Columbia fire persists after source leaves; zero damage cannot trigger it', () => {
+  const { h, ops, hit } = setup(); const ticks = [];
+  h.b.on('damaged', c => { if (c.dmg.tags?.includes('bond:columbia:dot')) ticks.push(c.amount); });
+  hit([], 0); h.step(); h.run(1.1); assert.equal(ticks.length, 0);
+  hit(); h.step(); ops[0].deployed = false; h.run(5.1);
+  assert.equal(ticks.length, 5); assert.deepEqual(h.b.errors, []);
+});
+
+test('Columbia damage trigger includes standalone and periodic HP damage, excludes tokens, healing, element buildup and recursion', () => {
+  const { h, ops, e } = setup(); let blasts = 0;
   h.b.on('damaged', c => { if (c.dmg.tags?.includes('bond:columbia:burst')) blasts++; });
-  h.b.dealDamage(ops[0], e, { amount: 5, type: 'arts', tags: ['dot'] });
-  h.b.emit('attack', { attacker: ops[0], targets: [ops[1]] });
-  h.b.emit('attack', { attacker: { kind: 'token', ownerId: ops[0].ownerId }, targets: [e] });
+  h.b.emit('attack', { attacker: ops[0], targets: [e] });
+  h.b.emit('damaged', { source: { kind: 'token', ownerId: ops[0].ownerId }, target: e, amount: 5 });
+  h.b.emit('damaged', { source: ops[0], target: e, amount: 5, type: 'element' });
   h.step(); assert.equal(blasts, 0);
-  h.b.emit('attack', { attacker: ops[0], targets: [e], isSkill: true });
-  h.b.emit('attack', { attacker: ops[1], targets: [e] });
-  h.step(); assert.equal(blasts, 1, 'all members share the same cooldown');
+  h.b.dealDamage(ops[0], e, { amount: 5, type: 'arts', tags: ['dot'] }); h.step(); assert.equal(blasts, 1);
+  h.run(5.2); assert.equal(blasts, 1, 'burn does not recursively trigger a new bombardment');
 });
 
 test('Beanstalk summons real crab, fatal becomes tactical point and recovers, S2 temporary crabs leave', () => {

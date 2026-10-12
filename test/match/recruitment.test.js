@@ -17,6 +17,9 @@ function setup(kind = 'columbia', level = 6) {
   m.bannedChess = []; m.disabledBonds = [];
   ps.bandId = `band_recruit_${kind}`;
   ps.shop.level = level;
+  // Retained legacy order transactions are tested independently of the new automatic squad effect.
+  if (kind === 'columbia') ps.recruitmentSpec = () => ({ kind, bond: 'columbiaShip', rounds: [3, 6, 9], count: 2,
+    initialChess: normal('豆苗') });
   return { h, m, ps, other: h.ps('p_1') };
 }
 function order(ps, r = 3) { ps.startRecruitmentRound(r); }
@@ -28,7 +31,10 @@ test('42 squads: metadata, LP, fixed schedules and shared-faction identity', () 
   assert.equal(DATA.bands.band_recruit_columbia.totalHp, 26);
   assert.deepEqual(DATA.bands.band_recruit_sarkaz.bondIds, ['sarkazShip']);
   assert.deepEqual(DATA.bands.band_recruit_columbia.bondIds, ['columbiaShip']);
-  assert.equal(DATA.chess[DATA.bands.band_recruit_columbia.recruitment.initialChess].name, '豆苗');
+  assert.equal(DATA.bands.band_recruit_columbia.recruitment.kind, 'columbia-income');
+  assert.equal(DATA.bands.band_recruit_columbia.recruitment.initialChess, null);
+  assert.equal(DATA.bands.band_recruit_columbia.recruitment.minFunds, 10);
+  assert.equal(DATA.bands.band_recruit_columbia.recruitment.cost, 1);
 });
 
 test('Columbia rounds 3/6/9 only, idempotent grants, no shop-upgrade charge; owner only', () => {
@@ -93,22 +99,40 @@ test('cancel/reopen, reconnect views and shop upgrades cannot reroll a Columbia 
   h.invariants();
 });
 
+test('Astesia: unique tier-3 identity, shared stock and shop eligibility use the new tier', () => {
+  const { m } = setup();
+  const records = Object.values(DATA.chess).filter(c => c.charId === 'char_274_astesi');
+  assert.equal(records.length, 2);
+  assert.equal(normal('星极'), 'chess_char_3_columbia_astesi_a', 'existing ids retained');
+  for (const c of records) {
+    assert.equal(c.tier, 3);
+    assert.equal(c.price, DATA.chess[normal('松果').replace(/_a$/, c.isGolden ? '_b' : '_a')].price);
+  }
+  const id = normal('星极');
+  assert.equal(m.pool.cap(id), m.pool.cap(normal('松果')));
+  assert.equal(m.pool.cap(id), 18);
+  const filter = candidate => candidate === id;
+  assert.equal(m.pool.roll(() => 0, { maxTier: 2, filter }), null);
+  assert.equal(m.pool.roll(() => 0, { maxTier: 3, filter }), id);
+  m.dispose();
+});
+
 test('Columbia exact +1 tier excludes Ifrit; equipment returned without sell or refund', () => {
   const { ps, h } = setup();
   order(ps);
-  const sample = ps.acquireChess(normal('星极'));
+  const sample = ps.acquireChess(normal('白面鸮'));
   const itemId = Object.values(DATA.items).find(i => i.itemType === 'EQUIP' && !i.isGolden).id;
   const item = ps.acquireItem(itemId); ps._detach(ps.find(item.uid)); sample.items.push(item);
   const gain = ps.round.gainedChess, sells = ps.round.sells, funds = ps.funds;
   assert.deepEqual(ps.openRecruitment(sample.uid), OK);
-  assert.deepEqual(ps.recruitment.pending.ids.map(id => DATA.chess[id].name), ['白面鸮']);
+  assert.deepEqual(ps.recruitment.pending.ids.map(id => DATA.chess[id].name).sort(), ['山', '塞雷娅'].sort());
   const index = 0;
   assert.deepEqual(choose(ps, index), OK);
   assert.equal(ps.find(sample.uid), null);
   assert.ok(['hand', 'temp'].includes(ps.find(item.uid)?.area));
   assert.equal(ps.round.sells, sells); assert.equal(ps.funds, funds);
   assert.equal(ps.round.gainedChess, gain + 1);
-  const plosis = ps.allChess().find(p => p.id === normal('白面鸮'));
+  const plosis = ps.acquireChess(normal('白面鸮'));
   const ifrit = ps.acquireChess(normal('伊芙利特'));
   order(ps, 6); assert.equal(ps.openRecruitment(ifrit.uid).ok, undefined);
   assert.deepEqual(ps.openRecruitment(plosis.uid), OK);
@@ -227,6 +251,7 @@ test('disabled core blocks new squads and bot spending obeys same server transac
 test('two players compete for the last copy through routed intents without overselling', () => {
   const { ps, other, m, h } = setup();
   other.bandId = ps.bandId; other.shop.level = 6;
+  other.recruitmentSpec = ps.recruitmentSpec;
   order(ps); order(other);
   const a = ps.acquireChess(normal('山')), b = other.acquireChess(normal('山'));
   const target = normal('霍尔海雅');

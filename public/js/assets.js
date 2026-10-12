@@ -153,7 +153,10 @@ export function spineEntry(m, id, opts) {
   if (!s) return null;
   const ch = get(get(m, 'chars'), s) || get(get(m, 'chars'), baseCharId(s));
   if (ch && isObj(ch.spine)) {
-    const sp = (opts && opts.back && isObj(ch.spine.back)) ? ch.spine.back : ch.spine.front;
+    const skin = Array.isArray(ch.skins) ? ch.skins.find(entry => entry.skinId === opts?.skin) : null;
+    const model = isObj(skin?.spine) ? skin.spine : ch.spine;
+    const sp = (opts && opts.back && isObj(model.back)) ? model.back : model.front;
+    if (!validSpine(sp) && model !== ch.spine) return spineEntry(m, id, { ...opts, skin: null });
     return validSpine(sp) ? sp : null;
   }
   const tk = get(get(m, 'tokens'), s);
@@ -738,6 +741,7 @@ export function createAssets(options) {
   const notify = (what) => {
     for (const fn of [...listeners]) { try { fn(what); } catch (err) { console.warn('[assets] change listener failed', err); } }
   };
+  globalThis.addEventListener?.('sp:appearance', () => notify('appearance'));
 
   /** Adopt a manifest (fetched or seeded): resolves `ready()`, stops the background tries, tells the listeners. */
   function adopt(m) {
@@ -900,7 +904,7 @@ export function createAssets(options) {
     subProfIcon: (s) => subProfIconUrl(m(), s),
     ui: (name) => uiUrl(m(), name),
     picture: (id) => unitPictureUrl(m(), id),
-    spineEntry: (id, o) => spineEntry(m(), id, localManifest ? { ...o, local: localManifest } : o),
+    spineEntry: (id, o) => spineEntry(m(), id, { skin: readAppearance(id).skin, ...o, ...(localManifest ? { local: localManifest } : {}) }),
     hasBack: (id) => hasBackSpine(m(), id),
     audio: {
       bgm: (kind) => bgmEntry(m(), kind),
@@ -944,3 +948,4 @@ export function createAssets(options) {
 
 /** Browser singleton. */
 export const assets = createAssets();
+import { readAppearance } from './appearance.js';

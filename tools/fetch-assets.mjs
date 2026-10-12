@@ -64,6 +64,7 @@ import {
 import { collectLeaves, downloadLeaves, resolveTemplate, totalBytes, contentHash, droppedEntries, MANIFEST_VERSION } from './assets/manifest.mjs';
 import { fontJobs, buildFonts } from './assets/fonts.mjs';
 import { skelParserAvailable } from './assets/skel.mjs';
+import { attachSkinCatalogue } from './assets/skin-catalogue.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ASSETS = join(ROOT, 'public', 'assets');
@@ -242,7 +243,10 @@ function tidyManifest(m) {
 function countStats(m, bytes, files) {
   const vals = (o) => Object.values(o || {});
   const spines = new Set();
-  for (const c of vals(m.chars)) for (const s of vals(c.spine)) spines.add(s.skel);
+  for (const c of vals(m.chars)) {
+    for (const s of vals(c.spine)) spines.add(s.skel);
+    for (const skin of c.skins || []) for (const s of [skin.spine.front, skin.spine.back, skin.base].filter(Boolean)) spines.add(s.skel);
+  }
   for (const e of vals(m.enemies)) if (e.spine) spines.add(e.spine.skel);
   for (const t of vals(m.tokens)) if (t.spine) spines.add(t.spine.skel);
   return {
@@ -396,6 +400,7 @@ async function main() {
   const resolved = resolveTemplate(plan.template, { root: ASSETS, spine: spine.entries, sourceOf: (rel) => dl.ledger.files[rel]?.url });
   const body = resolved.value;
   tidyManifest(body);
+  attachSkinCatalogue(body, ROOT, resolved.files);
   const fontFaces = {};
   for (const [name, f] of Object.entries(fonts.files)) fontFaces[name] = f;
   body.fonts = opts.addOnly && current?.fonts ? current.fonts

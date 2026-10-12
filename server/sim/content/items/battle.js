@@ -49,6 +49,7 @@ import {
 import { mitigate, hasHp, periodicDamage, isHpLoss } from '../../damage.js';
 import { hypot } from '../../detmath.js';
 import { numericShieldTotal, clampNumericShields } from '../../buffs.js';
+import { bodyInKeys } from '../../body.js';
 
 // =====================================================================================================================
 // data helpers
@@ -512,23 +513,24 @@ const BY_ITEM = {
     S.every(.1, refresh);
   },
   chess_item_3_columbia_chip_e(battle, u, rec, S) {
-    S.stat('attack', { atkPct: rec.params.atk });
-    const refresh = () => S.stat('skillSpeed', { aspd: u.skill?.active ? rec.params.attack_speed : 0 });
-    S.on('skillStart', c => { if (c.unit === u) refresh(); });
-    S.on('skillEnd', c => { if (c.unit === u) S.stat('skillSpeed', { aspd: 0 }); });
-    S.on('deploy', c => { if (c.unit === u) refresh(); });
-    refresh();
+    S.stat('armor', { hpPct: rec.params.hp, physTakenMul: 1 - rec.params.reduction, artsTakenMul: 1 - rec.params.reduction });
   },
   chess_item_6_columbia_field_e(battle, u, rec, S) {
     const p = rec.params, key = S.key('shield');
-    u.trait.columbiaFieldShields = (u.trait.columbiaFieldShields ?? 0) + 1;
-    S.onDispose(() => { u.trait.columbiaFieldShields = Math.max(0, u.trait.columbiaFieldShields - 1); });
     let lastCombo = null;
+    const cap = () => carries(battle, u, 'chess_item_3_columbia_chip_e') ? p.combo_cap : p.cap;
     const refresh = () => {
       const combo = carries(battle, u, 'chess_item_3_columbia_chip_e');
-      if (combo === lastCombo) return;
-      lastCombo = combo;
-      S.stat('combo', { hpPct: combo ? p.hp : 0, dmgTakenMul: combo ? 1 - p.reduction : 1 });
+      if (combo !== lastCombo) {
+        lastCombo = combo;
+        S.stat('resist', {}, { status: combo ? 'resist' : null, value: .5 });
+      }
+      const shield = u.findBuff(key);
+      if (shield) shield.shield = Math.min(shield.shield, Math.max(0, cap() - (numericShieldTotal(u) - shield.shield)));
+      if (onField(u)) for (const e of battle.enemies) if (hasHp(e) && bodyInKeys(e, u.rangeKeys)) {
+        battle.applyStrongest(e, 'item:columbia:field-weak', { duration: .2, value: p.weaken, source: u,
+          mods: value => ({ atkMul: 1 - value }) });
+      }
     };
     refresh();
     S.every(.1, refresh);
@@ -539,8 +541,7 @@ const BY_ITEM = {
       const seq = ++activation;
       const tick = () => {
         if (seq !== activation || !onField(u) || !u.skill?.active) return;
-        const cap = u.s.maxHp * Math.min(1, u.trait.numericShieldCap ?? 1);
-        const gain = Math.min(p.shield, Math.max(0, cap - numericShieldTotal(u)));
+        const gain = Math.min(p.shield, Math.max(0, cap() - numericShieldTotal(u)));
         if (gain > 0) {
           S.buff(u, { key, shield: (u.findBuff(key)?.shield ?? 0) + gain });
           fxOn(battle, 'shield', u, u.id, key);
@@ -552,10 +553,6 @@ const BY_ITEM = {
     S.on('skillStart', c => { if (c.unit === u) start(); });
     S.on('skillEnd', c => { if (c.unit === u) ++activation; });
     if (u.skill?.active) start();
-    S.on('hit', c => {
-      if (c.source === u && !c.dmg.sourceless && c.dmg.type !== 'element'
-        && !c.dmg.tags?.includes('bond:sarkaz:rider') && numericShieldTotal(u) > 0) c.dmg.mul *= p.damage_scale;
-    });
   },
   // 精准狙击镜: damage ×damage_scale against targets ≥ radius tiles away
   chess_item_3_02_e(battle, u, rec, S) {
