@@ -64,7 +64,7 @@ export function install(battle) {
             for (const other of zones.values()) if (other.until + 1e-9 >= battle.time && other.atk > strongest.atk
               && battle.foesInRadius(other.x, other.y, BLAST_RADIUS).includes(e)) strongest = other;
             lastBurnAt.set(e, battle.time);
-            battle.dealDamage(strongest.source, e, { amount: strongest.atk * .5, type: 'arts', canDodge: false,
+            battle.dealDamage(strongest.source, e, { amount: strongest.atk * .3, type: 'arts', canDodge: false,
               tags: ['dot', 'bond:columbia:dot'] });
           }
           battle.after(1, burn);
@@ -75,6 +75,15 @@ export function install(battle) {
   }
 }
 export function registerMeta(registry) {
+  registry.band('band_ferdinand', {
+    onRoundStart(ctx, ev) {
+      const round = ev.round;
+      if (!Number.isInteger(round) || round < 1 || ctx.counter('ferdinand:round') === round) return;
+      ctx.setCounter('ferdinand:round', round);
+      const p = ctx.gd.band('band_ferdinand').params;
+      ctx.grantItem(round === 1 ? p.firstItem : p.nextItem);
+    },
+  });
   const spendingTrait = secondaryBond => ({
     run(ctx) {
       const { count, funds_per_trigger } = ctx.source.bb;
@@ -91,18 +100,18 @@ export function registerMeta(registry) {
   });
   registry.garrison('COLUMBIA_SILENT', {
     run(ctx) {
-      const { count, funds_per_trigger, max_triggers } = ctx.source.bb;
-      ctx.addLayers('visiShip', count, { requireActive: true });
-      if (!ctx.bondActive(BOND)) return;
-      const triggers = Math.min(max_triggers, Math.floor(ctx.funds() / funds_per_trigger));
-      if (triggers > 0 && ctx.spendFunds(triggers)) ctx.addLayers(BOND, triggers * count, { requireActive: true });
+      const { count, double_above_funds } = ctx.source.bb;
+      const doubled = ctx.funds() > double_above_funds && ctx.spendFunds(1);
+      for (const id of ['visiShip', BOND]) ctx.addLayers(id, count * (doubled ? 2 : 1), { requireActive: true });
     },
   });
   registry.garrison('COLUMBIA_ASTESI', {
     run(ctx) {
       const paid = Math.min(ctx.funds(), ctx.source.bb.max_cost);
-      if (paid > 0 && ctx.spendFunds(paid)) for (const id of [BOND, 'arcaneShip']) ctx.addLayers(id, paid * ctx.source.bb.count, { requireActive: true });
-      ctx.addPendingFunds(1);
+      if (paid > 0 && ctx.spendFunds(paid)) {
+        for (const id of [BOND, 'arcaneShip']) ctx.addLayers(id, paid * ctx.source.bb.count, { requireActive: true });
+        ctx.addPendingFunds(paid);
+      }
     },
   });
   registry.garrison('COLUMBIA_APHRIS', {

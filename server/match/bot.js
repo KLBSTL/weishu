@@ -78,12 +78,14 @@
 // tools/botbench.mjs.
 
 import { GEO } from '../../shared/constants.js';
-import { deriveSeed } from '../sim/rng.js';
+import { deriveSeed, createRng } from '../sim/rng.js';
 import { ASPD_MIN } from '../sim/constants.js';
 import { freeSlot, countFree, legalTiles, canPlace, positionClass, placeClass, basePositionClass, parseKey, tileKey, FIELD, pieceDir, boardTileOf, BOSS_MIRROR_COL } from './board.js';
 import { rotateOffset, normDir, mirrorDir, oppositeDir } from '../sim/dir.js';
 import { itemKey } from './gamedata.js';
-import { computeBonds } from './bondsMeta.js';
+import { computeBonds, pieceBonds } from './bondsMeta.js';
+import { SharedBossPool, bossPoolHp } from './finalAssault.js';
+import { customGrowthTrait, growthValue, growthReserve, estimateCombat, equipmentGain, receivesBond } from './botStrategy.js';
 import { withBounties, isFlyKey } from './waves.js';
 import { mitigate } from '../sim/damage.js';
 import { HOVER_KEYS } from '../sim/content/enemies.js';
@@ -95,7 +97,10 @@ import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shar
  */
 export function runSteps(gen) {
   let r;
-  do r = gen.next(); while (!r.done);
+  do {
+    r = gen.next();
+    if (!r.done && r.value?.rehearsal) r.value.rehearsal.run();
+  } while (!r.done);
   return r.value;
 }
 
@@ -143,11 +148,13 @@ const DEFAULT_MELEE_RANGE = [[0, 0], [0, 1]];
  */
 export function botPickBand(m, ps) {
   const gd = ps?.gd || m.gd;
-  const ids = gd.bandIds();
+  const ids = gd.bandIds().filter(id => !m.bandTaken?.(id, ps?.playerId));
   if (!ids.length) return gd.defaultBandId;
   const lateFunds = (id) => /暂存/.test(String(gd.band(id)?.desc || ''));
   const offBond = (id) => gd.bandBondIds(id).some((b) => gd.modeInactiveBonds.has(b)) || m.recruitmentBandOff?.(id);
-  const pairs = ids.map((id) => [id, offBond(id) ? 0 : Math.max(1, (gd.startLp(id) - 18) ** 2) * (m.isSolo && lateFunds(id) ? 0.02 : 1)]);
+  const specialty = ids.filter(id => !offBond(id) && gd.bandBondIds(id).some(b => gd.bond(b)?.isCore));
+  const choices = specialty.length ? specialty : ids;
+  const pairs = choices.map((id) => [id, offBond(id) ? 0 : Math.max(1, (gd.startLp(id) - 18) ** 2) * (m.isSolo && lateFunds(id) ? 0.02 : 1)]);
   let total = 0;
   for (const [, w] of pairs) total += w;
   let r = m.rngBots() * total;
@@ -371,7 +378,8 @@ export function bondPlan(m, ps, owned = ownedBonds(m, ps)) {
     const k = owned.counts.get(id) || 0;
     if (!k) continue;
     const s = k * 10 + Math.min(4, pool.reach.get(id) || 0) + Math.min(6, (ps.layers[id] || 0) / 10)
-      + (id === prev ? 6 : 0) - (mates.has(id) ? 6 : 0) + Math.min(0.9, (pool.supply.get(id) || 0) / 100);
+      + (id === prev ? 6 : 0) - (mates.has(id) ? 6 : 0) + Math.min(0.9, (pool.supply.get(id) || 0) / 100)
+      + (m.gd.bandBondIds(ps.bandId).includes(id) ? 8 : 0);
     if (s > bestS) { bestS = s; focus = id; }
   }
   let second = null;
@@ -473,6 +481,7 @@ function traitsOf(m, c) {
   for (const gid of Array.isArray(c.garrisonIds) ? c.garrisonIds : []) {
     const g = m.gd.garrison(gid);
     if (!g || typeof g.effectKey !== 'string') continue;
+    if (customGrowthTrait(g.effectKey)) continue; // parameter/activation-aware forecast below
     if (LAYER_TRAIT_RE.test(g.effectKey) && RECURRING_TRAIT_EVENTS.has(g.eventType)) t.recurring++;
     else if (LAYER_TRAIT_RE.test(g.effectKey) && g.eventType === 'SERVER_GAIN') t.gain++;
     else if (ECON_TRAIT_RE.test(g.effectKey) && g.eventType !== 'IN_BATTLE') t.econ++;
@@ -486,7 +495,13 @@ function unitBase(m, piece, ctx) {
   const c = chessRec(m, piece.id, ctx.ps);
   if (!c) return 0;
   let v = power(c) + (piece.items ? piece.items.length * 5 : 0);
+  if (c.diyFor) v += DIY_PIECE_BONUS;
   if (m.round <= 11) v += traitsOf(m, c).recurring * 4;
+  v += growthValue(ctx.ps.gd || m.gd, ctx.ps, c, m.round, { acquisition: false });
+  if (bossWaveOf(m, ctx.ps) && !isHealer(c)) {
+    const dps = estimateCombat(ctx.ps.gd || m.gd, ctx.ps, c, piece, { boss: true }).dps;
+    v += Math.min(20, 5 * Math.log2(1 + dps / 300));
+  }
   if (c.attackKind === 'none' && !isHealer(c)) v -= 6;
   if (ctx.fly > 0 && hitsFly(c)) v += 2;
   if (ctx.model && !isHealer(c)) v += ARMOR_WEIGHT * (armorFit(ctx.model, c) - 0.6);
@@ -583,6 +598,7 @@ function buyScore(m, ps, id, ctx) {
   let s = power(c) * 0.6;
   const tr = traitsOf(m, c);
   if (m.round <= 11) s += tr.recurring * 3 + tr.gain * 2 + tr.econ * (m.round <= 7 ? 2 : 0);
+  s += growthValue(gd, ps, c, m.round) * 0.7;
   const base = gd.baseIdOf(id);
   if (!c.isGolden) {
     const copies = ctx.copies.get(base) || 0;
@@ -890,10 +906,13 @@ class Layout {
     const cover = new Map(); // key → { g: dps on ground, a: dps on air }
     const healCover = new Map();
     for (const u of this.units) {
+      const source = this.units.find(a => a.auraSource && Math.max(Math.abs(a.row - u.row), Math.abs(a.col - u.col)) <= 1
+        && (a.auraWide || Math.abs(a.row - u.row) + Math.abs(a.col - u.col) <= 1));
+      const aura = source && !u.auraSource ? Math.min(600, u.baseAspd + source.auraBonus) / u.baseAspd : 1;
       for (const k of u.cover) {
         const e = cover.get(k) || { g: 0, a: 0 };
-        if (u.ground) e.g += u.dps;
-        if (u.air) e.a += u.dps;
+        if (u.ground) e.g += u.dps * aura;
+        if (u.air) e.a += u.dps * aura;
         cover.set(k, e);
         if (u.heal) healCover.set(k, (healCover.get(k) || 0) + 1);
       }
@@ -928,14 +947,15 @@ function unitOf(rec, key, r, c, dir = 'RIGHT', model = null) {
   const block = isBlocker(rec) ? Math.max(1, rec.stats?.blockCnt ?? 1) : 0;
   const atkMul = airflowAtkMul(model, key, dir);
   return {
-    rec, key, dir, dps: effDps(model, rec) * atkMul, atkMul, air: hitsFly(rec), ground: rec.attackKind !== 'heal' && !isHealer(rec),
+    rec, key, dir, dps: (rec._botDps ?? effDps(model, rec)) * atkMul, atkMul, air: hitsFly(rec), ground: rec.attackKind !== 'heal' && !isHealer(rec),
+    row: r, col: c, auraSource: !!rec._botAuraSource, auraWide: !!rec._botAuraWide, auraBonus: rec._botAuraBonus || 0, baseAspd: rec._botAspd || rec.stats?.aspd || 100,
     block, heal: isHealer(rec), cover: new Set(rangeTiles(rec, r, c, dir)),
   };
 }
 
 /** A layout plan: Map uid → tile key, plus `dirs`: Map uid → direction (UP|RIGHT|DOWN|LEFT). */
 export class LayoutPlan extends Map {
-  constructor(entries) { super(entries); this.dirs = new Map(); }
+  constructor(entries) { super(entries); this.dirs = new Map(); this.chosen = null; }
   /** The planned direction of a piece (RIGHT when unplanned). */
   dirOf(uid) { return this.dirs.get(uid) ?? 'RIGHT'; }
 }
@@ -960,7 +980,7 @@ export function* planLayoutSteps(m, ps, pieces, params = LAYOUT_PARAMS, { occupi
   const rec = recOf || ((p) => (p.kind === 'token' ? pgd.token(p.id) : rangeRec(ps, pgd.chess(p.id))));
   const layout = new Layout(model, params);
   const rank = (p) => { const r = rec(p); return isBlocker(r) ? 0 : isHealer(r) ? 2 : 1; };
-  const order = pieces.slice().sort((a, b) => rank(a) - rank(b) || dpsOf(rec(b)) - dpsOf(rec(a)) || a.uid - b.uid);
+  const order = pieces.slice().sort((a, b) => rank(a) - rank(b) || (rec(b)._botDps ?? dpsOf(rec(b))) - (rec(a)._botDps ?? dpsOf(rec(a))) || a.uid - b.uid);
   const taken = new Set(occupied);
   const out = new LayoutPlan();
   for (const p of order) {
@@ -1032,11 +1052,12 @@ export const REHEARSAL_VARIANTS = Object.freeze([
 ]);
 
 /** Distinct plans (same unit → tile assignment ⇒ one candidate), in order. */
-function distinctPlans(plans) {
+function distinctPlans(plans, chosen = []) {
   const out = [];
   const seen = new Set();
   for (const plan of plans) {
-    const sig = [...plan.entries()].sort((a, b) => a[0] - b[0]).map(([u, k]) => `${u}@${k}:${planDir(plan, u)}`).join(' ');
+    const sig = [...plan.entries()].sort((a, b) => a[0] - b[0]).map(([u, k]) => `${u}@${k}:${planDir(plan, u)}`).join(' ')
+      + (plan.chosen || chosen).map(p => `${p.uid}:${(p.items || []).map(it => it.id).join(',')}`).join(';');
     if (!seen.has(sig)) { seen.add(sig); out.push(plan); }
   }
   return out;
@@ -1071,41 +1092,65 @@ export function createRehearsal(m, ps, chosen, plans) {
  * two steps (the prep ended) never leaves a rehearsal layout on the board.
  */
 export function* createRehearsalSteps(m, ps, chosen, plans) {
-  const wave = m.wave;
-  const distinct = distinctPlans(plans);
+  const group = m.wave ? null : bossWaveOf(m, ps);
+  const wave = m.wave || group?.wave;
+  const boss = !!group;
+  const hidden = boss && m.round === m.gd.hiddenRound && m.round !== m.gd.bossRound;
+  const distinct = distinctPlans(plans, chosen);
   if (!wave || distinct.length < 2 || !(m.botRehearsal > 0)) return null;
   const cands = distinct.slice(0, m.botRehearsal);
-  const byUid = new Map(chosen.map((p) => [p.uid, p]));
   const battles = [];
   for (const plan of cands) {
-    const saved = [...ps.board.entries()];
-    // the candidate's directions are set on the pieces while its input is taken; restored exactly afterwards
-    const savedDirs = new Map([...byUid.values(), ...saved.map(([, p]) => p)].map((p) => [p, Object.hasOwn(p, 'dir') ? { v: p.dir } : null]));
-    let failed = false;
     try {
-      ps.board.clear();
-      for (const [uid, k] of plan) { const p = byUid.get(uid); if (p) { p.dir = planDir(plan, uid); ps.board.set(k, p); } }
-      ps.recompute();
-      const spawns = withBounties(m.gd, m.round, wave, ps.bounties, ps.playerId).map((sp) => ({ ...sp, ownerPlayerId: ps.playerId }));
-      battles.push(m.newBattle({
-        seed: deriveSeed(m.seed, `rehearse:${m.round}:${ps.seat}`), kind: 'normal', modeId: m.modeId, round: m.round,
-        stageId: m.stageId, rect: { ...GEO.NORMAL_RECT }, timeLimit: wave.timeLimit, players: [ps.battleInput({ side: 'L', colOffset: 0 })],
-        spawns: m._sanitizeSpawns(spawns, ps.playerId), routes: wave.routes, sharedBoss: null,
-        flags: { layerGainsEnabled: false, ...m.gd.dp }, fieldId: `r:${ps.playerId}`, enemyOverrides: wave.overrides, waveId: wave.templateId,
-      }));
+      const roster = plan.chosen || chosen, byUid = new Map(roster.map(p => [p.uid, p]));
+      // Shadow state: no transient layouts, recompute, equipment grants or pool/UID changes on the real player.
+      const view = Object.create(ps);
+      view.board = new Map([...plan].filter(([uid]) => byUid.has(uid)).map(([uid, key]) => [key, { ...byUid.get(uid), dir: planDir(plan, uid) }]));
+      view.hand = ps.hand.map(p => p && !byUid.has(p.uid) ? p : null);
+      view.temp = ps.temp.map(p => p && !byUid.has(p.uid) ? p : null);
+      for (const p of ps.board.values()) if (p.kind === 'chess' && !byUid.has(p.uid)) {
+        const idx = freeSlot(view.hand);
+        if (idx >= 0) view.hand[idx] = p;
+      }
+      view.bonds = computeBonds(ps.gd || m.gd, view);
+      const shadow = Object.create(m);
+      shadow.rngBots = createRng(deriveSeed(m.seed, `rehearse-tokens:${m.round}:${ps.seat}`));
+      const owners = new Set(roster.map(p => p.uid)), seen = new Set();
+      const tokens = [...ps.board.values(), ...ps.hand, ...ps.temp].filter(p => {
+        if (!p || p.kind !== 'token' || !owners.has(p.ownerUid)) return false;
+        const key = `${p.ownerUid}|${p.id}`;
+        if (seen.has(key)) return false; seen.add(key); return true;
+      });
+      const tokenPlan = planLayout(shadow, view, tokens, LAYOUT_PARAMS, { occupied: new Set(view.board.keys()) });
+      for (const token of tokens) if (tokenPlan.has(token.uid)) view.board.set(tokenPlan.get(token.uid), { ...token, dir: planDir(tokenPlan, token.uid) });
+      const side = group?.side || 'L', input = structuredClone(view.battleInput({ side, colOffset: side === 'R' ? 8 : 0 }));
+      input.lpForBoss = boss ? Math.max(1, m.teamLp ?? m.alivePlayers().reduce((sum, p) => sum + Math.max(0, p.lp), 0)) : ps.lp;
+      const spawns = boss ? wave.spawns : withBounties(m.gd, m.round, wave, ps.bounties, ps.playerId);
+      const pool = boss ? new SharedBossPool(bossPoolHp(m.gd, hidden ? m.hiddenBossId : m.bossId, m.alivePlayers().length)) : null;
+      const trial = m.newBattle({
+        seed: deriveSeed(m.seed, `rehearse:${m.round}:${ps.seat}`), kind: boss ? (hidden ? 'hidden' : 'boss') : 'normal', modeId: m.modeId, round: m.round,
+        stageId: m.stageId, rect: { ...(boss ? GEO.BOSS_RECT : GEO.NORMAL_RECT) }, timeLimit: boss ? 60 : wave.timeLimit, players: [input],
+        spawns: m._sanitizeSpawns(spawns, ps.playerId), routes: wave.routes, sharedBoss: pool,
+        flags: { layerGainsEnabled: false, ...m.gd.dp, ...(boss ? { enemyScale: m.gd.enemyScale(m.round) } : {}) }, fieldId: `r:${ps.playerId}`, enemyOverrides: wave.overrides, waveId: wave.templateId,
+        bossId: boss ? (hidden ? m.hiddenBossId : m.bossId) : undefined,
+      });
+      if (boss && typeof trial.on === 'function') {
+        trial._botTeamLp = input.lpForBoss;
+        trial._botHitCaps = 0;
+        const lose = n => { trial._botTeamLp -= Math.max(0, Number(n) || 0); if (trial._botTeamLp <= 0) trial.forceEnd('forced'); };
+        trial.on('enemyLeak', c => lose(c.enemy?.lpr ?? c.enemy?.def?.lpr ?? 1));
+        trial.on('lpLoss', c => lose(c.amount));
+        const fx = trial.fx.bind(trial);
+        trial.fx = (kind, obj) => { if (kind === 'hitCap') trial._botHitCaps++; return fx(kind, obj); };
+      }
+      battles.push(trial);
     } catch (e) {
-      failed = true;
       m.log.warn?.(`[match ${m.roomCode}] bot rehearsal failed: ${e && e.message}`);
-    } finally {
-      ps.board.clear();
-      for (const [p, d] of savedDirs) { if (d) p.dir = d.v; else delete p.dir; }
-      for (const [k, p] of saved) ps.board.set(k, p);
-      ps.recompute();
+      return null;
     }
-    if (failed) break;
     yield;
   }
-  const cap = Math.ceil(((wave.timeLimit || 60) + 5) * 30);
+  const cap = Math.ceil(((boss ? 60 : wave.timeLimit || 60) + 5) * 30);
   let i = 0;
   let t = 0;
   let bestScore = -Infinity;
@@ -1114,6 +1159,7 @@ export function* createRehearsalSteps(m, ps, chosen, plans) {
     chosen,
     plans: cands,
     best: cands[0],
+    metrics: [],
     done: false,
     run(budgetMs = Infinity) {
       const timed = Number.isFinite(budgetMs);
@@ -1130,7 +1176,7 @@ export function* createRehearsalSteps(m, ps, chosen, plans) {
             battle.step();
             t++;
             n++;
-            if ((t & 63) === 0 && bestLeaks < Infinity && countedLeaks(battle, ps.playerId) > bestLeaks) { beaten = true; break; }
+            if (!boss && (t & 63) === 0 && bestLeaks < Infinity && countedLeaks(battle, ps.playerId) > bestLeaks) { beaten = true; break; }
             if (timed && (n & 3) === 0 && performance.now() - t0 >= budgetMs) return false;
           }
           if (!beaten) {
@@ -1139,7 +1185,9 @@ export function* createRehearsalSteps(m, ps, chosen, plans) {
             const pp = r && !r.synthetic && r.perPlayer && r.perPlayer[ps.playerId];
             if (pp) {
               const leaks = (pp.leaked || []).filter((l) => l && l.counted !== false).length;
-              const score = -leaks * 1000 + (pp.killed || 0) - i * 0.01;
+              const score = boss ? bossRehearsalScore(battle, ps.playerId) - i * 0.01 : -leaks * 1000 + (pp.killed || 0) - i * 0.01;
+              job.metrics.push({ candidate: i, score, time: battle.time, bossDamage: pp.bossDamage || 0, cleared: boss && battle.sharedBoss?.hp <= 0, leaks,
+                ...(boss ? { lp: battle._botTeamLp, hitCaps: battle._botHitCaps } : {}) });
               if (score > bestScore) { bestScore = score; bestLeaks = leaks; job.best = cands[i]; }
             }
           }
@@ -1155,6 +1203,16 @@ export function* createRehearsalSteps(m, ps, chosen, plans) {
     },
   };
   return job;
+}
+
+/** Successful clears outrank partial damage; compare time once the same pool has been emptied. */
+export function bossRehearsalScore(battle, playerId) {
+  if (battle.errorCount || battle.result()?.synthetic || battle._botTeamLp <= 0) return -Infinity;
+  const pool = battle.sharedBoss, pp = battle.result()?.perPlayer?.[playerId];
+  if (!pool || !pp) return -Infinity;
+  const alive = (pp.unitsEnd || []).filter(u => u.alive).length;
+  return (pool.hp <= 0 ? 1e9 - battle.time * 1e5 : Math.min(1, (pp.bossDamage || 0) / pool.maxHp) * 1e6)
+    + alive * 100 - (pp.leaked || []).filter(l => l.counted !== false).length * 1000;
 }
 
 /**
@@ -1377,7 +1435,7 @@ export function* botPrepBeginSteps(m, ps) {
   yield;
   // 3. placement, 4. items, placement again (item carriers gain value; rehearsed when the match allows it)
   yield* arrangeSteps(m, ps);
-  equipItems(m, ps);
+  yield* equipItemsSteps(m, ps);
   yield;
   return yield* arrangeSteps(m, ps, { final: true, defer: true });
 }
@@ -1390,7 +1448,7 @@ export function botPrepEnd(m, ps, job = null) {
 /** botPrepEnd as a step generator (see botPrepBeginSteps). */
 export function* botPrepEndSteps(m, ps, job = null) {
   if (!ps.alive || ps.ready) return;
-  if (job && job.done && job.best !== job.plans[0]) yield* applyPlanSteps(m, ps, job.chosen, job.best);
+  if (job && job.done && job.best !== job.plans[0]) yield* applyPlanSteps(m, ps, job.best.chosen || job.chosen, job.best);
   // 5. temp → hand / sell / destroy; keep one hand slot free for next round's merges
   resolveTemp(m, ps);
   if (freeSlot(ps.hand) < 0) freeHandSlot(m, ps);
@@ -1467,11 +1525,12 @@ export function levelUp(m, ps, { spare = false } = {}) {
  * leftover is lost at the prep end, so spending it all is free value).
  */
 function fundsReserve(m, ps) {
-  if (!m.gd.leftoverKeptBands.includes(ps.bandId)) return 0;
+  const growth = growthReserve(ps.gd || m.gd, ps);
+  if (!m.gd.leftoverKeptBands.includes(ps.bandId)) return growth;
   const band = m.gd.band(ps.bandId);
   const buff = band && Array.isArray(band.buffs) ? band.buffs.find((b) => b && b.key === 'coin_carry_over') : null;
   const cap = Number(buff && buff.bb && buff.bb.capital);
-  return Number.isFinite(cap) && cap > 0 ? cap : 5;
+  return (Number.isFinite(cap) && cap > 0 ? cap : 5) + growth;
 }
 
 /** Buying / rerolling toward the lineup; a step generator (yields after each purchase or reroll). */
@@ -1592,8 +1651,27 @@ export function* arrangeSteps(m, ps, { final = false, defer = false } = {}) {
   }
   yield;
   const plans = [];
-  if (final && m.wave && m.botRehearsal > 0) {
+  const boss = !m.wave && !!bossWaveOf(m, ps);
+  const recOf = boss ? p => {
+    const c = rangeRec(ps, (ps.gd || m.gd).chess(p.id));
+    if (!c) return c;
+    const gd = ps.gd || m.gd, stats = estimateCombat(gd, ps, c, p, { boss: true });
+    const b = gd.bond('skillfulShip')?.buffs?.[0]?.bb || {};
+    return { ...c, _botDps: stats.dps, _botAspd: stats.aspd, _botAuraWide: (ps.layers.skillfulShip || 0) >= (b.power_bond_stack_cnt ?? Infinity),
+      _botAuraSource: !!ps.bonds.skillfulShip?.active && receivesBond(gd, ps, p, 'skillfulShip'),
+      _botAuraBonus: (b.base_attack_speed || 0) + (b.attack_speed_per_stack || 0) * (ps.layers.skillfulShip || 0) };
+  } : null;
+  if (final && (m.wave || boss) && m.botRehearsal > 0) {
     for (const v of REHEARSAL_VARIANTS) plans.push(yield* planLayoutSteps(m, ps, chosen, { ...LAYOUT_PARAMS, ...v }));
+    if (boss) {
+      plans.unshift(yield* planLayoutSteps(m, ps, chosen, LAYOUT_PARAMS, { recOf }));
+      const alternate = bossLineupAlternative(m, ps, chosen, ctx);
+      if (alternate) {
+        const plan = yield* planLayoutSteps(m, ps, alternate, LAYOUT_PARAMS, { recOf });
+        plan.chosen = alternate;
+        plans.splice(1, 0, plan);
+      }
+    }
   } else {
     plans.push(yield* planLayoutSteps(m, ps, chosen));
   }
@@ -1602,7 +1680,31 @@ export function* arrangeSteps(m, ps, { final = false, defer = false } = {}) {
     yield* applyPlanSteps(m, ps, chosen, plans[0]);
     return job;
   }
-  yield* applyPlanSteps(m, ps, chosen, plans.length > 1 ? rehearse(m, ps, chosen, plans) : plans[0]);
+  const best = plans.length > 1 ? rehearse(m, ps, chosen, plans) : plans[0];
+  yield* applyPlanSteps(m, ps, best.chosen || chosen, best);
+  return null;
+}
+
+/** One owned alternative: keep necessary healing/blocking while testing a damage/utility upgrade. */
+function bossLineupAlternative(m, ps, chosen, ctx) {
+  const present = new Set(chosen.map(p => p.uid));
+  const bench = ps.allChess().filter(p => !present.has(p.uid)).sort((a, b) => pieceValue(m, ps, b, ctx) - pieceValue(m, ps, a, ctx));
+  const healers = chosen.filter(p => isHealer(chessRec(m, p.id, ps))).length;
+  const blockers = chosen.filter(p => isBlocker(chessRec(m, p.id, ps))).length;
+  const weak = chosen.map((p, i) => ({ p, i, value: unitBase(m, p, ctx) })).sort((a, b) => a.value - b.value);
+  for (const incoming of bench.slice(0, 3)) for (const out of weak) {
+    const a = chessRec(m, incoming.id, ps), b = chessRec(m, out.p.id, ps);
+    if (healers === 1 && isHealer(b) && !isHealer(a)) continue;
+    if (blockers === 1 && isBlocker(b) && !isBlocker(a)) continue;
+    if (freeSlot(ps.hand) < 0) {
+      const loc = ps.find(out.p.uid);
+      if (ps.find(incoming.uid)?.area !== 'hand' || loc?.area !== 'board') continue;
+      const [row, col] = parseKey(loc.key);
+      if (!canPlace(ps.deployMap(), placeClass(ps, a), row, col)) continue;
+    }
+    const trial = chosen.slice(); trial[out.i] = incoming;
+    return trial;
+  }
   return null;
 }
 
@@ -1613,6 +1715,17 @@ export function* arrangeSteps(m, ps, { final = false, defer = false } = {}) {
  */
 function* applyPlanSteps(m, ps, chosen, target) {
   liftTokens(ps);
+  const keep = new Set(chosen.map(p => p.uid));
+  for (const [key, p] of [...ps.board]) if (p.kind === 'chess' && !keep.has(p.uid)) {
+    const idx = freeSlot(ps.hand);
+    if (idx >= 0) tryDo(() => ps.move(p.uid, { area: 'hand', idx }));
+    else {
+      const [row, col] = parseKey(key);
+      const incoming = chosen.find(c => ps.find(c.uid)?.area === 'hand'
+        && canPlace(ps.deployMap(), placeClass(ps, (ps.gd || m.gd).chess(c.id)), row, col));
+      if (incoming) tryDo(() => ps.move(incoming.uid, { area: 'board', row, col }, planDir(target, incoming.uid)));
+    }
+  }
   // move pieces onto their targets (board → board moves swap; hand → board may swap an occupant back to the hand)
   for (let pass = 0; pass < 3; pass++) {
     let moved = false;
@@ -1821,7 +1934,7 @@ export function itemTarget(m, ps, item, ctx = context(m, ps)) {
   // first — the effect is the same on anyone
   if (consume) return list.find(free) || owned.find(free) || list[0] || owned[0] || null;
   if (rec.requiresBondId) {
-    const member = list.find((p) => free(p) && (chessRec(m, p.id, ps)?.bonds || []).includes(rec.requiresBondId));
+    const member = list.find(p => free(p) && receivesBond(gd, ps, p, rec.requiresBondId));
     if (member) return member;
   }
   // damage dealers carry equipment first (healers / non-attackers last); survival items on blockers first
@@ -1830,7 +1943,12 @@ export function itemTarget(m, ps, item, ctx = context(m, ps)) {
   const order = rec.category === 'SURVIVAL'
     ? [...list.filter(blocker), ...list.filter((p) => !blocker(p) && dealer(p)), ...list.filter((p) => !blocker(p) && !dealer(p))]
     : [...list.filter(dealer), ...list.filter((p) => !dealer(p))];
-  return order.find(free) || null;
+  return order.filter(free).sort((a, b) => {
+    if (rec.category === 'SURVIVAL' && blocker(a) !== blocker(b)) return Number(blocker(b)) - Number(blocker(a));
+    const ga = equipmentGain(gd, ps, a, item, chessRec(m, a.id, ps));
+    const gb = equipmentGain(gd, ps, b, item, chessRec(m, b.id, ps));
+    return (val(b) + gb) - (val(a) + ga) || a.uid - b.uid;
+  })[0] || null;
 }
 
 /** 教鞭 / “神秘顾客”: an Art that adds a bounty to the own next battle (trap_create_self_choice). */
@@ -1866,11 +1984,15 @@ function useArt(m, ps, item, ctx) {
   if (key) { const [r, c] = parseKey(key); tryDo(() => ps.useArt(item.uid, r, c)); }
 }
 
-function equipItems(m, ps) {
+export function* equipItemsSteps(m, ps) {
   const gd = ps?.gd || m.gd;
   const tried = new Set();
+  let compared = false;
+  const duplicates = it => gd.item(it.id)?.mergeable && [...ps.hand, ...ps.temp, ...ps.allChess().flatMap(p => p.items || [])]
+    .some(other => other?.kind === 'item' && other.uid !== it.uid && other.id === it.id);
   for (let guard = 0; guard < 12; guard++) {
-    const item = [...ps.hand, ...ps.temp].find((p) => p && p.kind === 'item' && canUseItem(m, ps, p) && !tried.has(p.uid));
+    const item = [...ps.hand, ...ps.temp].filter(p => p && p.kind === 'item' && canUseItem(m, ps, p) && !tried.has(p.uid))
+      .sort((a, b) => Number(!!gd.item(b.id)?.canGiveBond) - Number(!!gd.item(a.id)?.canGiveBond))[0];
     if (!item) break;
     tried.add(item.uid);
     const ctx = context(m, ps);
@@ -1878,7 +2000,51 @@ function equipItems(m, ps) {
     if (rec && rec.itemType === 'MAGIC') { useArt(m, ps, item, ctx); continue; }
     const target = itemTarget(m, ps, item, ctx);
     if (!target) continue;
+    if (!compared && bossWaveOf(m, ps) && m.botRehearsal > 1 && rec?.kind === 'passive' && rec.category !== 'ECONOMY'
+        && itemEffect(rec) !== 'char_chess_transformation_equip' && !duplicates(item)) {
+      const pack = [item];
+      if (rec.canGiveBond && (target.items || []).length === 0) {
+        const partner = [...ps.hand, ...ps.temp].find(p => p?.kind === 'item' && p.uid !== item.uid && !tried.has(p.uid)
+          && gd.item(p.id)?.kind === 'passive' && gd.item(p.id)?.giveBondId && !duplicates(p) && canUseItem(m, ps, p));
+        if (partner) pack.push(partner);
+      }
+      const roster = [...ps.board.values()].filter(p => p.kind === 'chess');
+      const alternatives = roster.filter(p => p.uid !== target.uid).sort((a, b) =>
+        pieceValue(m, ps, b, ctx) + equipmentGain(gd, ps, b, item, chessRec(m, b.id, ps))
+        - pieceValue(m, ps, a, ctx) - equipmentGain(gd, ps, a, item, chessRec(m, a.id, ps)));
+      const carriers = [target, ...alternatives]
+        .filter(p => (p.items || []).length + pack.length <= gd.equipPerChess && !pack.some(it => (p.items || []).some(old => old.id === it.id)))
+        .slice(0, m.botRehearsal - 1);
+      if (carriers.length) {
+        const plans = carriers.map(holder => {
+          const plan = new LayoutPlan([...ps.board].filter(([, p]) => p.kind === 'chess').map(([key, p]) => [p.uid, key]));
+          for (const p of roster) plan.dirs.set(p.uid, pieceDir(p));
+          plan.chosen = roster.map(p => p.uid === holder.uid ? { ...p, items: [...(p.items || []), ...pack] } : p);
+          plan.equipmentHolder = holder.uid;
+          return plan;
+        });
+        const keep = new LayoutPlan(plans[0]); keep.dirs = new Map(plans[0].dirs); keep.chosen = roster; keep.equipmentHolder = null;
+        plans.push(keep);
+        const commit = holder => {
+          for (const it of pack) {
+            tried.add(it.uid);
+            if (holder != null && ps.find(it.uid)?.piece?.kind === 'item') tryDo(() => ps.equip(it.uid, holder));
+          }
+        };
+        const job = yield* createRehearsalSteps(m, ps, roster, plans);
+        if (job) {
+          compared = true;
+          ps._botPendingEquipment = { round: m.round, commit: () => commit(carriers[0].uid) };
+          yield { rehearsal: job };
+          ps._botPendingEquipment = null;
+          commit(job.best.equipmentHolder);
+          yield;
+          continue;
+        }
+      }
+    }
     tryDo(() => ps.equip(item.uid, target.uid));
+    yield;
   }
 }
 

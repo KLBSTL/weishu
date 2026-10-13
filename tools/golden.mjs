@@ -844,6 +844,11 @@ export function runMatch(cfg) {
         h.shop.level = cfg.human.shopLevel;
         h.shop.upgradePrice = m.gd.upgradeBase(h.shop.level) ?? 0;
         h.rollShop({ keepFrozen: false });
+        // Coverage fixture only: a legal owned copy guarantees the selected operator's kit is exercised even when
+        // new AI strategy weights favor another shop draw. The normal shop and private stock remain in use.
+        if (cfg.human.diy?.chess_char_5_diy1_a?.charId === 'char_112_siege') {
+          h.acquireChess('chess_char_5_diy1_a', { source: 'golden-diy-fixture' });
+        }
       }
       // funds when the prep opens (income in, nothing bought yet: the bots play their prep in later callbacks)
       if (m.phase === 'PREP') for (const ps of m.order) prepFunds[ps.playerId] = ps.funds;

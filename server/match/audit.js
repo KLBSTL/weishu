@@ -46,6 +46,7 @@ import { collectViolations } from './invariants.js';
 import { mergeTile, pieceDir, canPlace, placeClass } from './board.js';
 import { pairPlayers, bossPoolHp, hiddenEligible } from './finalAssault.js';
 import { helperOrder } from './unite.js';
+import { botIncomeBonus } from './botStrategy.js';
 import { BAND_TURN_SECONDS } from './Match.js';
 
 /**
@@ -155,7 +156,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
         else {
           if (inc.initial.income !== want || inc.initial.pending !== p0) fail(`${id}: onIncome started with ${inc.initial.income}+${inc.initial.pending}, expected ${want}+${p0}`);
           const nn = (v) => (Number.isFinite(v) && v > 0 ? Math.trunc(v) : 0);
-          const credited = nn(inc.ev.income) + nn(inc.ev.pending);
+          const credited = nn(inc.ev.income) + nn(inc.ev.pending) + (ps.isBot && ps.alive ? botIncomeBonus(r) : 0) - (ps.round.spent || 0);
           if (ps.funds - f0 !== credited) fail(`${id}: funds ${f0} → ${ps.funds}, credited ${credited}`);
         }
         const upWant = r > 1 ? Math.max(0, up0 - 1) : up0;

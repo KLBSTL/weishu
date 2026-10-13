@@ -1,8 +1,8 @@
 # Golden results
 
-Current weishu corpus (2026-10-12): 48 roster, 50 bonds, 25 fields, 18 matches, 11 stand-ins and 138 DIY scenarios,
-290 total. The Columbia DOCX update recomputed all six families: 110 changed, no additions/removals, all DIY
-digests unchanged. [Full current audit](../../docs/columbia-docx-golden.md) names every changed case and its reason;
+Current weishu corpus (2026-10-13): 48 roster, 50 bonds, 25 fields, 18 matches, 11 stand-ins and 138 DIY scenarios,
+290 total. The Columbia second DOCX and AI update recomputed all six families: 40 changed, no additions/removals,
+all stand-in and DIY digests unchanged. [Full current audit](../../docs/columbia-v2-ai-golden.md) names every changed case and its reason;
 the older counts and release notes below are retained as history.
 
 The simulation is deterministic: the same seed and inputs give the same battle and the same match, bit for bit. These

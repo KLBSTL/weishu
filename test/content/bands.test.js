@@ -66,14 +66,14 @@ const slotOf = (id) => ({ kind: 'chess', id, basePrice: DATA.chess[id].tier === 
 // ---------------------------------------------------------------------------------------------------------------
 // data / wiring
 
-test('bands.js wires both parts: 28 bands with a prep handler, 10 with a battle part, 鸭爵 global, 歌利亚 = LP only', () => {
+test('bands.js wires both parts: 29 bands with a prep handler, battle parts, 鸭爵 global, 歌利亚 = LP only', () => {
   assert.equal(typeof bands.install, 'function');
   assert.equal(typeof bands.registerMeta, 'function');
   const ids = Object.keys(DATA.bands);
-  assert.equal(ids.length, 42);
+  assert.equal(ids.length, 43);
   const meta = ids.filter((id) => REG.has(`band:${id}`));
   const battle = ids.filter(hasBattlePart);
-  assert.equal(meta.length, 28);
+  assert.equal(meta.length, 29);
   assert.deepEqual(battle.sort(), ['band_amedic', 'band_amiya', 'band_chen', 'band_clementia', 'band_dusk', 'band_emperor', 'band_ermengard', 'band_humus', 'band_ioleta', 'band_mberry', 'band_qalaisa'].sort());
   assert.ok(REG.has('global:bands_ducklord'));
   const none = ids.filter((id) => !meta.includes(id) && !battle.includes(id));
@@ -707,13 +707,31 @@ test('Touch 外勤医疗: every player of a match with the band gets 预备干�
   cover('band_amedic');
 });
 
+test('Ferdinand: 26 LP, elite armor on R1, normal thereafter, once per formal round, merge and overflow', () => {
+  const id = 'band_ferdinand', a = 'chess_item_3_columbia_chip_e_a', b = 'chess_item_3_columbia_chip_e_b';
+  const s = setup({ band: id });
+  assert.equal(DATA.bands[id].totalHp, 26);
+  assert.deepEqual(DATA.bands[id].bondIds, ['columbiaShip']);
+  s.roundStart(1); assert.deepEqual(handIds(s.ps, 'item'), [b]);
+  s.roundStart(1); assert.deepEqual(handIds(s.ps, 'item'), [b]);
+  s.roundStart(2); assert.deepEqual(handIds(s.ps, 'item').sort(), [a, b].sort());
+  s.roundStart(3); assert.deepEqual(handIds(s.ps, 'item'), [b, b]);
+  s.ps.hand = s.ps.hand.map((p) => p || s.ps.newPiece('item', A('1_03')));
+  s.roundStart(4); assert.ok(s.ps.temp.some(p => p?.id === a));
+  s.roundStart(4); assert.equal(s.ps.temp.filter(p => p?.id === a).length, 1);
+  s.ps.alive = false; s.roundStart(5); assert.equal(s.ps.temp.filter(p => p?.id === a).length, 1);
+  cover(id); s.m.dispose();
+});
+
 test('coverage: every band is exercised by a test above', () => {
   for (const id of ['band_recruit_sarkaz', 'band_recruit_columbia']) {
     const { ps } = setup({ band: id });
     const band = DATA.bands[id];
     if (band.recruitment) {
-      ps.startRecruitmentRound(band.recruitment.rounds[0]);
-      assert.equal(ps.recruitment.charges, 1);
+      ps.startRecruitmentRound(2);
+      assert.equal(ps.recruitment.charges, 0);
+      assert.equal(band.recruitment.kind, 'columbia-income');
+      assert.equal(band.recruitment.minFunds, 10);
     } else {
       assert.deepEqual(band.shopPriority, { bond: 'sarkazShip', count: 2 });
     }

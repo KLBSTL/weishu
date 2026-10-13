@@ -394,11 +394,12 @@ test('merge rewards: a merge completed while buying is followed by taking its fr
   m.dispose();
 });
 
-test('band pick: alone, the bot avoids a band that withholds the first rounds\' funds (老鲤); in co-op it may take it', () => {
+test('band fallback: without specialty offers, alone avoids withheld funds; co-op may take 老鲤', () => {
   const counts = { solo: 0, coop: 0 };
   for (let seed = 1; seed <= 60; seed++) {
     for (const mode of ['solo', 'coop']) {
       const h = makeMatch({ mode, difficulty: 'NORMAL', seats: [{ seat: 0, playerId: 'ai_0', name: 'AI', isBot: true, connected: true }], seed, fake: true });
+      h.m.gd.bandIds = () => ['band_lmlee', 'band_bldsk'];
       if (botPickBand(h.m, h.m.order[0]) === 'band_lmlee') counts[mode]++;
       h.m.dispose();
     }

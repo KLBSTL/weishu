@@ -95,7 +95,7 @@ test('Columbia blast snapshots field ATK without Burn, ticks five times and shar
   h.run(5.1);
   const ticks = seen.filter(c => c.dmg.tags.includes('bond:columbia:dot'));
   assert.equal(ticks.length, 5);
-  for (const c of ticks) close(c.amount, total * .5);
+  for (const c of ticks) close(c.amount, total * .3);
   h.run(5); hit(); h.step();
   assert.equal(seen.filter(c => c.dmg.tags.includes('bond:columbia:burst')).length, 2);
   assert.deepEqual(h.b.errors, []);
@@ -155,7 +155,7 @@ test('Columbia fixed fire region: leaving stops damage, entering takes it, refre
   const x = e.x, y = e.y; hit(); h.step(); e.x = 2; late.x = x; late.y = y;
   h.run(2.1); assert.equal(damage.length, 2); assert.ok(damage.every(c => c.target === late));
   const old = damage[0].amount; h.b.addBuff(ops[1], { key: 'latest', mods: { atkFlat: 10000 } });
-  const latest = ops.reduce((n, u) => n + u.s.atk, 0) * .5;
+  const latest = ops.reduce((n, u) => n + u.s.atk, 0) * .3;
   hit([], 1, late); h.step(); h.run(5.1); assert.equal(damage.length, 7);
   for (const c of damage.slice(2)) { assert.equal(c.target, late); close(c.amount, latest); }
   assert.ok(latest > old); h.run(1); assert.equal(damage.length, 7); assert.equal(late.elem.burn || 0, 0);

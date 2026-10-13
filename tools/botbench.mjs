@@ -166,6 +166,7 @@ function runOne(cfg, seed) {
             items: [...ps.board.values()].reduce((s, p) => s + (p.kind === 'chess' ? (p.items || []).length : 0), 0),
             lost: lost[m.round] ? lost[m.round][ps.playerId] ?? null : null,
             killed: r ? r.killed : null, total: r ? r.total : null,
+            damageDealt: r?.damageDealt ?? null, bossDamage: r?.bossDamage ?? null, battleSeconds: r?.time ?? null,
             leaks: leaked.length, bountyLeaks: leaked.filter((l) => l.tag === 'bounty').length,
             bountyKeys: leaked.filter((l) => l.tag === 'bounty').map((l) => l.enemyKey),
           };
@@ -181,7 +182,10 @@ function runOne(cfg, seed) {
   rec.victory = !!(summary && summary.victory);
   rec.roundsPassed = summary ? summary.roundsPassed : 0;
   rec.hidden = !!(summary && summary.hiddenReached);
+  rec.hiddenCleared = !!m.outcome?.hiddenCleared;
   rec.bossRound = m.gd.bossRound;
+  rec.maxRoundStarted = m.round;
+  rec.hiddenRound = m.gd.hiddenRound;
   const alive = m.order.filter((p) => p.alive);
   rec.lpLeft = rec.victory && m.teamLp != null ? m.teamLp : alive.reduce((s, p) => s + Math.max(0, p.lpAtFinal ?? p.lp), 0);
   rec.players = (summary && summary.players ? summary.players : []).map((p) => ({ pid: p.playerId, band: p.bandId, rounds: p.roundsPassed, merges: p.stats.merges, spent: p.stats.gold }));

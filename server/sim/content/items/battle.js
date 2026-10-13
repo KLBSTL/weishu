@@ -527,10 +527,7 @@ const BY_ITEM = {
       }
       const shield = u.findBuff(key);
       if (shield) shield.shield = Math.min(shield.shield, Math.max(0, cap() - (numericShieldTotal(u) - shield.shield)));
-      if (onField(u)) for (const e of battle.enemies) if (hasHp(e) && bodyInKeys(e, u.rangeKeys)) {
-        battle.applyStrongest(e, 'item:columbia:field-weak', { duration: .2, value: p.weaken, source: u,
-          mods: value => ({ atkMul: 1 - value }) });
-      }
+      S.stat('columbia-stats', memberOf(battle, u, 'columbiaShip') ? { atkFlat: p.atk, aspd: p.aspd } : {});
     };
     refresh();
     S.every(.1, refresh);

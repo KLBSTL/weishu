@@ -74,10 +74,11 @@ describe('1. equip-replace dialog', () => {
     assert.equal(equipMerges(ctx, 3), false);
   });
 
-  test('a consume-on-equip item on a full operator opens the dialog too — all 24, 博士投影 included — except a 博士投影 on an elite (GitHub #263)', () => {
+  test('a consume-on-equip item on a full operator opens the dialog too — all 26 including President Doll — except a 博士投影 on an elite (GitHub #263)', () => {
     // PRTS 卫戍协议/帮助 "达到上限强行佩戴会改为替换装备": the pick is destroyed, then the item resolves (a free slot is left)
     const consumables = Object.values(DATA.items).filter((x) => x.itemType === 'EQUIP' && String(x.kind).startsWith('consume_on_equip'));
-    assert.equal(consumables.length, 24, '12 consume-on-equip items × normal / golden');
+    assert.equal(consumables.length, 26, '13 consume-on-equip items × normal / golden, including President Doll');
+    assert.ok(consumables.some(i => i.id === 'chess_item_4_columbia_doll_e_a'));
     const holo = ['chess_item_5_06_e_a', 'chess_item_5_06_e_b'];
     for (const it of consumables) {
       const hand = [{ uid: 3, kind: 'item', id: it.id }, ...priv.hand.slice(1)];

@@ -1,7 +1,8 @@
 // The 自选 golden match covers what it claims (test/golden/README.md, tools/golden.mjs — 0.2.0 自选编队): reads the stored
 // digest only (test/golden.test.js recomputes it). Its human seat (AI 托管) slots 推进之王 and prototypes; its shop draws
 // its 自选 pieces (and only from the slots' 调度中心 levels), its AI fields 推进之王 — the operator kit — in battle, the
-// stock ends where the held copies leave it, and the match ends without errors.
+// stock ends where the held copies leave it, and the match ends without errors. The scenario starts with one legal
+// copy from the private stock so kit coverage does not depend on the AI buying one particular shop draw.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

@@ -767,6 +767,22 @@ test('Columbia battle traits exercise each normal and elite data id', () => {
   }
 });
 
+test('Tin Man trait with new Columbia field equipment: independent flat stats and stepped SP recovery', () => {
+  for (const [form, n] of [['a', 1], ['b', 2]]) {
+    const gid = `garrison_columbia_tinman_${form}`;
+    const h = makeBattle({ autoFinish: false, bonds: { columbiaShip: B(9) },
+      defs: { chess: { op: rec('op', [gid], { atk: 1000, hp: 4000, bonds: ['columbiaShip'] }) } },
+      units: [{ chessId: 'op', row: 10, col: 4, items: [`chess_item_6_columbia_field_e_${form}`] }] });
+    h.step(); const u = h.unit('op');
+    approx(u.s.atk, (u.base.atk + 50) * (1 + .2 * n + .20 + .007 * 9));
+    approx(u.s.maxHp, u.base.maxHp * (1 + .2 * n));
+    approx(u.s.aspd, u.base.aspd + 50); approx(u.s.spRecovery, 1);
+    h.b.players[0].bonds.columbiaShip.layers = 20;
+    h.b.emit('layerGain', { playerId: u.ownerId, bondId: 'columbiaShip' }); h.step();
+    approx(u.s.spRecovery, 1 + .1 * n); assert.deepEqual(h.b.errors, []); cover(gid);
+  }
+});
+
 test('coverage: every IN_BATTLE garrison id of a visible chess (and every id they grant) was exercised above', () => {
   const missing = [...VISIBLE_IDS].filter((g) => !COVER.has(g)).sort();
   assert.deepEqual(missing, []);

@@ -307,7 +307,15 @@ report #9 after 0.1.0), and a tile the server's `g.move` refuses is skipped for 
 rounds: the player's boss-field template (`Match.bossWaves`) is mapped onto the own board (rows −7, the right player
 of a pair mirrored, only the routes that end on its half) and the leader counts as 10 tough enemies with a 30 s dwell
 on its first tiles, so the damage dealers reach stationary leaders.
-**Rehearsal:** with `opts.botRehearsal = N` (default 3) the bot simulates the N best
+**Rehearsal.**
+
+Local update (2026-10-13): [AI growth, economy and Boss decisions](design/ai.md) extends rehearsal to boss/hidden
+previews with isolated pools and shadow boards (60 game-second decision window), and ranks effective boss damage,
+survival and clear time. Only real AI seats receive +1 income in R3–R5, +2 in R6–R8, +4 from R9; human autoplay does not.
+Faction/core-bond specialty strategies are preferred when legally available, and custom growth traits/equipment
+combinations are evaluated. The older heuristic and timing figures below are historical, not measurements of this update.
+
+For normal rounds, with `opts.botRehearsal = N` (default 3), the bot simulates the N best
 distinct layout variants once each with the real `Battle` (a rehearsal seed, no meta dispatch, board restored exactly)
 and keeps the one with the fewest leaks; a candidate whose counted leaks already exceed the best finished one's stops
 early. A candidate is a whole battle — ≈ 20–300 ms of CPU (late rounds, 4 bots: 0.2–1 s per bot prep, about twice the

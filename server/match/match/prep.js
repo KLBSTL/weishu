@@ -51,7 +51,23 @@ export class MatchPrep {
       const t0 = now();
       let r = null;
       try {
-        do r = gen.next(); while (!r.done && !(bounded && now() - t0 >= this.botSliceMs));
+        do {
+          r = gen.next();
+          if (!r.done && r.value?.rehearsal) {
+            const job = r.value.rehearsal;
+            const subtask = () => {
+              if (!valid()) return;
+              let done = true;
+              try { done = job.run(this.botSliceMs); } catch (e) { this.reportError(`bot ${ps.playerId} equipment rehearsal`, e); }
+              if (done) {
+                if (bounded) this.later(0, () => { if (valid()) drive(gen, label, then); });
+                else drive(gen, label, then);
+              } else this.later(0, subtask);
+            };
+            if (bounded) this.later(0, subtask); else subtask();
+            return;
+          }
+        } while (!r.done && !(bounded && now() - t0 >= this.botSliceMs));
       } catch (e) {
         this.reportError(`bot ${ps.playerId}${label}`, e);
         then(null);
@@ -114,6 +130,10 @@ export class MatchPrep {
     if (this.phase !== PHASE.PREP) return;
     for (const ps of this.alivePlayers()) {
       if (ps.ready) continue;
+      if (ps.botControlled && ps._botPendingEquipment?.round === this.round) {
+        try { ps._botPendingEquipment.commit(); } catch (e) { this.reportError(`bot ${ps.playerId} equipment fallback`, e); }
+        ps._botPendingEquipment = null;
+      }
       this.autoPickPersonalChoice(ps, 'random');
       ps.resolveTemp();
       ps.ready = true;

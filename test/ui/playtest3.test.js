@@ -303,7 +303,8 @@ describe('8: 特质 right under the detail card\'s header', () => {
     const g = data.lookup('garrisons', c.garrisonIds[0]);
     assert.equal(g.eventType, 'SERVER_PREP_FIN');
     const blocks = ChessDetail({ chess: c, piece: { uid: 7, kind: 'chess', id: c.chessId, golden: true, items: [] }, editable: false, onSell() {}, bonds: [], loadout: null, onBond: null });
-    const keys = blocks.map((b) => b.key);
+    const keys = blocks.filter(b => !String(b.key).startsWith('appearance:')).map((b) => b.key);
+    assert.ok(String(blocks[2].key).startsWith('appearance:'), 'per-operator appearance controls follow the garrison');
     assert.deepEqual(keys, ['head', 'garrison', 'trait', 'stats', 'skill', 'module', 'equip', 'talents']);
     assert.equal(blocks[1].props.garrison, g, 'the operator\'s own garrison');
     // the garrison block itself: the 特质 label, the trigger chip and the description
@@ -315,7 +316,7 @@ describe('8: 特质 right under the detail card\'s header', () => {
     assert.equal(rich.props.text, g.descRaw || g.desc);
     // an operator without a garrison (a summon's chess record may have none) simply starts with the trait
     const bare = ChessDetail({ chess: { ...c, garrisonIds: [] }, piece: null, editable: false, bonds: [], loadout: null });
-    assert.deepEqual(bare.map((b) => b.key), ['head', 'trait', 'stats', 'skill', 'module', 'talents']);
+    assert.deepEqual(bare.filter(b => !String(b.key).startsWith('appearance:')).map((b) => b.key), ['head', 'trait', 'stats', 'skill', 'module', 'talents']);
   });
 
   test('the 特质 chip carries the garrison\'s official type icon (eventTypeIcon) — the spoked 特异化 glyph only on 特异化', async () => {

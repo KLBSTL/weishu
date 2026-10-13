@@ -524,10 +524,13 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     bonds[bondId] = leaf(alt(`bond/${bondId}.png`, b.icon?.url, b.icon?.bytes), b.fallbackCampLogo ? alt(`bond/${bondId}.png`, b.fallbackCampLogo) : null);
   }
   const items = {};
+  items['columbia-power-armor'] = literal('/assets/extensions/columbia-equipment/power-armor.png');
+  items['columbia-force-field'] = literal('/assets/extensions/columbia-equipment/force-field.png');
   items['sarkaz_binding-bone'] = literal('/assets/extensions/sarkaz-equipment/binding-bone.png');
   items['sarkaz_revenant-remains'] = literal('/assets/extensions/sarkaz-equipment/revenant-remains.png');
   for (const [trapId, it] of Object.entries(assets07?.items || {})) items[trapId] = leaf(alt(`item/${trapId}.png`, it.icon?.url, it.icon?.bytes));
   const bands = {};
+  bands.band_ferdinand = literal('/icons/columbia.svg');
   for (const [bandId, b] of Object.entries(assets07?.bands || {})) bands[bandId] = leaf(alt(`band/${bandId}.png`, b.icon?.url, b.icon?.bytes));
 
   // --- professions ----------------------------------------------------------

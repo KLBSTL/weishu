@@ -1326,14 +1326,14 @@ test('merging: two identical normal items become the golden one (upgradeNum 2); 
 test('Columbia DOCX armor and field: mitigation, 300/600 shields, 3000/6000 caps, retained shield and real shop merges', () => {
   for (const form of ['a', 'b']) for (const combo of [false, true]) {
     const chip = 'chess_item_3_columbia_chip_e_' + form, field = 'chess_item_6_columbia_field_e_' + form, gold = form === 'b';
-    const h = fight({ ops: { t_op: op('t_op', { skill: { duration: 40 } }) },
+    const h = fight({ ops: { t_op: op('t_op', { bonds: ['columbiaShip'], skill: { duration: 40 } }) },
       units: [{ chessId: 't_op', row: 10, col: 4, items: combo ? [chip, field] : [field] }],
       enemies: { enemy_attacker: DUMMY('enemy_attacker', { atk: 1000 }) } });
     h.step(); const u = h.unit('t_op');
     close(u.s.maxHp, 2000 * (combo ? (gold ? 1.3 : 1.2) : 1));
     close(u.s.physTakenMul, combo ? (gold ? .75 : .85) : 1); close(u.s.artsTakenMul, u.s.physTakenMul);
-    close(u.s.atk, 500); close(u.s.dmgDealtMul, 1); close(h.b.resistOf(u), combo ? .5 : 0);
-    const e = h.spawn('enemy_attacker', { pos: [10, 7] }); h.run(.2); close(e.s.atk, gold ? 750 : 850);
+    close(u.s.atk, 550); close(u.s.aspd, u.base.aspd + 50); close(u.s.dmgDealtMul, 1); close(h.b.resistOf(u), combo ? .5 : 0);
+    const e = h.spawn('enemy_attacker', { pos: [10, 7] }); h.run(.2); close(e.s.atk, 1000);
     e.x = 16; h.run(.3); close(e.s.atk, 1000);
     u.skill.activate('test', { free: true }); h.run(1.01); close(numericShieldTotal(u), gold ? 600 : 300);
     h.run(21); close(numericShieldTotal(u), combo ? 6000 : 3000);
@@ -1342,7 +1342,8 @@ test('Columbia DOCX armor and field: mitigation, 300/600 shields, 3000/6000 caps
   }
   const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [A('6_columbia_field')] }],
     ops: { t_op: op('t_op', { bonds: ['sarkazShip'] }) }, bonds: { sarkazShip: { active: true, count: 6, tier: 2, layers: 0 } } });
-  h.step(); const u = h.unit('t_op'); u.skill.duration = 20; u.skill.activate('test', { free: true }); h.run(4.1);
+  h.step(); const u = h.unit('t_op'); close(u.s.atk, 600); close(u.s.aspd, u.base.aspd);
+  u.skill.duration = 20; u.skill.activate('test', { free: true }); h.run(4.1);
   close(numericShieldTotal(u), 1000, 'shared Sarkaz half-HP budget still applies');
   const s = setup(); for (const k of ['3_columbia_chip', '6_columbia_field']) {
     s.ps.acquireItem(A(k)); s.ps.acquireItem(A(k)); assert.ok(handIds(s.ps, 'item').includes(B(k)));

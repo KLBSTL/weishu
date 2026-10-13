@@ -82,7 +82,7 @@ test('rolls are copy-weighted: an exhausted chess never rolls; tier/filter optio
 
 test('Columbia chip/field really roll at their shop levels; retired operators never roll', () => {
   const gd = gdOf(), pool = new SharedPool(gd), rng = createRng(20261010);
-  for (const [level, wanted] of [[3, 'chess_item_3_columbia_chip_e_a'], [6, 'chess_item_6_columbia_field_e_a']]) {
+  for (const [level, wanted] of [[4, 'chess_item_3_columbia_chip_e_a'], [6, 'chess_item_6_columbia_field_e_a']]) {
     const seen = new Set();
     for (let i = 0; i < 10000; i++) {
       const item = pool.rollItem(rng, level); seen.add(item);

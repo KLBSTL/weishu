@@ -44,3 +44,4 @@ normative lines it rewrote).
 | §29 | [design/columbia.md](design/columbia.md) | Local fan expansion — Columbia and recruitment |
 | §30 | [design/recruitment-squads.md](design/recruitment-squads.md) | Local fan expansion — fixed-round recruitment squads |
 | §31 | [design/relay-map.md](design/relay-map.md) | Local fan expansion — compact map and lobby selection |
+| §32 | [design/ai.md](design/ai.md) | Local AI growth, income and boss rehearsal |

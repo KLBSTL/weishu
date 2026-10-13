@@ -932,16 +932,16 @@ test('Columbia acquisition: Bean every gain and elite, Contrail legacy remains f
   s.m.dispose();
 });
 
-test('Columbia DOCX: Astesia pays up to five, refunds one next prep, activation only gates layers', () => {
+test('Columbia DOCX v2: Astesia pays up to five, refunds actual payment next prep, activation only gates layers', () => {
   for (const [form, n] of [['a', 1], ['b', 2]]) {
     for (const funds of [0, 1, 4, 5, 6, 20]) for (const active of [[], ['columbiaShip'], ['arcaneShip'], ['columbiaShip', 'arcaneShip']]) {
       const s = setup(); give(s.m, s.ps, 'chess_char_3_columbia_astesi_' + form, 'board', [10, 5]);
       s.activate(...active); s.ps.funds = funds; s.ps.round.spent = 0;
       s.prepEnd(); const paid = Math.min(funds, 5);
       onlyGains(s, Object.fromEntries(active.map(bond => [bond, paid * n])));
-      assert.equal(s.ps.funds, funds - paid); assert.equal(s.ps.round.spent, paid); assert.equal(s.ps.pendingFunds, 1);
+      assert.equal(s.ps.funds, funds - paid); assert.equal(s.ps.round.spent, paid); assert.equal(s.ps.pendingFunds, paid);
       const before = s.ps.funds; s.m.round = 2; s.ps.startRound(2);
-      assert.equal(s.ps.funds, before + s.ps.gd.income(2) + 1); assert.equal(s.ps.pendingFunds, 0);
+      assert.equal(s.ps.funds, before + s.ps.gd.income(2) + paid); assert.equal(s.ps.pendingFunds, 0);
       s.m.dispose();
     }
     const s = setup(); give(s.m, s.ps, 'chess_char_3_columbia_astesi_' + form, 'hand');
@@ -966,7 +966,7 @@ test('Columbia DOCX: Mountain splits held funds and spent funds; elite Saria cop
   s.ps.funds = 7; s.ps.round.spent = 0; s.prepEnd();
   assert.equal(s.G('arcaneShip'), 14); assert.equal(s.G('columbiaShip'), 14);
   assert.equal(s.G('investShip'), 2, 'Mountain is not the second copied front tile');
-  assert.equal(s.ps.funds, 0); assert.equal(s.ps.pendingFunds, 2); cover('garrison_columbia_demkni_b'); s.m.dispose();
+  assert.equal(s.ps.funds, 0); assert.equal(s.ps.pendingFunds, 7); cover('garrison_columbia_demkni_b'); s.m.dispose();
 });
 
 test('spending traits count paid purchases, refresh and upgrades; exclude free/failed actions and reset next round', () => {
@@ -1120,13 +1120,14 @@ test('Silence: inactive bonds gain nothing, active bonds independently gain 2/4,
   for (const [form, n] of [['a', 2], ['b', 4]]) {
     const s = setup();
     give(s.m, s.ps, `chess_char_2_02_${form}`, 'board', [10, 5]);
+    s.ps.funds = 10;
     s.roundStart(); assert.deepEqual(s.gainsNow(), {});
     s.activate('visiShip'); s.roundStart();
     assert.equal(s.G('visiShip'), n); assert.equal(s.G('columbiaShip'), 0);
     s.activate('columbiaShip');
     give(s.m, s.ps, 'chess_char_4_21_a', 'board', [10, 4]);
     s.roundStart();
-    assert.equal(s.G('visiShip'), 3 * n); assert.equal(s.G('columbiaShip'), 6 * n);
+    assert.equal(s.G('visiShip'), 3 * n); assert.equal(s.G('columbiaShip'), 2 * n);
     const before = s.gainsNow(); s.prepEnd(); assert.deepEqual(s.gainsNow(), before);
     cover(`garrison_columbia_silent_${form}`); s.m.dispose();
   }
@@ -1149,15 +1150,15 @@ test('every SERVER_* effectKey of the data has a registered handler', () => {
   for (const k of keys) assert.ok(REG.has(`garrison:${k}`), k);
 });
 
-test('Silence DOCX: six-fund boundaries, three-trigger cap, inactive Columbia never pays', () => {
-  for (const [form, n] of [['a', 1], ['b', 2]]) for (const funds of [0, 5, 6, 11, 12, 18, 100]) {
+test('Silence DOCX v2: strictly above ten pays once and doubles independent active bonds', () => {
+  for (const [form, n] of [['a', 1], ['b', 2]]) for (const funds of [0, 9, 10, 11, 12, 18, 100]) {
     for (const active of [[], ['visiShip'], ['columbiaShip'], ['columbiaShip', 'visiShip']]) {
       const s = setup(); give(s.m, s.ps, 'chess_char_2_02_' + form, 'board', [10, 5]);
       s.activate(...active); s.ps.funds = funds; s.ps.round.spent = 0; s.roundStart();
-      const paid = active.includes('columbiaShip') ? Math.min(3, Math.floor(funds / 6)) : 0;
+      const paid = funds > 10 ? 1 : 0;
       assert.equal(s.ps.funds, funds - paid); assert.equal(s.ps.round.spent, paid);
-      assert.equal(s.G('columbiaShip'), paid * 2 * n);
-      assert.equal(s.G('visiShip'), active.includes('visiShip') ? 2 * n : 0); s.m.dispose();
+      assert.equal(s.G('columbiaShip'), active.includes('columbiaShip') ? 2 * n * (1 + paid) : 0);
+      assert.equal(s.G('visiShip'), active.includes('visiShip') ? 2 * n * (1 + paid) : 0); s.m.dispose();
     }
   }
 });

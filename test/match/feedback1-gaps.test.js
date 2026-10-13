@@ -105,12 +105,13 @@ describe('§21.26 3 — strategies tied to a bond the mode switches off', () => 
       杜遥夜: ['yanShip'], 佩佩: ['sargonShip'], 哈洛德: ['victoriaShip'], 休露丝: ['kjeragShip'], 潘格尼尼: ['lateranoShip'],
       克莱门莎: ['egirShip'], 玛恩纳: ['kazimierzShip'], 贾维: ['siracusaShip'], 娜仁图亚: ['sargonShip'],
       薪火集结分队: ['sarkazShip'], 拓界研发分队: ['columbiaShip'],
+      斐尔迪南分队: ['columbiaShip'],
     });
     // every tied band carries the official note "在<X>部分干员缺席时体验可能不完整" naming that bond
     for (const id of funny.bandIds()) {
       const b = DATA.bands[id];
       const note = /在<([^<>]+)>部分干员缺席时体验可能不完整/.exec(b.desc);
-      if (funny.bandBondIds(id).length && !b.recruitment && !b.shopPriority) assert.ok(note && funny.bandBondIds(id).some((x) => DATA.bonds[x].name === note[1]), b.name);
+      if (funny.bandBondIds(id).length && !b.recruitment && !b.shopPriority && id !== 'band_ferdinand') assert.ok(note && funny.bandBondIds(id).some((x) => DATA.bonds[x].name === note[1]), b.name);
     }
     // the three 标准 switches off; a bracketed item (<寻呼模块>, <画卷>) is no bond; unknown bands: []
     assert.deepEqual(funny.bandIds().filter((id) => funny.bandBondIds(id).some((b) => funny.modeInactiveBonds.has(b))), ['band_paganini', 'band_clementia', 'band_mlynar']);
@@ -129,7 +130,10 @@ describe('§21.26 3 — strategies tied to a bond the mode switches off', () => 
     assert.deepEqual(bandBondIdsOf(DATA.bands.band_bldsk, ctx), []);
     assert.deepEqual(bandBondIdsOf(null, ctx), []);
     // the build wrote exactly this for every band (data/bands.json is not stale against the helper)
-    for (const [id, b] of Object.entries(DATA.bands)) assert.deepEqual(b.bondIds, bandBondIdsOf(b, ctx), id);
+    for (const [id, b] of Object.entries(DATA.bands)) {
+      const tied = id === 'band_ferdinand' ? [DATA.items[b.params.firstItem].giveBondId] : bandBondIdsOf(b, ctx);
+      assert.deepEqual(b.bondIds, tied, id);
+    }
     // GameData reads the field (known bonds, data order) — never re-derives
     const gd = new GameData({ ...DATA, bands: { band_x: { ...DATA.bands.band_bldsk, bandId: 'band_x', bondIds: ['kazimierzShip', 'nope', 'egirShip'] }, band_old: { ...DATA.bands.band_paganini, bondIds: undefined } } }, 'mode_single_funny');
     assert.deepEqual(gd.bandBondIds('band_x'), ['egirShip', 'kazimierzShip']);
@@ -161,20 +165,25 @@ describe('§21.26 3 — strategies tied to a bond the mode switches off', () => 
     assert.equal(coop.filter((id) => TIED.has(id)).length, 0, 'co-op');
     const offered = new Set(funny.bandIds());
     assert.ok([...solo, ...coop].every((id) => offered.has(id)));
-    assert.ok(new Set(solo).size >= 15 && new Set(coop).size >= 25, 'the other strategies are still spread out');
+    const specialty = funny.bandIds().filter(id => funny.bandBondIds(id).some(b => funny.bond(b)?.isCore)
+      && !funny.bandBondIds(id).some(b => funny.modeInactiveBonds.has(b)));
+    assert.ok(solo.every(id => specialty.includes(id)), 'solo prefers offered legal specialty bands');
+    assert.ok(new Set(coop).size >= Math.min(4, specialty.length), 'co-op avoids duplicate specialty picks');
   });
 
-  test('绝境: LP-only weighting among available strategies, excluding disabled recruitment squads', () => {
+  test('绝境: available specialty strategies retain LP weighting and exclude disabled recruitment squads', () => {
     const { solo, coop } = picks('HARD');
     assert.ok(solo.filter((id) => TIED.has(id)).length > 0, `solo ${solo.filter((id) => TIED.has(id)).length}/200`);
     assert.ok(coop.filter((id) => TIED.has(id)).length > 0, `co-op ${coop.filter((id) => TIED.has(id)).length}/800`);
     // the pre-0.1.1 pick (starting LP only), replayed on the same rng: identical where no bond is off
     const before = (m) => {
-      const ids = m.gd.bandIds().filter(id => {
+      let ids = m.gd.bandIds().filter(id => {
         const band = m.gd.band(id);
         const bond = band.recruitment?.bond ?? band.shopPriority?.bond;
         return !bond || (!m.disabledBonds.includes(bond) && !m.gd.modeInactiveBonds.has(bond));
       });
+      const specialty = ids.filter(id => m.gd.bandBondIds(id).some(b => m.gd.bond(b)?.isCore));
+      if (specialty.length) ids = specialty;
       const lateFunds = (id) => /暂存/.test(String(m.gd.band(id)?.desc || ''));
       const pairs = ids.map((id) => [id, Math.max(1, (m.gd.startLp(id) - 18) ** 2) * (m.isSolo && lateFunds(id) ? 0.02 : 1)]);
       let r = m.rngBots() * pairs.reduce((a, [, w]) => a + w, 0);
