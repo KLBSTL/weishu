@@ -29,6 +29,7 @@ export const MIME = Object.freeze({
   '.atlas': 'text/plain; charset=utf-8',
   '.skel': 'application/octet-stream',
   '.bin': 'application/octet-stream',
+  '.mesh': 'application/octet-stream',
   '.wasm': 'application/wasm',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -56,7 +57,7 @@ export const MIME = Object.freeze({
 /** Extensions worth gzipping (text-like, .skel, uncompressed fonts). */
 export const COMPRESSIBLE = new Set([
   '.html', '.htm', '.js', '.mjs', '.css', '.json', '.map', '.webmanifest', '.txt', '.md', '.csv', '.xml',
-  '.atlas', '.skel', '.bin', '.wasm', '.svg', '.ico', '.otf', '.ttf', '.wav',
+  '.atlas', '.skel', '.bin', '.mesh', '.wasm', '.svg', '.ico', '.otf', '.ttf', '.wav',
 ]);
 
 const GZIP_MIN_BYTES = 512;

@@ -13,9 +13,10 @@ import { SURFACES, SOURCES, surfaceUV, resolveUvTable, cleanSurface, sideRect, t
 import { parseObj, mapMesh } from '../../public/js/render/board3d/obj.js';
 import {
   buildBoard, classifyStage, heightOf, AREAS, areaFor, unionAreas, objToBoard, boxProjectUV, tube, Geom, uvAt, ROWS, COLS,
+  DEVICE_H, RAISED_FOOT,
 } from '../../public/js/render/board3d/layout.js';
-import { BoardScene, gatePulse, DIR_TURNS, boxData, LIGHTING } from '../../public/js/render/board3d/scene.js';
-import { loadBoardPack, resetBoardPack, PACK_IMAGES } from '../../public/js/render/board3d/load.js';
+import { BoardScene, gatePulse, GATE_TINT, DIR_TURNS, boxData, LIGHTING } from '../../public/js/render/board3d/scene.js';
+import { loadBoardPack, loadThree, resetBoardPack, PACK_IMAGES } from '../../public/js/render/board3d/load.js';
 import { parseStage } from '../../public/js/render/tiles.js';
 import { TILE_H } from '../../public/js/render/style.js';
 import { presetCamera, syncThreeCamera } from '../../public/js/render/projection.js';
@@ -173,6 +174,33 @@ describe('board geometry (layout.js)', () => {
     assert.ok(!buildBoard(stages.act1autochess_m02).devices.some((d) => d.kind === 'crate'));
   });
 
+  test('#569: the device slabs (射击台 / 特制水上平台 / 封印的地面) are repeated for an official scene, their sides reaching under its ground; nothing else is', () => {
+    const SLAB = new Set(['platform', 'waterPlatform', 'sealedFloor']);
+    for (const [id, st] of Object.entries(stages)) {
+      if (!Array.isArray(st?.rows)) continue;
+      for (const area of [AREAS.normal, AREAS.boss]) {
+        const b = buildBoard(st, { area });
+        const slabs = b.devices.filter((d) => SLAB.has(d.kind));
+        const decals = slabs.filter((d) => d.kind === 'sealedFloor').length;
+        // per slab four sides, plus its top: a plate (raised) or the hazard decal of a sealed floor (raisedDecal)
+        assert.equal(b.buckets.raised.vertexCount, (slabs.length * 5 - decals) * 4, `${id}: raised quads`);
+        assert.equal(b.buckets.raisedDecal.vertexCount, decals * 4, `${id}: raised decal quads`);
+        const P = b.buckets.raised.position;
+        for (let i = 0; i < P.length; i += 3) {
+          const d = slabs.find((x) => Math.abs(P[i] - x.c) <= 0.5 && Math.abs(P[i + 1] - x.r) <= 0.5);
+          assert.ok(d, `${id}: every raised vertex is on a slab tile`);
+          const h = b.grid[d.r][d.c].h;
+          assert.ok(near(P[i + 2], h + DEVICE_H[d.kind]) || near(P[i + 2], h - RAISED_FOOT), `${id}: a slab top or its foot, z ${P[i + 2]}`);
+        }
+      }
+    }
+    // the report's 射击台 beside the blue gate (战场#03) and the water platforms (战场#05 上半) are there; the 'h' high
+    // ground of act2 m01 / m02 is the scenes' own geometry and is not repeated
+    assert.ok(buildBoard(stages.act1autochess_m03, { area: AREAS.normal }).buckets.raised.vertexCount > 0);
+    assert.equal(buildBoard(stages.act1autochess_m05, { area: AREAS.normal }).devices.filter((d) => d.kind === 'waterPlatform').length, 16);
+    for (const id of ['act2autochess_m01', 'act2autochess_m02']) assert.equal(buildBoard(stages[id], { area: AREAS.normal }).buckets.raised.vertexCount, 0, id);
+  });
+
   test('malformed stages never throw and still build an island', () => {
     for (const st of [null, {}, { rows: ['xyz'] }, { rows: Array(19).fill('r'.repeat(21)), devices: [{ role: 'crate', pos: [3, 3] }, { role: 'crate', pos: 'x' }] }]) {
       const b = buildBoard(st, { area: AREAS.all });
@@ -225,6 +253,43 @@ function fakePack() {
 }
 
 describe('BoardScene (three.js scene graph, stub renderer)', () => {
+  test('DynamicWaterTile is not mistaken for a StylizedWater plane', () => {
+    const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
+    const g = new THREE.PlaneGeometry(1, 1);
+    const chunk = { position: g.attributes.position.array, normal: g.attributes.normal.array, uv: g.attributes.uv.array,
+      index: g.index.array, lightmap: -1, group: '', bounds: [0, 0, 0, 1, 1, 0] };
+    const stage = { id: 'water-ui-regression', rows: Array.from({ length: 19 }, () => 'r'.repeat(21)), devices: [] };
+    board.setScenePack(stage.id, { key: 'water-ui-regression', stage: stage.id, doc: { materials: {
+      floor: { shader: 'Torappu/Scene/Standard' }, ui: { kind: 'water', shader: 'Torappu/Scene/DynamicWaterTile' },
+    } }, images: { tex: {}, lm: [] }, groups: {}, chunks: [{ ...chunk, material: 'floor' }, { ...chunk, material: 'ui' }] });
+    board.setStage(stage);
+    assert.ok(board.official);
+    assert.equal(Object.keys(board.meshes).filter(k => /^scene\d+$/.test(k)).length, 1, 'only the supported floor mesh is drawn');
+    assert.equal(board.sceneWater.length, 0, 'tile highlight is never animated as a water surface');
+    board.destroy(); g.dispose();
+  });
+
+  test('official static water is not drawn twice; new flooded cells remain visible and fallback retains all water', () => {
+    const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
+    const rows = Array.from({ length: 19 }, () => 'r'.repeat(21));
+    rows[10] = rows[10].slice(0, 9) + 'd' + rows[10].slice(10);
+    const stage = { id: 'water-regression', rows, devices: [] };
+    board._buildScene = () => { board.sceneWater = [{}]; return true; };
+    board.scenePacks.set(stage.id, { key: 'water-regression' });
+    board.setStage(stage, rows);
+    assert.equal(board.meshes.water, undefined, 'scene supplies the existing water without a grid overlay');
+    const flooded = rows.slice();
+    flooded[10] = flooded[10].slice(0, 8) + 'd' + flooded[10].slice(9);
+    const changed = { ...stage, rows: flooded };
+    board.setStage(changed, rows);
+    const surface = board.meshes.water.geometry.getAttribute('position');
+    assert.equal(surface.count, 4, 'only the newly flooded tile gets an overlay');
+    assert.ok(surface.getZ(0) > 0, 'new water is visible over the old scene floor');
+    board.setScenePack(stage.id, null);
+    assert.equal(board.meshes.water.geometry.getAttribute('position').count, 8, 'procedural fallback has both water tiles');
+    board.destroy();
+  });
+
   test('builds merged meshes per material, few draw objects, shadows once; areas rebuild', () => {
     const R = stubRenderer();
     const board = new BoardScene(THREE, fakePack(), { renderer: R });
@@ -232,7 +297,11 @@ describe('BoardScene (three.js scene graph, stub renderer)', () => {
     const meshes = board.root.children;
     assert.ok(meshes.length >= 5 && meshes.length <= 16, `draw objects ${meshes.length}`);
     for (const m of meshes) assert.ok(m.geometry.getAttribute('position').count > 0);
-    assert.ok(board.meshes.board && board.meshes.gateStart && board.meshes.gateEndAb && board.meshes.blowers && board.meshes.bg, Object.keys(board.meshes).join());
+    assert.ok(board.meshes.board && board.meshes.gateStart && board.meshes.gateTopEnd && board.meshes.blowers && board.meshes.bg, Object.keys(board.meshes).join());
+    assert.equal(board.meshes.gateTopStart.material.uniforms, board.mat.gateStartAdd.uniforms, 'top pulse stays animated');
+    assert.equal(board.meshes.gateTopEnd.material.uniforms, board.mat.gateEndAb.uniforms, 'top shares objective flash');
+    assert.equal(board.meshes.gateTopStart.material.polygonOffset, true);
+    assert.equal(board.meshes.gateTopStart.material.depthTest, true, 'nearer geometry still occludes the gate');
     assert.equal(R.shadowMap.needsUpdate, true);
     const before = board.meshes.board.geometry.getAttribute('position').count;
     assert.equal(board.setArea(AREAS.boss), true);
@@ -275,9 +344,9 @@ describe('BoardScene (three.js scene graph, stub renderer)', () => {
       const a = new THREE.Vector3(x, y, z).project(board.camera), b = new THREE.Vector3(x, y, z).project(ref);
       assert.ok(near(a.x, b.x, 1e-9) && near(a.y, b.y, 1e-9));
     }
-    const p0 = board.mat.gateStartAdd.uniforms.uPulse.value;
+    const p0 = board.mat.gateStartAdd.uniforms.uAlpha.value;
     board.render(cam, 2.25);
-    assert.notEqual(board.mat.gateStartAdd.uniforms.uPulse.value, p0, 'gate pulse animates');
+    assert.notEqual(board.mat.gateStartAdd.uniforms.uAlpha.value, p0, 'gate pulse animates');
     board.flashObjective(9, 2);
     board.render(cam, 2.4);
     assert.ok(board.mat.gateEndAb.uniforms.uFlash.value.r > 0.5, 'leak flash');
@@ -297,12 +366,39 @@ describe('BoardScene (three.js scene graph, stub renderer)', () => {
     for (let t = 0; t < 2; t += 0.01) { const v = gatePulse(t); lo = Math.min(lo, v); hi = Math.max(hi, v); }
     assert.ok(near(lo, 0.134, 1e-3) && near(hi, 0.229, 1e-3));
     assert.ok(near(gatePulse(0.3), gatePulse(2.3), 1e-9), 'periodic');
+    // the objective's curve falls while the start's rises (the client's clip: 0.16 → 0.097 → 0.16)
+    assert.ok(near(gatePulse(0, GATE_TINT.end.alpha), 0.16, 1e-9) && near(gatePulse(1, GATE_TINT.end.alpha), 0.097, 1e-9));
+    assert.deepEqual(GATE_TINT.start.rgb, [1, 0, 0], 'the start gate is tinted red, not white');
     assert.deepEqual(new Set(Object.values(DIR_TURNS)), new Set([0, 1, 2, 3]));
     assert.ok(LIGHTING.key.intensity > 0 && LIGHTING.bg.z < 0);
   });
 });
 
 describe('asset pack loader (fake store)', () => {
+  test('resetBoardPack lets a later three.js import try again after three failures', async () => {
+    resetBoardPack();
+    const missing = new URL('./no-such-three.mjs', import.meta.url).href;
+    for (let i = 0; i < 3; i++) assert.equal(await loadThree(missing), null);
+    assert.equal(await loadThree(missing), null, 'three failures stop further imports');
+    resetBoardPack();
+    const mod = await loadThree(new URL('./fake-three.mjs', import.meta.url).href);
+    assert.equal(typeof mod?.WebGLRenderer, 'function');
+    resetBoardPack();
+  });
+  test('a transient diffuse-image failure is retried by the next mount instead of cached as permanent 2D', async () => {
+    resetBoardPack();
+    let calls = 0;
+    const store = { local: async () => ({ groups: {} }), localUrl: (g, n) => n === 'TX_autochessi_D' ? '/test/atlas.png' : null,
+      image: async () => ++calls === 1 ? null : { width: 8, height: 8 } };
+    const original = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: false });
+    try {
+      assert.equal(await loadBoardPack(store), null);
+      const pack = await loadBoardPack(store);
+      assert.ok(pack?.images.D); assert.equal(calls, 2);
+      assert.equal(await loadBoardPack(store), pack, 'successful pack remains shared');
+    } finally { globalThis.fetch = original; resetBoardPack(); }
+  });
   test('loads images through the store and meshes through fetch; null without the diffuse atlas', async () => {
     resetBoardPack();
     const manifest = { groups: {} };

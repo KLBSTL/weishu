@@ -863,7 +863,8 @@ export function createAssets(options) {
         return localManifest;
       })();
     }
-    return localPromise;
+    // Packaged board art needs no per-machine extraction manifest. The optional local overlay stays authoritative.
+    return localPromise.then((lm) => lm || m().boardArt || null);
   }
 
   const m = () => manifest || {};
@@ -889,7 +890,7 @@ export function createAssets(options) {
       listeners.add(fn);
       return () => listeners.delete(fn);
     },
-    localUrl: (group, name) => localAssetUrl(localManifest, group, name),
+    localUrl: (group, name) => localAssetUrl(localManifest, group, name) || localAssetUrl(m().boardArt, group, name),
     get manifest() { return manifest; },
     get loaded() { return !!manifest; },
     avatar: (id, o) => avatarUrl(m(), id, o),

@@ -1,0 +1,726 @@
+{
+  "version": 1,
+  "source": {
+    "release": "https://github.com/sganggs/Stronghold-Protocol/releases/tag/v0.2.6",
+    "archiveSha256": "8ad71ab1111438c483daddf3cba116d20058a5bb813d9a16eccef087a28e2866",
+    "upstreamCommit": "488db49f11daf862b67ce26fa4cf89aa6cba2466"
+  },
+  "notice": "Official game art belongs to Hypergryph. Non-commercial fan use; see NOTICE.md.",
+  "stages": [
+    "act1autochess_m01",
+    "act1autochess_m02",
+    "act1autochess_m03",
+    "act1autochess_m04",
+    "act1autochess_m05",
+    "act1autochess_m06",
+    "act1autochess_m07",
+    "act2autochess_m01",
+    "act2autochess_m02",
+    "act2autochess_m03",
+    "act2autochess_m04"
+  ],
+  "groups": {
+    "map/autochess": {
+      "TX_autochessi_BG": {
+        "path": "/assets/scenes/map/autochess/TX_autochessi_BG.webp",
+        "bytes": 349082,
+        "sha256": "00e487e3f729b35b7ad3285bc15ca2d56f0d2cbec50865a61f81b87d9b068841"
+      },
+      "TX_autochessi_D": {
+        "path": "/assets/scenes/map/autochess/TX_autochessi_D.webp",
+        "bytes": 685108,
+        "sha256": "e46c2ff06317af18998267a9828f0afd01483d3a2e6348ee00c6c66b8fd3cee6"
+      },
+      "TX_autochessi_E": {
+        "path": "/assets/scenes/map/autochess/TX_autochessi_E.webp",
+        "bytes": 14028,
+        "sha256": "d95b8ca8588d5ca2d41da21d7054bad4a36d90121582c30f36e473b2107e1de0"
+      },
+      "TX_autochessi_M": {
+        "path": "/assets/scenes/map/autochess/TX_autochessi_M.png",
+        "bytes": 207321,
+        "sha256": "f362c38986c70f366d3dd876b1c037a9a9b04eff83c2de0a321bba310b82daae"
+      },
+      "TX_autochessi_M_rough": {
+        "path": "/assets/scenes/map/autochess/TX_autochessi_M_rough.webp",
+        "bytes": 118692,
+        "sha256": "b6fd4a51b0de4e2b8fa44b883f7084c5a9beb42c20976828e2264f537a6f3dc1"
+      },
+      "TX_autochessi_N": {
+        "path": "/assets/scenes/map/autochess/TX_autochessi_N.png",
+        "bytes": 392632,
+        "sha256": "87f0b822bac40af4e4dcc165ccb1850ef3e7b2985ce521b7598758e5ace7b735"
+      },
+      "TX_autochessi_N_rgb": {
+        "path": "/assets/scenes/map/autochess/TX_autochessi_N_rgb.webp",
+        "bytes": 341894,
+        "sha256": "9a2f9becfa3e8e8777c8ad152b46c688e1e40797f5dfe52ada187df962b27920"
+      },
+      "TX_autochessi_Transparent_D": {
+        "path": "/assets/scenes/map/autochess/TX_autochessi_Transparent_D.png",
+        "bytes": 532969,
+        "sha256": "accbc93327677bfecbb10c331b8d7d2da91579cac4baac85857e67dae530786d"
+      },
+      "TX_autochessi_Transparent_E": {
+        "path": "/assets/scenes/map/autochess/TX_autochessi_Transparent_E.png",
+        "bytes": 8719,
+        "sha256": "fd722f39b2dcf0ad868cea6c9b002147a6a598c3ba7bca556e7d710d217bcda6"
+      },
+      "TX_autochessi_Transparent_M": {
+        "path": "/assets/scenes/map/autochess/TX_autochessi_Transparent_M.png",
+        "bytes": 589939,
+        "sha256": "31b9560f8a25e05cbeb42312412118f1b4858f33b7dead79cc8567e793085dbf"
+      },
+      "TX_autochessi_Transparent_N": {
+        "path": "/assets/scenes/map/autochess/TX_autochessi_Transparent_N.png",
+        "bytes": 260574,
+        "sha256": "a92626233320ad31a62628f7eadf8b09cb0547479233c1bd2e67982832a3e375"
+      },
+      "TX_autochessi_common_D": {
+        "path": "/assets/scenes/map/autochess/TX_autochessi_common_D.webp",
+        "bytes": 191638,
+        "sha256": "64a2bdf69bb94baf370374437dd88bec6210fdc6f9a64c1542731fbd6cec50e3"
+      },
+      "TX_autochessi_common_E": {
+        "path": "/assets/scenes/map/autochess/TX_autochessi_common_E.webp",
+        "bytes": 31816,
+        "sha256": "46c6667f1d0a73d7f650d002427e3fd12505e655f295b37271c60deba475f916"
+      },
+      "materials": {
+        "path": "/assets/scenes/map/autochess/materials.json",
+        "bytes": 5045,
+        "sha256": "718def2f3ff8f6957b3326d434dae290db602cdc18c3ccb9ec87164dc7db5308"
+      },
+      "tiles": {
+        "path": "/assets/scenes/map/autochess/tiles.json",
+        "bytes": 8745,
+        "sha256": "ed99e23f20649c06531d7ac5dfd8e86bec0d7aab3170f1e83ca7b0313355c3c9"
+      }
+    },
+    "map/autochesssand": {
+      "TX_AutochessSand_A": {
+        "path": "/assets/scenes/map/autochesssand/TX_AutochessSand_A.png",
+        "bytes": 1921276,
+        "sha256": "f7eb5a6667c4f83c176b848d0446c74f57e50d062c0d98cca0c7bf130557c069"
+      },
+      "TX_AutochessSand_Grass_A": {
+        "path": "/assets/scenes/map/autochesssand/TX_AutochessSand_Grass_A.png",
+        "bytes": 470210,
+        "sha256": "b6ee910fa17d24595c7b7521dd90c9cfcfaf53b9abdc22622e67016584026502"
+      },
+      "TX_AutochessSand_Grass_M": {
+        "path": "/assets/scenes/map/autochesssand/TX_AutochessSand_Grass_M.png",
+        "bytes": 98370,
+        "sha256": "959ba6770d6a732384026dcd0e2b3adc3cff272398ce2d17a8ab2b81405914a2"
+      },
+      "TX_AutochessSand_Grass_N": {
+        "path": "/assets/scenes/map/autochesssand/TX_AutochessSand_Grass_N.png",
+        "bytes": 95760,
+        "sha256": "8efcb65ead715cac8dddeeba530aa62bd7347d518ff6a6e6de021e093ba378a1"
+      },
+      "TX_AutochessSand_M": {
+        "path": "/assets/scenes/map/autochesssand/TX_AutochessSand_M.png",
+        "bytes": 560705,
+        "sha256": "eb141adf0ff18c9d8a45fd5c770932ccede17823c67a0ca27c7ab4973f5750db"
+      },
+      "TX_AutochessSand_N": {
+        "path": "/assets/scenes/map/autochesssand/TX_AutochessSand_N.png",
+        "bytes": 398293,
+        "sha256": "bac5c739385cf9c2b6376307dbcc2714b94ea5e7eede65751c58961d43f388ea"
+      },
+      "TX_AutochessSand_background_A": {
+        "path": "/assets/scenes/map/autochesssand/TX_AutochessSand_background_A.png",
+        "bytes": 120788,
+        "sha256": "bbac3d6990095626f44778d466c9cb375e4de5e30a1bd37405e0637746baa309"
+      },
+      "TX_AutochessSand_background_N": {
+        "path": "/assets/scenes/map/autochesssand/TX_AutochessSand_background_N.png",
+        "bytes": 315045,
+        "sha256": "d78638e80b365409bbea01a06016ce1a82a863468d72ef78105be4f6a8847f24"
+      },
+      "TX_AutochessSand_common_A": {
+        "path": "/assets/scenes/map/autochesssand/TX_AutochessSand_common_A.png",
+        "bytes": 475709,
+        "sha256": "710f9c6146ac921d077b0011a478b86d195fa098a95f4e780378889afccca27b"
+      },
+      "TX_AutochessSand_sand_A": {
+        "path": "/assets/scenes/map/autochesssand/TX_AutochessSand_sand_A.png",
+        "bytes": 511516,
+        "sha256": "56ffb686efbed7337f1f7d719daa2f332806a0443827fc586b3be44b7a55105d"
+      },
+      "TX_AutochessSand_shuidi_A": {
+        "path": "/assets/scenes/map/autochesssand/TX_AutochessSand_shuidi_A.png",
+        "bytes": 829829,
+        "sha256": "3a13c429e94f545ef1e86c422fd5f78fecb0f6768b716b2f7d8ee3468e0fdf74"
+      },
+      "TX_AutochessSand_shuidi_N": {
+        "path": "/assets/scenes/map/autochesssand/TX_AutochessSand_shuidi_N.png",
+        "bytes": 2226719,
+        "sha256": "59d5b1a3627af4554f27ab14476944842d6fe83b241d6f4042931df7d0143c69"
+      },
+      "materials": {
+        "path": "/assets/scenes/map/autochesssand/materials.json",
+        "bytes": 11623,
+        "sha256": "23fa939cea61bc63ee9e4916c12ac75b79ceb88fafec0586634ccd0cafd01dd8"
+      }
+    },
+    "map/common": {
+      "TX_wind_device": {
+        "path": "/assets/scenes/map/common/TX_wind_device.webp",
+        "bytes": 88446,
+        "sha256": "3d07159661fad8cf57d8b96f276ba95f1241dec40fea37b547285dd1d369698a"
+      },
+      "materials": {
+        "path": "/assets/scenes/map/common/materials.json",
+        "bytes": 551,
+        "sha256": "ef60ec00e65d586087b45a5d43b2bcf4cdffc3624331da2c879737ae73aab4a2"
+      }
+    },
+    "map/fx": {
+      "S_start_Fly_down": {
+        "path": "/assets/scenes/map/fx/S_start_Fly_down.obj",
+        "bytes": 254,
+        "sha256": "a018c93f41792dc6df9c9676f35dbfecb540f87abfd584b26859f716063599e5"
+      },
+      "S_start_Fly_mid": {
+        "path": "/assets/scenes/map/fx/S_start_Fly_mid.obj",
+        "bytes": 252,
+        "sha256": "883c0a08a29233ee4983a73f8549e459188191159cf8d922fca3683cef389912"
+      },
+      "S_start_Fly_up": {
+        "path": "/assets/scenes/map/fx/S_start_Fly_up.obj",
+        "bytes": 250,
+        "sha256": "26d10617fb9a7fc4655d437a7647cb265984329fa1fb2cc31a5aa1d470d4cd53"
+      },
+      "Start_back": {
+        "path": "/assets/scenes/map/fx/Start_back.obj",
+        "bytes": 1688,
+        "sha256": "34469da35db948feefa07b0611bbe8237b65a9ea16f08157c105390584747763"
+      },
+      "Start_back_4235658232235163369": {
+        "path": "/assets/scenes/map/fx/Start_back_4235658232235163369.obj",
+        "bytes": 1310,
+        "sha256": "7b1c28467d3a09d71afbec3c839fac94c68f6fec500e23cd04d47fb2d00e93e3"
+      },
+      "Start_down": {
+        "path": "/assets/scenes/map/fx/Start_down.obj",
+        "bytes": 1998,
+        "sha256": "92fe9173990f5387a40235b13dbcdaee7f9e8fe606d2bd3bb72fa86ec62ce0ae"
+      },
+      "Start_down1": {
+        "path": "/assets/scenes/map/fx/Start_down1.obj",
+        "bytes": 3294,
+        "sha256": "1adfa0df9c5e29478b2a2233b63e56e8a6a1d7d0ee253812ddc4b6890d5d1083"
+      },
+      "Start_up": {
+        "path": "/assets/scenes/map/fx/Start_up.obj",
+        "bytes": 4920,
+        "sha256": "658b9b259d3d565a83040c92948053b58dbfc60b9f739a4a7c183a98b936a3c2"
+      },
+      "Start_up1": {
+        "path": "/assets/scenes/map/fx/Start_up1.obj",
+        "bytes": 4876,
+        "sha256": "8c7c014af99d027e7a446874e21a544a44b266bd20273f4cd6852754c416df03"
+      },
+      "T_ending_A": {
+        "path": "/assets/scenes/map/fx/T_ending_A.png",
+        "bytes": 2955,
+        "sha256": "a1865afe0e218e1a68477ed976e9bb8bdbcaa355e6262078ec4c94a967cd3e9b"
+      },
+      "T_ending_P": {
+        "path": "/assets/scenes/map/fx/T_ending_P.png",
+        "bytes": 1829,
+        "sha256": "f21ee318923596bb62bf6012db9c5adadd0cc9cbce8c4974ca1be084b30b53e7"
+      },
+      "T_ending_arrow": {
+        "path": "/assets/scenes/map/fx/T_ending_arrow.png",
+        "bytes": 1570,
+        "sha256": "38ff1bc47f6f1fd95e92b4042862da5c250ced9083e926def5302315cf11a378"
+      },
+      "T_ending_grey": {
+        "path": "/assets/scenes/map/fx/T_ending_grey.png",
+        "bytes": 3488,
+        "sha256": "0056e36ceadc39146588fc6a6a182f180e8dc9993b3b904f47a0669444af06a6"
+      },
+      "T_ending_multiplayer_01": {
+        "path": "/assets/scenes/map/fx/T_ending_multiplayer_01.png",
+        "bytes": 4387,
+        "sha256": "2e38d8cf114a40a2c2c9b0cbbbd89de97bf7ad505cf628aecc0238307b81ebf1"
+      },
+      "T_ending_multiplayer_02": {
+        "path": "/assets/scenes/map/fx/T_ending_multiplayer_02.png",
+        "bytes": 5164,
+        "sha256": "3e5096508718c7b4ca6eb101b1d1e54fc3c8d7c61be00a78295f7f7114bd111a"
+      },
+      "T_ending_multiplayer_03": {
+        "path": "/assets/scenes/map/fx/T_ending_multiplayer_03.png",
+        "bytes": 23268,
+        "sha256": "b2986ec1e7f4b1f55c6a1f4b42ecd6dfacf2b675864d6ab5c188f91b4fd31dc3"
+      },
+      "T_ending_multiplayer_04": {
+        "path": "/assets/scenes/map/fx/T_ending_multiplayer_04.png",
+        "bytes": 24828,
+        "sha256": "65295115deaf82560170b57ac3725230fcaf42f117b753764b77fd39d0b06bcf"
+      },
+      "T_starting_A": {
+        "path": "/assets/scenes/map/fx/T_starting_A.png",
+        "bytes": 3003,
+        "sha256": "47bafcc736e01697cb4a843ff214a29d0230037c690ee3a903a6a7b752618918"
+      },
+      "T_starting_A_green": {
+        "path": "/assets/scenes/map/fx/T_starting_A_green.png",
+        "bytes": 2523,
+        "sha256": "35c80b5f0fae9bd6cc1d7eedd5f9bbcb2b0415dc387288cfec2aa1c9b557681a"
+      },
+      "T_starting_Mask": {
+        "path": "/assets/scenes/map/fx/T_starting_Mask.png",
+        "bytes": 6533,
+        "sha256": "e0ec1a2345d62862e120518f2f44f58e7ad4f7942808fe686009e73470d19f40"
+      },
+      "T_starting_Mask2": {
+        "path": "/assets/scenes/map/fx/T_starting_Mask2.png",
+        "bytes": 7567,
+        "sha256": "a7d0f13c95306ec7408dcc91820ceb32a5af910c77107d03374c398a22f9f7b4"
+      },
+      "[opt]merged_textures": {
+        "path": "/assets/scenes/map/fx/[opt]merged_textures.webp",
+        "bytes": 5454,
+        "sha256": "ad3cca7865e346ee23093ee7244fe0c2da485fd370c0eefbda0532f81a4bf203"
+      },
+      "[opt]merged_textures_2": {
+        "path": "/assets/scenes/map/fx/[opt]merged_textures_2.png",
+        "bytes": 11171,
+        "sha256": "4ac561a43a759adc2d1d499b4e5596aded6e3540a845d576e084f4ee6cec0aa7"
+      },
+      "[opt]merged_textures_green": {
+        "path": "/assets/scenes/map/fx/[opt]merged_textures_green.png",
+        "bytes": 12582,
+        "sha256": "cfa4472329304e255e39be83f9486280de53df104fd8c567a80ed9f885639a78"
+      },
+      "[opt]merged_textures_multiplayer_01": {
+        "path": "/assets/scenes/map/fx/[opt]merged_textures_multiplayer_01.png",
+        "bytes": 14317,
+        "sha256": "7aad6a687e59bf94c5d60ad188da673b5af6124745ffd7cc016d981be275b309"
+      },
+      "[opt]merged_textures_multiplayer_02": {
+        "path": "/assets/scenes/map/fx/[opt]merged_textures_multiplayer_02.png",
+        "bytes": 14736,
+        "sha256": "71a2ca0a0f5e3f24da14ab6c20494f2fd3313d9071644b0fa6b1cc32325fd1b9"
+      },
+      "materials": {
+        "path": "/assets/scenes/map/fx/materials.json",
+        "bytes": 22005,
+        "sha256": "d2ca125d0dc3649d304ca90909edb5602f59eb79c5db015cbaf8df562b7ebf97"
+      },
+      "pPlane2": {
+        "path": "/assets/scenes/map/fx/pPlane2.obj",
+        "bytes": 7213,
+        "sha256": "07ed158202887c2d54d75e64167400eaa5c23f4e40957caac6e9be8bd0acc9a6"
+      },
+      "prefab": {
+        "path": "/assets/scenes/map/fx/prefab.json",
+        "bytes": 2786,
+        "sha256": "afad577b77cfe24b5c3aa8e7aabf3e2175f7a0420729e0aaaf50936a12c27308"
+      }
+    },
+    "map/water": {
+      "TX_Caustics256": {
+        "path": "/assets/scenes/map/water/TX_Caustics256.webp",
+        "bytes": 15220,
+        "sha256": "056b9b77980f496182047e3cdf1bea2558fc2c787d8fa33a0134a24e95757784"
+      },
+      "TX_SmoothWaves": {
+        "path": "/assets/scenes/map/water/TX_SmoothWaves.png",
+        "bytes": 62739,
+        "sha256": "920b7723be2101a186ea62e21e5fe5d938bf2797fa4ad9174a598aec4386b1e9"
+      },
+      "TX_WaterNoise": {
+        "path": "/assets/scenes/map/water/TX_WaterNoise.png",
+        "bytes": 67547,
+        "sha256": "d77923ddd817113185b8fed45aa16e8f64968ad9f37835d20057d2ce805e3f91"
+      },
+      "TX_Water_Foam": {
+        "path": "/assets/scenes/map/water/TX_Water_Foam.png",
+        "bytes": 38283,
+        "sha256": "48a204bbd281a5d0ede7c3cacaf3764e3d1696bf045af7f6918b55cb2cbdf6a8"
+      },
+      "T_noise_clouds_01": {
+        "path": "/assets/scenes/map/water/T_noise_clouds_01.webp",
+        "bytes": 197182,
+        "sha256": "1798a2b6711216122651c73496d8729000654a04b631c5c8e1131eed48deb00c"
+      },
+      "[ucp]TX_water_normal": {
+        "path": "/assets/scenes/map/water/[ucp]TX_water_normal.webp",
+        "bytes": 59072,
+        "sha256": "c6927ff6ddacbbc9ffb82671f2e8733895a5b3726fa9463289091db17af9834c"
+      }
+    },
+    "mesh/map_autochess_bkg": {
+      "S_Background_shadow": {
+        "path": "/assets/scenes/mesh/map_autochess_bkg/S_Background_shadow.obj",
+        "bytes": 1788,
+        "sha256": "ff2486ef59fe03044fbb6616e0419b289190108e701af869ef5be678093c4329"
+      },
+      "materials": {
+        "path": "/assets/scenes/mesh/map_autochess_bkg/materials.json",
+        "bytes": 450,
+        "sha256": "00d4e32bba5c1efa408b363bf3e43a854a85f5c7ef67947a37ebd4dcf3d83c14"
+      },
+      "pPlane1": {
+        "path": "/assets/scenes/mesh/map_autochess_bkg/pPlane1.obj",
+        "bytes": 174,
+        "sha256": "d7256bcfd5f06b7acdce309879c799df22e5e73ccee2c8f866b3046f7c6d2442"
+      },
+      "prefab": {
+        "path": "/assets/scenes/mesh/map_autochess_bkg/prefab.json",
+        "bytes": 343,
+        "sha256": "153aba721ff178252e47a10d74375176f0ccaf947ef8ef54f1fe90981fe3b6f8"
+      }
+    },
+    "mesh/s_background_common": {
+      "pPlane1": {
+        "path": "/assets/scenes/mesh/s_background_common/pPlane1.obj",
+        "bytes": 174,
+        "sha256": "d7256bcfd5f06b7acdce309879c799df22e5e73ccee2c8f866b3046f7c6d2442"
+      },
+      "prefab": {
+        "path": "/assets/scenes/mesh/s_background_common/prefab.json",
+        "bytes": 164,
+        "sha256": "a0bc1b858fe39773f3009bf91137b7a75dcad4f289c773c7125a3b4c948a5cc5"
+      }
+    },
+    "mesh/s_common_box_01": {
+      "pCube2": {
+        "path": "/assets/scenes/mesh/s_common_box_01/pCube2.obj",
+        "bytes": 3200,
+        "sha256": "e6fcb058aee0dd8f56dabb1a4a235b413fd7c0ba8787c78b88db15a0a0d5867c"
+      },
+      "prefab": {
+        "path": "/assets/scenes/mesh/s_common_box_01/prefab.json",
+        "bytes": 146,
+        "sha256": "4d9f2a33aa3217a7ed50094b1766bbb4dfee704c38ea5b5e6c8f11ddc769f001"
+      }
+    },
+    "mesh/s_wind_device": {
+      "S_wild_wind_device": {
+        "path": "/assets/scenes/mesh/s_wind_device/S_wild_wind_device.obj",
+        "bytes": 21019,
+        "sha256": "aa7c1b00bd139e5f244f4598b301b63537e9218f123e9f706423d64f44e704ff"
+      },
+      "prefab": {
+        "path": "/assets/scenes/mesh/s_wind_device/prefab.json",
+        "bytes": 153,
+        "sha256": "9526c7ec60e11907bf58c0cda89b7b14fadf96382213111151516c3c26c2c505"
+      }
+    },
+    "scene/act1autochess_m01": {
+      "bin": {
+        "path": "/assets/scenes/scene/act1autochess_m01/scene.mesh",
+        "bytes": 2108116,
+        "sha256": "94012355381a84e8b95180b5a2354015091d49c1fb34f038cc233b71e5e687e6"
+      },
+      "lm0": {
+        "path": "/assets/scenes/scene/act1autochess_m01/lm0.webp",
+        "bytes": 299910,
+        "sha256": "c5cb493a1cdccb445a899c581cc5e580cde2ef3a994cdded8d23f1ae11b45bce"
+      },
+      "lm1": {
+        "path": "/assets/scenes/scene/act1autochess_m01/lm1.webp",
+        "bytes": 77504,
+        "sha256": "599987f8abdb379c9d72ab6819398620aa4fb781c9dd044a3df97e96e784b08f"
+      },
+      "scene": {
+        "path": "/assets/scenes/scene/act1autochess_m01/scene.json",
+        "bytes": 13718,
+        "sha256": "63f8ec8fa8609128ce4485d7c43e0fbe4835f2148d82c2d9edcb17f418a4618a"
+      }
+    },
+    "scene/act1autochess_m02": {
+      "bin": {
+        "path": "/assets/scenes/scene/act1autochess_m02/scene.mesh",
+        "bytes": 2014344,
+        "sha256": "546538d3588ebd7953ab02774cc5eb2115ccd8cfbc37c01d5fbd30d16cd40355"
+      },
+      "lm0": {
+        "path": "/assets/scenes/scene/act1autochess_m02/lm0.webp",
+        "bytes": 289742,
+        "sha256": "44634408c4fcea997fc1b88ccc331573d87a9ea0f9a73f344e072d862dc3e966"
+      },
+      "lm1": {
+        "path": "/assets/scenes/scene/act1autochess_m02/lm1.webp",
+        "bytes": 53004,
+        "sha256": "4d1f1f24db818fbbcb5d7ce339614be1c6c66287eb0c768f40007ee9daf80be3"
+      },
+      "scene": {
+        "path": "/assets/scenes/scene/act1autochess_m02/scene.json",
+        "bytes": 14056,
+        "sha256": "9c6734f8c50518abb9dc44b0fa27c0a13a53581b7742f2d16a5c8283b133e6e9"
+      }
+    },
+    "scene/act1autochess_m03": {
+      "bin": {
+        "path": "/assets/scenes/scene/act1autochess_m03/scene.mesh",
+        "bytes": 2096500,
+        "sha256": "7dd01bb086dfc490fa8807b1ae323d2f88f6c9032d2866c2d92effa59bf2ec28"
+      },
+      "lm0": {
+        "path": "/assets/scenes/scene/act1autochess_m03/lm0.webp",
+        "bytes": 331798,
+        "sha256": "12c2143b124e6c1c4f714b6d2a7deb475bfaf200140d734b208c0e3fb76e42cc"
+      },
+      "scene": {
+        "path": "/assets/scenes/scene/act1autochess_m03/scene.json",
+        "bytes": 13394,
+        "sha256": "a5a88803336970696f157e85f22c6c5177a9359a0c753dff0db76f70f515df0a"
+      }
+    },
+    "scene/act1autochess_m04": {
+      "bin": {
+        "path": "/assets/scenes/scene/act1autochess_m04/scene.mesh",
+        "bytes": 2095084,
+        "sha256": "fcc8624761e86b875e2b63dbe4e39f1e4b138b74f9b336eeb280c69afb87ade2"
+      },
+      "lm0": {
+        "path": "/assets/scenes/scene/act1autochess_m04/lm0.webp",
+        "bytes": 326812,
+        "sha256": "a2a9a832f29955ff0b593ec413a731b96291a8c8a423185db0480976e1abba73"
+      },
+      "scene": {
+        "path": "/assets/scenes/scene/act1autochess_m04/scene.json",
+        "bytes": 13566,
+        "sha256": "adfd6bc235a86e6f7b5dee1402dd19b12298dbda92d53993d62e5b199130b44f"
+      }
+    },
+    "scene/act1autochess_m05": {
+      "bin": {
+        "path": "/assets/scenes/scene/act1autochess_m05/scene.mesh",
+        "bytes": 2298124,
+        "sha256": "3d1153a71bb145a83075c8a01c66f696764f525a8dc502be28fdbb035fbe7c9e"
+      },
+      "lm0": {
+        "path": "/assets/scenes/scene/act1autochess_m05/lm0.webp",
+        "bytes": 348570,
+        "sha256": "0f7686bea1ca96c778c01f27050754eef286813c6cc8440481fca3b96d38a6b1"
+      },
+      "scene": {
+        "path": "/assets/scenes/scene/act1autochess_m05/scene.json",
+        "bytes": 17470,
+        "sha256": "2c150a946029c188e3d1cdeb5f59cb8fe7aa3fc22e7d5265ed530605f1145256"
+      }
+    },
+    "scene/act1autochess_m06": {
+      "bin": {
+        "path": "/assets/scenes/scene/act1autochess_m06/scene.mesh",
+        "bytes": 2071384,
+        "sha256": "b8a724daa3801655ed70a7ea8dab5cbf280173443ddb67450039a18ed0c3ed55"
+      },
+      "lm0": {
+        "path": "/assets/scenes/scene/act1autochess_m06/lm0.webp",
+        "bytes": 298088,
+        "sha256": "28252e9dab29df3d750344d235f617a5f7dc83a70ccc99d962eb1d4c6a5c3d02"
+      },
+      "scene": {
+        "path": "/assets/scenes/scene/act1autochess_m06/scene.json",
+        "bytes": 13565,
+        "sha256": "4643cdecfe2a36050fff51437354785aa256a99f3576992890bf8d5b3ce8b7d1"
+      }
+    },
+    "scene/act1autochess_m07": {
+      "bin": {
+        "path": "/assets/scenes/scene/act1autochess_m07/scene.mesh",
+        "bytes": 2065484,
+        "sha256": "25dfd771c796b6a7dd973181e406ae483763777f0c49ca27012aaeb0b4314bb1"
+      },
+      "lm0": {
+        "path": "/assets/scenes/scene/act1autochess_m07/lm0.webp",
+        "bytes": 258170,
+        "sha256": "30194eb0a5a63c217b563bd918ffdbce88a3a83b6756882bd901b574c7be2d11"
+      },
+      "scene": {
+        "path": "/assets/scenes/scene/act1autochess_m07/scene.json",
+        "bytes": 13218,
+        "sha256": "eb69c380406b16145e5421d599fecf1d55545f78dfd95a51385b1085d2c67f13"
+      }
+    },
+    "scene/act2autochess_m01": {
+      "bin": {
+        "path": "/assets/scenes/scene/act2autochess_m01/scene.mesh",
+        "bytes": 6544564,
+        "sha256": "db3cef7272c62e38e6440a4861836fe92068f9ce1c9fe2e7a6cda6144cafe3de"
+      },
+      "lm0": {
+        "path": "/assets/scenes/scene/act2autochess_m01/lm0.webp",
+        "bytes": 290008,
+        "sha256": "1d6107ed1fade2432d75d3db2cb3c2fcac8aa67df11f1dd01ed76b54c26d7671"
+      },
+      "lm1": {
+        "path": "/assets/scenes/scene/act2autochess_m01/lm1.webp",
+        "bytes": 240002,
+        "sha256": "90f73afc94c54b46767a954581d28e5dcb0715528690a77ebb9966c40e324675"
+      },
+      "scene": {
+        "path": "/assets/scenes/scene/act2autochess_m01/scene.json",
+        "bytes": 9288,
+        "sha256": "a0290bff642bdc74f53e424467eaa10eedd2e6f7bf3d8149bf5997af958bb3ea"
+      }
+    },
+    "scene/act2autochess_m02": {
+      "bin": {
+        "path": "/assets/scenes/scene/act2autochess_m02/scene.mesh",
+        "bytes": 2419328,
+        "sha256": "4e8f925d5fd3273830b4d931741dfafedfb5d01e4abac65c29793b0e9351005d"
+      },
+      "lm0": {
+        "path": "/assets/scenes/scene/act2autochess_m02/lm0.webp",
+        "bytes": 246668,
+        "sha256": "72e40134c1bedac7d591db44f9084c8a57d445ff7a79fad3e0bc161c3709da7c"
+      },
+      "lm1": {
+        "path": "/assets/scenes/scene/act2autochess_m02/lm1.webp",
+        "bytes": 156788,
+        "sha256": "43803f8cd71d04f80565b6979f034c1b65819bc977d706d827d27528f5eb455a"
+      },
+      "lm2": {
+        "path": "/assets/scenes/scene/act2autochess_m02/lm2.webp",
+        "bytes": 146716,
+        "sha256": "12ba420ec2fa39bc49804c95b710efbf3ec8108a9c448edd75a1eff6f443e1f2"
+      },
+      "lm3": {
+        "path": "/assets/scenes/scene/act2autochess_m02/lm3.webp",
+        "bytes": 182212,
+        "sha256": "b893f02033875f3a6c710c76dda3bfd8b1f250ac2876bc8e562a19bb9b0767b6"
+      },
+      "lm4": {
+        "path": "/assets/scenes/scene/act2autochess_m02/lm4.webp",
+        "bytes": 67274,
+        "sha256": "31ca52391242367f0d451349a8bb6a5b1e4bd5fc57cebd71e9b40f78820171ac"
+      },
+      "scene": {
+        "path": "/assets/scenes/scene/act2autochess_m02/scene.json",
+        "bytes": 16923,
+        "sha256": "5092458bb4fd2d59a67a386a357407ea9c5e31e1bb2b2cbdad96860bcdec6973"
+      }
+    },
+    "scene/act2autochess_m03": {
+      "bin": {
+        "path": "/assets/scenes/scene/act2autochess_m03/scene.mesh",
+        "bytes": 3020640,
+        "sha256": "a2bc4d834d255e1a7a3fb1b4fc9cdd205ac58600ea099605bb145b2e0c17326f"
+      },
+      "lm0": {
+        "path": "/assets/scenes/scene/act2autochess_m03/lm0.webp",
+        "bytes": 268798,
+        "sha256": "b445206e79f385930e176d1265550b89afb9ff310fc90dd1d77140558f406f1d"
+      },
+      "lm1": {
+        "path": "/assets/scenes/scene/act2autochess_m03/lm1.webp",
+        "bytes": 216826,
+        "sha256": "0cca6d5ddbc13687b5386ac4d8f66775cccd341330951cebecf6164f62ba1b57"
+      },
+      "scene": {
+        "path": "/assets/scenes/scene/act2autochess_m03/scene.json",
+        "bytes": 6841,
+        "sha256": "4799888c4814f2e21d799b691ac042d4ac642ea4c9644aa521aea91f051db5e1"
+      }
+    },
+    "scene/act2autochess_m04": {
+      "bin": {
+        "path": "/assets/scenes/scene/act2autochess_m04/scene.mesh",
+        "bytes": 2139668,
+        "sha256": "20b0cbb55b95f76e1c45c90fb8797ffe5799a9d288b19973304285402f1e42cf"
+      },
+      "lm0": {
+        "path": "/assets/scenes/scene/act2autochess_m04/lm0.webp",
+        "bytes": 262826,
+        "sha256": "470b4fe7ea9017631098e6ac41f396d91ac65a90ecd5ce31072aaa85fa892974"
+      },
+      "lm1": {
+        "path": "/assets/scenes/scene/act2autochess_m04/lm1.webp",
+        "bytes": 200252,
+        "sha256": "614fd46257b34c2cac1d649230e296238dfd55ec1bdbd59d927a0c4a2d15f53d"
+      },
+      "scene": {
+        "path": "/assets/scenes/scene/act2autochess_m04/scene.json",
+        "bytes": 18136,
+        "sha256": "970f3ac453caa816d33d603c852554032550aa9d481239c215d349c4a000d689"
+      }
+    },
+    "scene/tex": {
+      "TX_AutochessSand_A": {
+        "path": "/assets/scenes/scene/tex/TX_AutochessSand_A.webp",
+        "bytes": 397810,
+        "sha256": "c8774fda3a29159301b40b1cf5a3e53ed0b8c9b0e16321849bb0db87204cdd14"
+      },
+      "TX_AutochessSand_Grass_A": {
+        "path": "/assets/scenes/scene/tex/TX_AutochessSand_Grass_A.webp",
+        "bytes": 141260,
+        "sha256": "2d2ee1cc1762706de526282c953f7e0c3080d4c3ce72a98b2f3123d190c7baf9"
+      },
+      "TX_AutochessSand_background_A": {
+        "path": "/assets/scenes/scene/tex/TX_AutochessSand_background_A.webp",
+        "bytes": 15518,
+        "sha256": "786930a018e5a1a543c18368d160100671acd8e60c418fd1a50d686fdb736a56"
+      },
+      "TX_AutochessSand_common_A": {
+        "path": "/assets/scenes/scene/tex/TX_AutochessSand_common_A.webp",
+        "bytes": 173470,
+        "sha256": "0526743258b524c7ec660c6458983f888ab4ca86cba638b704a3ef7a42fe3d1b"
+      },
+      "TX_AutochessSand_sand_A": {
+        "path": "/assets/scenes/scene/tex/TX_AutochessSand_sand_A.webp",
+        "bytes": 234474,
+        "sha256": "53a8e9a9cdddbf11f29d854875f5ab7b7f4f6b5cf0e5f35c62b72d89705d1df3"
+      },
+      "TX_AutochessSand_shuidi_A": {
+        "path": "/assets/scenes/scene/tex/TX_AutochessSand_shuidi_A.webp",
+        "bytes": 140872,
+        "sha256": "605f0a4c65907ce0bbf8a5eefef80f9428495454b807e1154911f92130d52633"
+      },
+      "TX_KXMR_A": {
+        "path": "/assets/scenes/scene/tex/TX_KXMR_A.webp",
+        "bytes": 582448,
+        "sha256": "f0e2605cfee6c65dfcc509a8b8b6c0fb10526051b680388e88e63cd7ee0de22d"
+      },
+      "TX_LMZ_A": {
+        "path": "/assets/scenes/scene/tex/TX_LMZ_A.webp",
+        "bytes": 165558,
+        "sha256": "8edb1c497bc91c487128fad35bfef7dca6080c82e4cb9eb1443109ad768ad8b6"
+      },
+      "TX_LMZ_common": {
+        "path": "/assets/scenes/scene/tex/TX_LMZ_common.webp",
+        "bytes": 202114,
+        "sha256": "f70391b7ba18410cf70cce97a240f8a3a22fb8048592d58484ef058941298896"
+      },
+      "TX_Syracuse_metro_BG": {
+        "path": "/assets/scenes/scene/tex/TX_Syracuse_metro_BG.webp",
+        "bytes": 63298,
+        "sha256": "6e1ca6a6e9faafe777739e8dd0fcfe98d2369a42fbc5d98514767fcf561d9f3e"
+      },
+      "TX_Syracuse_metro_D": {
+        "path": "/assets/scenes/scene/tex/TX_Syracuse_metro_D.webp",
+        "bytes": 822378,
+        "sha256": "0c07f9c7da9fa4d8b99aa896a033ee159a79cfba858c82e9d83f06c02755484d"
+      },
+      "TX_Syracuse_metro_common_D": {
+        "path": "/assets/scenes/scene/tex/TX_Syracuse_metro_common_D.webp",
+        "bytes": 113448,
+        "sha256": "b20fbd2907c73447413d5d3da8adb621e8e77d7c9a9a5b969998dc11da9b2975"
+      },
+      "TX_Syracuse_metro_floor_D": {
+        "path": "/assets/scenes/scene/tex/TX_Syracuse_metro_floor_D.webp",
+        "bytes": 47284,
+        "sha256": "4eb3333bccc4c670c848165d2781355ff7a4e9688fc311b5e65b70a8ba20d84b"
+      },
+      "TX_Syracuse_metro_grass_D": {
+        "path": "/assets/scenes/scene/tex/TX_Syracuse_metro_grass_D.webp",
+        "bytes": 78004,
+        "sha256": "08ff041278eea665029e503f080ddf1c3f78cbf6314970d3418833767a3c8a2f"
+      },
+      "fangkuai_06": {
+        "path": "/assets/scenes/scene/tex/fangkuai_06.webp",
+        "bytes": 140,
+        "sha256": "ec13deee11c38ef9601012f34dc4022f9d451416d95076d396f76ae68c0172d7"
+      }
+    }
+  }
+}

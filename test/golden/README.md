@@ -1,5 +1,8 @@
 # Golden results
 
+Visual migration (2026-10-15): roster-042 and standin-04 intentionally change for half-to-even hit tiles;
+[scenario audit](../../docs/visual-migration-golden.md). The previously published AI and match digests are preserved.
+
 Current weishu corpus (2026-10-13): 48 roster, 50 bonds, 25 fields, 18 matches, 11 stand-ins and 138 DIY scenarios,
 290 total. The Columbia second DOCX and AI update recomputed all six families: 40 changed, no additions/removals,
 all stand-in and DIY digests unchanged. [Full current audit](../../docs/columbia-v2-ai-golden.md) names every changed case and its reason;

@@ -27,3 +27,6 @@ node_modules/** -text
 *.ttf binary
 *.mp3 binary
 *.ogg binary
+# Signed scene bytes and normalized Spine atlases must survive Windows clones unchanged.
+public/assets/scenes/** -text
+public/assets/skins/** -text

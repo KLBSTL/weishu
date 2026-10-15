@@ -65,6 +65,7 @@ import { collectLeaves, downloadLeaves, resolveTemplate, totalBytes, contentHash
 import { fontJobs, buildFonts } from './assets/fonts.mjs';
 import { skelParserAvailable } from './assets/skel.mjs';
 import { attachSkinCatalogue } from './assets/skin-catalogue.mjs';
+import { attachBoardArt } from './assets/board-art.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ASSETS = join(ROOT, 'public', 'assets');
@@ -245,6 +246,7 @@ function countStats(m, bytes, files) {
   const spines = new Set();
   for (const c of vals(m.chars)) {
     for (const s of vals(c.spine)) spines.add(s.skel);
+    if (c.base) spines.add(c.base.skel);
     for (const skin of c.skins || []) for (const s of [skin.spine.front, skin.spine.back, skin.base].filter(Boolean)) spines.add(s.skel);
   }
   for (const e of vals(m.enemies)) if (e.spine) spines.add(e.spine.skel);
@@ -401,6 +403,7 @@ async function main() {
   const body = resolved.value;
   tidyManifest(body);
   attachSkinCatalogue(body, ROOT, resolved.files);
+  attachBoardArt(body, ROOT, resolved.files);
   const fontFaces = {};
   for (const [name, f] of Object.entries(fonts.files)) fontFaces[name] = f;
   body.fonts = opts.addOnly && current?.fonts ? current.fonts

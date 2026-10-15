@@ -743,7 +743,11 @@ describe('generated manifest data/assets.json', () => {
     const base = require('@pixi-spine/base');
     const r38 = require('@pixi-spine/runtime-3.8');
     const models = new Map();
-    for (const c of Object.values(manifest.chars)) for (const s of Object.values(c.spine || {})) models.set(s.skel, s);
+    for (const c of Object.values(manifest.chars)) {
+      for (const s of Object.values(c.spine || {})) models.set(s.skel, s);
+      if (c.base) models.set(c.base.skel, c.base);
+      for (const skin of c.skins || []) for (const s of [...Object.values(skin.spine), skin.base].filter(Boolean)) models.set(s.skel, s);
+    }
     for (const e of Object.values(manifest.enemies)) if (e.spine) models.set(e.spine.skel, e.spine);
     for (const t of Object.values(manifest.tokens)) if (t.spine) models.set(t.spine.skel, t.spine);
     assert.ok(models.size > 400);
@@ -773,7 +777,8 @@ describe('generated manifest data/assets.json', () => {
       const data = new r38.SkeletonBinary(new r38.AtlasAttachmentLoader(atlas)).readSkeletonData(new Uint8Array(readFileSync(join(PUBLIC, s.skel))));
       const skel = new r38.Skeleton(data);
       const state = new r38.AnimationState(new r38.AnimationStateData(data));
-      for (const n of roleAnimationNames(s.anims)) {
+      // Extra appearances include non-combat Base actions; exercise every exported clip, not just combat roles.
+      for (const n of Object.keys(s.animations)) {
         state.setAnimation(0, n, true);
         state.update(0.25);
         state.apply(skel);

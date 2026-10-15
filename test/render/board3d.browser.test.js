@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'test/e2e/out');
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const hasArt = existsSync(path.join(ROOT, 'public/assets/local/map/autochess/TX_autochessi_D.png'));
+const hasArt = existsSync(path.join(ROOT, 'public/assets/local/map/autochess/TX_autochessi_D.png')) || existsSync(path.join(ROOT, 'public/assets/scenes/catalogue.json'));
 const enabled = process.env.RENDER_E2E === '1' && existsSync(CHROME) && existsSync(path.join(ROOT, 'public/assets')) && hasArt;
 const skip = enabled ? false : 'set RENDER_E2E=1 (needs Chrome, downloaded assets and the local-client board art)';
 
@@ -33,7 +33,8 @@ describe('3D board in headless Chrome', { skip }, () => {
     const puppeteer = (await import('puppeteer-core')).default;
     const { startServer } = await import('../../server/index.js');
     srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
-    browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-first-run', '--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
+    browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-first-run', '--ignore-gpu-blocklist',
+      '--enable-gpu', ...(process.platform === 'darwin' ? ['--use-angle=metal'] : [])] });
     mkdirSync(OUT, { recursive: true });
   });
   after(async () => {
@@ -212,14 +213,20 @@ describe('3D board in headless Chrome', { skip }, () => {
     assert.deepEqual(lost, { before: true, after: false, back: true });
   });
 
-  test('no local-art manifest: 2D board, three.js is never downloaded; settings quality toggles the 3D shadows', async () => {
+  test('no distributed or local art: 2D board, three.js is never downloaded; settings quality toggles the 3D shadows', async () => {
     const page = await browser.newPage();
     const problems = [], three = [];
     page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
     await page.setRequestInterception(true);
+    const noArt = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
+    delete noArt.boardArt;
+    delete noArt.boardStats;
     page.on('request', (r) => {
       if (r.url().includes('/vendor/three')) three.push(r.url());
-      if (r.url().endsWith('/data/local-assets.json')) r.respond({ status: 404, body: '' }); else r.continue();
+      const route = new URL(r.url()).pathname;
+      if (route === '/data/local-assets.json') r.respond({ status: 200, contentType: 'application/json', body: '{"groups":{}}' });
+      else if (route === '/data/assets.json') r.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(noArt) });
+      else r.continue();
     });
     await page.setViewport({ width: 1280, height: 720 });
     await page.goto(`http://127.0.0.1:${srv.port}/dev/render-demo.html?scene=prep&panel=0`);

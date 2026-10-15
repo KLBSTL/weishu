@@ -2491,7 +2491,7 @@
           "leaks": 42,
           "leaksUncounted": 0,
           "coins": 6,
-          "dmg": 1231054,
+          "dmg": 1233862,
           "bossDmg": 0,
           "heal": 11979,
           "deaths": 16,
@@ -2499,14 +2499,14 @@
         }
       },
       "units": [
-        ["p1",1,"op","chess_char_5_19_b",1,"uniequip_002_mlynar",4297.7,1,183,11,102004,4496,198,31,3],
+        ["p1",1,"op","chess_char_5_19_b",1,"uniequip_002_mlynar",4297.7,1,183,10,103251,4496,198,31,3],
         ["p1",2,"op","chess_char_6_03_a",1,null,2057.46,1,161,9,85743,14850,8931,53,3],
         ["p1",3,"op","chess_char_6_06_a",1,null,0,0,116,3,53765,5027,137,17,1],
         ["p1",4,"op","chess_char_5_20_b",1,"uniequip_004_aglina",1421.2,1,190,5,45558,1665,243,195,2],
         ["p1",5,"op","chess_char_5_22_b",2,"none",1595.57,1,150,9,141022,2340,612,57,2],
         ["p1",6,"op","chess_char_5_sarkaz_typhon_b",2,"uniequip_003_typhon",1697.21,1,132,28,300530,2964,517,31,2],
         ["p1",7,"op","chess_char_6_01_a",1,null,1655.94,1,174,6,49185,1774,118,43,0],
-        ["p1",8,"op","chess_char_6_02_a",1,null,0,0,6,21,210141,3776,300,12,1],
+        ["p1",8,"op","chess_char_6_02_a",1,null,0,0,6,22,211704,3776,300,12,1],
         ["p1",9,"op","chess_char_6_05_a",1,null,0,0,138,5,64188,4375,98,32,1],
         ["p1",10,"op","chess_char_6_09_a",2,null,502.73,1,122,13,112681,2081,525,55,2],
         ["p1",11,"op","chess_char_6_11_a",1,null,0,0,126,3,21562,3269,0,38,2],
@@ -2527,14 +2527,14 @@
         "enemy_1197_sfshu": [1,1,0,0,3456],
         "enemy_1198_msfshu": [3,3,0,0,12],
         "enemy_1254_lypa_2": [1,1,0,0,13824],
-        "enemy_1364_spnaxe_2": [1,0,1,5142,43332],
+        "enemy_1364_spnaxe_2": [1,0,1,5142,46141],
         "enemy_1513_dekght_2": [1,0,1,13485,41573],
         "enemy_9009_acfort": [1,1,0,8244,33178]
       },
-      "hooks": [1,189,5739,773,773,1677,2413,2386,138,180,21,20,15,21595,1066,61,161,42,1,140,8,20,0],
-      "events": {"atk":971,"bounty":3,"deploy":26,"die":138,"dmg":2413,"engage":15,"fx":127,"heal":17,"layer":8,"leak":42,"skill":41,"spawn":178,"status":1675},
+      "hooks": [1,189,5739,773,773,1679,2415,2386,138,180,21,20,15,21595,1066,61,161,42,1,140,8,20,0],
+      "events": {"atk":972,"bounty":3,"deploy":26,"die":138,"dmg":2415,"engage":15,"fx":127,"heal":17,"layer":8,"leak":42,"skill":41,"spawn":178,"status":1675},
       "fx": {"arrowRain":15,"blessing":1,"burst":20,"camouflage":2,"copy":2,"dp":2,"explode":6,"garrison":2,"link":1,"mark":2,"pull":3,"snow":15,"soul":8,"sp":1,"split":1,"summon":1,"talent":2,"telegraph":6,"teleport":11,"wanted":26},
-      "snaps": "58f434ab 418e2e0c e9fa704a 5299a871 c4e16330 0557ece9 ef249210 a4ece263 35432203 30fb9da1 ef31fa5e 0ac3d1cf 83e3099a cdeb8aa0 73c20ba3 154817c4 2d615716 3bd2c5b6 7a50c299 231f4ebd"
+      "snaps": "58f434ab 418e2e0c e9fa704a 5299a871 c4e16330 0557ece9 ef249210 a4ece263 6ab2cd70 46ad82b6 df162e4d bfb84ff0 0802a811 88c6a793 f5e51a30 9b773837 0394515d 32c8925d 205e3e1e 2e6d7c5a"
     },
     "roster-043": {
       "about": "pass 2 band 7: chess_char_6_15_a chess_char_6_19_a chess_char_6_17_a chess_char_6_13_a chess_char_6_14_a chess_char_6_16_a chess_char_6_18_a chess_char_6_20_a chess_char_6_columbia_aphris_a chess_char_6_columbia_heyak_a chess_char_6_sarkaz_wisdel_a chess_char_6_01_b token_10070_aphris_pc",

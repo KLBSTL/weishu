@@ -51,9 +51,12 @@ export function AppearanceControls({ charId, manifest = null }) {
   const skins = record.skins || [];
   const selected = skins.find(skin => skin.skinId === prefs.skin);
   const selectedId = selected?.skinId || '';
-  const entry = view === 'base' && selected?.base ? selected.base : spineEntry(m, charId, { back: view === 'back', skin: selectedId });
+  const base = selected ? selected.base : record.base;
+  const entry = view === 'base' && base ? base : spineEntry(m, charId, { back: view === 'back', skin: selectedId });
   const actions = Object.keys(entry?.animations || {});
-  const currentClip = actions.includes(clip) ? clip : entry?.anims?.idle || actions[0] || '';
+  // Building models often call their animated rest pose Relax; Default is just a zero-duration setup pose.
+  const baseIdle = view === 'base' ? actions.find(name => /^(idle|relax)(?:_?loop)?$/i.test(name) && entry.animations[name] > 0) : null;
+  const currentClip = actions.includes(clip) ? clip : baseIdle || entry?.anims?.idle || actions[0] || '';
   const change = patch => setPrefs(setAppearance(charId, patch));
   return html`<section class="appearance-controls" data-testid="appearance-controls" data-char=${charId}>
     <h3>${t('皮肤与动作')}</h3>
@@ -62,7 +65,7 @@ export function AppearanceControls({ charId, manifest = null }) {
     </select></label>
     <label class="appearance-toggle"><input type="checkbox" checked=${prefs.animate} onChange=${event => change({ animate: event.target.checked })} />${t('播放动作')}</label>
     <div class="appearance-selects"><label>${t('模型方向')}<select aria-label=${t('模型方向')} value=${view} onChange=${event => { setView(event.target.value); setClip(''); }}>
-      <option value="front">${t('正面')}</option><option value="back">${t('背面')}</option>${selected?.base ? html`<option value="base">${t('基建动作')}</option>` : null}
+      <option value="front">${t('正面')}</option><option value="back">${t('背面')}</option>${base ? html`<option value="base">${t('基建动作')}</option>` : null}
     </select></label><label>${t('预览动作')}<select aria-label=${t('预览动作')} value=${currentClip} onChange=${event => setClip(event.target.value)}>
       ${actions.map(name => html`<option key=${name} value=${name}>${name}</option>`)}
     </select></label></div>

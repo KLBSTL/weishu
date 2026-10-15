@@ -30,6 +30,30 @@ const DRAG_PX = 6;
 const DMG_TTL = 900;
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
+/**
+ * The simplified board's floating label for one event, or null when that event draws no digits.
+ * Official mode keeps only a marked red integer (including 0) and a yellow MISS. The slot stays above the unit;
+ * the random offset of the Pixi numbers is not repeated here [ASSUMED].
+ * @param {any[]} e
+ * @param {{ damageNumbers?: boolean, officialDamageNumbers?: boolean }} settings
+ * @returns {{ id: any, text: string, type: string }|null}
+ */
+export function fallbackFloat(e, settings) {
+  if (!settings?.damageNumbers || !Array.isArray(e)) return null;
+  if (settings.officialDamageNumbers === true) {
+    if (e[0] === 'fx' && e[1] === 'dodge' && e[4] && e[4].num === 'm') return { id: e[4].id, text: 'MISS', type: 'miss' };
+    if (e[0] !== 'dmg' || e[4] !== 'r') return null;
+    const amount = Math.round(Number(e[2]) || 0);
+    if (!Number.isFinite(amount) || amount < 0) return null;
+    return { id: e[1], text: String(amount), type: 'crit' };
+  }
+  if (e[0] !== 'dmg' && e[0] !== 'heal') return null;
+  const amount = Math.round(Number(e[2]) || 0);
+  if (amount <= 0) return null;
+  const type = e[0] === 'heal' ? 'heal' : (e[3] === 'arts' ? 'arts' : e[3] === 'true' ? 'true' : 'phys');
+  return { id: e[1], text: e[0] === 'heal' ? `+${amount}` : String(amount), type };
+}
+
 /** Avatar URL for a UnitInfo `avatar` asset id (chars / E2 / tokens / enemies). */
 function unitArt(m, info) {
   const id = info?.avatar || info?.defId;
@@ -446,11 +470,9 @@ export function createFallbackView(host, opts = {}) {
         if (e[0] === 'spawn' && e[1] && e[1].id != null) {
           st.units.set(e[1].id, e[1]);
           if (!st.snapUnits.has(e[1].id)) st.snapUnits.set(e[1].id, [e[1].id, e[1].x, e[1].y, e[1].maxHp, e[1].maxHp, 0, 0, 0, 6]);
-        } else if ((e[0] === 'dmg' || e[0] === 'heal') && st.settings.damageNumbers && st.floats.length < 60) {
-          const amount = Math.round(Number(e[2]) || 0);
-          if (amount <= 0) continue;
-          const type = e[0] === 'heal' ? 'heal' : (e[3] === 'arts' ? 'arts' : e[3] === 'true' ? 'true' : 'phys');
-          st.floats.push({ key: `${now}:${Math.random()}`, id: e[1], text: e[0] === 'heal' ? `+${amount}` : String(amount), type, at: now });
+        } else if (st.floats.length < 60) {
+          const label = fallbackFloat(e, st.settings);
+          if (label) st.floats.push({ key: `${now}:${Math.random()}`, ...label, at: now });
         }
       }
       schedule();

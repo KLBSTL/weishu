@@ -65,7 +65,11 @@ export function parseSkel(bytes, atlasRegions) {
   const r = loadRuntime();
   const missing = new Set();
   const bin = new r.SkeletonBinary(makeLoader(r, atlasRegions, missing));
-  const data = bin.readSkeletonData(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes));
+  const input = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  // pixi-spine BinaryInput reads DataView(input.buffer) from zero, ignoring a Node Buffer/subarray's byteOffset.
+  // Give it an exact backing buffer so metadata never depends on the allocator's pooled read order.
+  const exact = input.byteOffset || input.byteLength !== input.buffer.byteLength ? new Uint8Array(input) : input;
+  const data = bin.readSkeletonData(exact);
   const animations = data.animations.map((a) => a.name);
   const durations = {};
   const hits = {};

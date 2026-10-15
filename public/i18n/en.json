@@ -1,4 +1,8 @@
 {
+  "官方伤害数字": "Official damage numbers",
+  "只显示达到官方暴击条件的红色数字。关闭时仍显示每一次命中。": "Show only red numbers that meet the official critical-hit rules. When disabled, show every hit.",
+  "弹药数量": "Ammo count",
+  "弹药类技能开启时，在弹药条下方显示剩余弹药 / 总弹药数（如 13/14）。官方界面没有这个数字。": "While an ammo skill is active, show remaining / total rounds below its ammo bar (e.g. 13/14). This number is not in the official HUD.",
   "模型暂时无法显示，请重试或选择默认皮肤": "Model unavailable. Retry or select the default outfit.",
   "皮肤与动作": "Outfits and animations",
   "选择皮肤": "Choose outfit",
