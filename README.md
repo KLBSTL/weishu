@@ -1,8 +1,8 @@
 # 卫戍协议：盟约 · Stronghold Protocol: Alliance
 
-本仓库为 [sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol) 0.2.2 的扩展版本，加入萨卡兹、哥伦比亚干员与盟约、两支固定回合检索分队和战斗统计面板。当前常规招募池108名、分队42支；扩展内容与原版规则的差异见 [本分支说明](docs/LOCAL-EXPANSION.md)。
+本仓库为 [sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol) 0.2.2 的扩展版本，加入萨卡兹、哥伦比亚干员与盟约，以及薪火集结、拓界研发、斐尔迪南等特色分队。当前包含 **43支分队、25种盟约、11张官方3D地图**，并为126名正式角色提供194款额外皮肤。扩展规则见 [本分支说明](docs/LOCAL-EXPANSION.md)。
 
-本仓库已附带游戏素材、字体、前端库和生产运行依赖。安装 **Node.js 22+** 后，克隆即可启动，无需 `npm install` 或另行下载素材。下面保留的整合包介绍属于上游使用说明，不代表本仓库已经提供对应 Releases。
+本仓库已附带游戏素材、字体、前端库和生产运行依赖。安装 **Node.js 22+** 后，克隆即可启动，无需 `npm install`、本地游戏客户端或另行下载素材。首次获取建议使用下方的浅克隆命令，减少历史版本下载。
 
 《明日方舟》季节性自走棋塔防玩法「卫戍协议：盟约」的**非官方同人复刻**：浏览器即开即玩，单人或 1–4 人联机合作。
 
@@ -31,7 +31,7 @@ English summary: [below](#english).
 ## 目录
 
 - [声明](#声明) · [简介](#简介) · [功能一览](#功能一览)
-- [快速开始](#快速开始)：[整合包](#方式一整合包推荐) · [从源码运行](#方式二从源码运行) · [系统要求](#系统要求) · [端口与配置](#端口与配置) · [局域网联机](#和朋友一起玩局域网)
+- [快速开始](#快速开始)：[克隆启动](#克隆后直接运行) · [更新已有克隆](#更新已有克隆) · [可选本地素材](#可选本地素材) · [系统要求](#系统要求) · [端口与配置](#端口与配置) · [局域网联机](#和朋友一起玩局域网)
 - [联机方式](#联机方式) · [操作](#操作) · [文档](#文档) · [开发与测试](#开发与测试) · [项目结构](#项目结构)
 - [许可证](#许可证) · [致谢与数据来源](#致谢与数据来源) · [贡献](#贡献)
 
@@ -41,16 +41,17 @@ English summary: [below](#english).
 
 - **独立模拟**（单人）与**同盟模拟**（1–4 人**合作**，没有 PvP；空位可以加 AI 队友）。
 - 服务器是一个 Node.js 程序，**战斗在各玩家的浏览器里模拟**（和官方一样），服务器只管经济与回合，一台低功耗小主机就能开服。
-- 当前版本 0.2.2：干员可以单独设置潜能和练度（默认满潜、精英2 Lv.60），新增日文语音和统计数据页，按官方补上失衡、整数秒攻击间隔 30 帧等规则，并修复了 0.2.1 发布后玩家和 GitHub 上反馈的问题，详见 [CHANGELOG.md](CHANGELOG.md)。仍有少数规则按推断实现，与官方不一致的地方欢迎在 Issue 里反馈。
+- 基础版本0.2.2支持逐人设置潜能与练度（默认满潜、精英2 Lv.60）、日文语音、统计页及失衡等战斗规则；基础更新见 [CHANGELOG.md](CHANGELOG.md)。本分支近期补充了地图材质、模型动画与显示修复、正式棋子皮肤和动作选择，详见下方功能与文档入口。
 
 ## 功能一览
 
-- **完整的一局**：确认本局信息 → 策略轮选（42 支分队，含萨卡兹、哥伦比亚检索分队）→ 14 回合 → 结算称号；险境及以上满足条件时进入第 15 回合「隐秘核心」。
+- **完整的一局**：确认本局信息 → 策略轮选（43支分队，含萨卡兹、哥伦比亚检索分队与斐尔迪南分队）→ 14回合 → 结算称号；险境及以上满足条件时进入第15回合「隐秘核心」。
 - **4 种难度**：标准 / 险境 / 绝境 / 终极，独立与同盟各一套参数，均取自官方数据。
 - **休整期**：招募、刷新、冻结、升级调度中心；整备区与临时整备区；从整备区拖到棋盘部署，用**方向轮盘**选择朝向。同盟模拟的卡池共用。
 - **晋升精锐**：3 名同名干员自动合成精锐，并获得一次高一阶的免费招募。
-- **干员与调配**：108 名常规可招募干员（+ 精锐）及其技能、天赋和特质，包含本分支扩展干员；开局前可以为每名干员选择携带的技能和精锐的模组。
-- **盟约与层数**：23 个盟约（8 个势力核心盟约 + 附加盟约），层数整局保留，每个盟约最多 999 层。
+- **干员与调配**：正式棋子及其精锐、补位与自选干员，包含本分支扩展角色；开局前可配置技能、精锐模组、潜能与练度。实际招募名单随模式、本局禁用和获得条件变化。
+- **盟约与层数**：25种盟约，包含萨卡兹、哥伦比亚核心盟约；层数整局保留，每个盟约最多999层。大厅、等待室可打开**盟约图鉴**，开局前查看效果、激活门槛与成员。
+- **皮肤与动作**：126名正式角色共194款额外皮肤，另有128名角色的默认基建动作。干员详情可逐人选择皮肤、开关动作，预览正面、背面及可用基建动作；普通与精锐共享外观选择。外观选择不改变伤害和出手时间，完整覆盖名单见 [皮肤与动作说明](docs/remaining-skins-draft.md)。
 - **装备与机变**：装备与法术，同名装备合成、特定组合赋予盟约效果；已配发的装备锁定在干员身上。部分回合开始前有机变选卡（装备、资金、干员、层数、悬赏等）。
 - **自动作战**：技能按官方「技能策略」自动释放；按接触半径阻挡，阻挡者倒下时由接触的干员接替；元素损伤与元素爆发；召唤物由玩家手动摆放；推开 / 拉拽按力度与重量计算；被击倒的干员留在原地显示再部署倒计时。
 - **地形与敌人**：阻隔工事、射击台、源石流吹风机、沼泽、排气格栅、涨潮等地形装置；空中与近地悬浮敌人、悬赏敌人。
@@ -59,52 +60,48 @@ English summary: [below](#english).
 - **结算称号**：卫戍之星、不朽盟约、坚若磐石等 6 个称号。
 - **断线重连**：同盟模拟断线后 10 分钟内重新打开页面即可回到原座位，掉线期间按原阵容自动作战，也可以「暂离」交给 AI 托管；独立模拟 24 小时内可以回来继续（同一个浏览器）。
 - **交互细节**：漏怪时顶栏的目标生命值实时减少（结算时确定）；点选、拖放和配发装备都按地上的方格；购买、升级和机变选卡都需要点两次确认；只有一名玩家时除作战外不计时。
-- **画面与声音**：真实 Spine 小人、官方 BGM 与音效、表情（6 套 × 6 个）、作战特效；可选的官方 3D 棋盘（需要从本机客户端提取贴图）。
+- **画面与声音**：真实Spine小人、官方BGM与音效、表情与作战特效；仓库附带11张官方3D地图及法线、金属/光滑度、自发光材质，无需本地客户端提取。缺少WebGL时支持2D回退；保留自定义中继试验场。
+- **显示设置**：可开启“官方伤害数字”和技能“弹药数量”（两项默认关闭），并补充模型动画边界、缓存残影、部署与位移表现修复。详情见 [视觉恢复记录](docs/visual-restoration-migration-draft.md) 与 [地图材质记录](docs/material-restoration-draft.md)。
 - **手机与电脑**：触摸拖拽、长按查看详情，推荐横屏；设置里可以调低画质。
 
 ## 快速开始
 
-### 方式一：整合包（推荐）
+### 克隆后直接运行
 
-[Releases](../../releases/latest) 里有两种整合包，代码和运行依赖完全相同，二选一；已经装好 0.2.x 的，升级时只下载更新包即可：
-
-- **完整包** `Stronghold-Protocol-v<版本>.zip`（约 505 MB，解压后约 710 MB）：附带全部美术 / 音频（含中文、日文两套干员语音和官方 3D 棋盘贴图），解压就能玩，不需要再下载任何东西。**推荐。**
-- **精简包** `Stronghold-Protocol-v<版本>-lite.zip`（约 22 MB）：不带素材，第一次启动时自动从公开镜像下载美术、Spine 模型、音频、字体、表情和「玩法说明」教程图（约 550 MB，可中断，再次启动会续传）；官方 3D 棋盘等本地客户端素材不在其中（见下面的「本地客户端素材」）。适合下载大文件不方便的情况。
-- **更新包** `Stronghold-Protocol-v<版本>-update.zip`（0.2.1 起提供，大小看改动多少，通常只有几 MB）：只含比之前的 0.2.x 版本改动过的文件，用来把已经装好的 0.2.x（完整包或精简包装的都行）升级到新版本，不用重新下载整个包。用法：先停止服务器（关掉窗口；装了开机自启的运行 `scripts\install-service-windows.ps1 -Stop`），把 zip 里 `Stronghold-Protocol` 文件夹的全部内容合并到安装文件夹、覆盖同名文件（Windows 资源管理器里复制粘贴即可；macOS 不要用访达拖放，它会整个替换文件夹，请用 `unzip -o`，见 [docs/DEPLOY.md](docs/DEPLOY.md) 第 1.5 节），再照常启动。启动时会先核对全部程序文件、删除新版本不再用的旧文件，然后正常运行；如果这个文件夹不是更新包对应的版本（例如 0.1.x，或者程序文件被改过），会提示下载完整包，服务器不启动。全新安装请用完整包或精简包。
-
-两种包都只含运行和部署需要的文件（服务器、客户端、数据、启动脚本、setup / doctor / 素材下载工具、许可证与说明、[docs/PLAYING.md](docs/PLAYING.md) 和 [docs/DEPLOY.md](docs/DEPLOY.md)）；测试、开发工具和设计文档只在源码仓库里。
-
-1. **安装 Node.js 22 或 24（LTS）**
-   - Windows：在 PowerShell 里运行 `winget install OpenJS.NodeJS.LTS`，或到 <https://nodejs.org/zh-cn/download> 下载安装包。
-   - macOS：`brew install node@22`，或到官网下载安装包。
-   - Linux：发行版的包管理器、nvm 或 fnm。
-2. **下载**：在 [Releases](../../releases/latest) 页面下载最新版本的完整包（或精简包），解压到一个路径较短的文件夹（Windows 上建议不要放在 OneDrive 同步的目录里）。
-3. **启动**
-   - Windows：双击 **`scripts\start-windows.bat`**。如果弹出「安全警告」，点「运行」；Windows 防火墙弹窗请勾选「专用网络」并允许。
-   - macOS / Linux：在解压出的文件夹里运行 `./scripts/start.sh`（或 `bash scripts/start.sh`）。
-4. 浏览器会自动打开 `http://localhost:3000`。窗口里列出的局域网地址可以直接发给同一网络的朋友。关闭窗口（或按 `Ctrl+C`）即停止服务器。
-
-### 方式二：从源码运行
+安装 [Node.js 22+](https://nodejs.org/zh-cn/download) 和Git，然后执行：
 
 ```bash
-git clone https://github.com/KLBSTL/weishu.git
+git clone --depth 1 --branch main https://github.com/KLBSTL/weishu.git
 cd weishu
 node server/index.js  # 启动服务器：http://localhost:3000（也可 npm start）
 ```
 
-也可以直接运行启动脚本（Windows 双击 `scripts\start-windows.bat`，macOS / Linux 运行 `bash scripts/start.sh`）：检查已有依赖和素材后，启动服务器并打开浏览器。普通游玩不需要安装 Python、游戏客户端或开发工具；开发与测试时再执行 `npm ci`。仓库附带约560 MiB素材，首次可用 `git clone --depth 1` 减少历史下载。未附带可选的本地客户端提取素材，默认使用2D棋盘和已有替代模型。
+浏览器打开 **http://localhost:3000** 即可游玩，按 `Ctrl+C` 停止服务器。启动脚本也可使用：Windows双击 `scripts\start-windows.bat`，macOS / Linux运行 `bash scripts/start.sh`，会检查已有文件并打开浏览器。
 
-- **本地客户端素材（可选）**：官方 3D 棋盘、部分官方界面图标（交流按钮与表情面板的边框、模组类型图标等）、灼热 / 炽焰源石虫和 39 个召唤物（多数自选召唤物）的官方模型需要从本机的《明日方舟》PC 客户端提取（Windows 原生客户端、macOS 的 CrossOver 或 PlayCover）。`npm run setup` 检测到客户端时会询问是否提取（需要 Python 3.8+，依赖装在项目内的 `.venv-extract`，不影响系统）；之后可以用 `node tools/setup.mjs --local` 重新提取，或用 `--game "<…/StreamingAssets/AB/Windows>"` 指定路径。没有客户端时游戏照常运行，这几样换成替代样式：2D 棋盘、样式相近的图标、染色的普通源石虫、召唤物头像。表情和「玩法说明」的教程图随上面的素材一起从公开镜像下载，不需要客户端。没有客户端的服务器（例如 Linux VPS）也可以从**同一版本**的整合包（完整包；精简包没有）里复制 `public/assets/local/` 和 `data/local-assets.json`，见 [docs/DEPLOY.md](docs/DEPLOY.md) 的「本地客户端素材」。
-- 素材下载优先使用 GitHub，失败时自动改用 jsDelivr 镜像。
-- `npm run doctor`（即 `node tools/doctor.mjs`）可以随时诊断：Node 版本、素材是否完整、端口占用、局域网地址和防火墙。
+当前素材约1.2 GB，另附字体、前端库和生产依赖；浅克隆主要减少历史版本下载。普通游玩无需安装Python或开发依赖。仓库地址用于获取程序，启动后使用本机或主机的游戏地址进入。
+
+### 更新已有克隆
+
+停止服务器，在仓库目录执行以下命令，再重新启动：
+
+```bash
+git pull --ff-only
+node server/index.js
+```
+
+有本地代码改动的安装需先处理自己的修改，再合并更新。`node tools/doctor.mjs` 可检查Node版本、素材完整性、端口和局域网地址。部署、服务自启动和维护打包见 [部署指南](docs/DEPLOY.md) 与 [打包说明](docs/WINDOWS.md)。
+
+### 可选本地素材
+
+仓库已附带11张官方3D地图及必要材质，常规运行不需要《明日方舟》客户端。可选提取用于补充部分界面、敌人和召唤物的专用模型，或提供本机覆盖素材；缺少这些覆盖时仍可使用仓库现有资源或替代表现。提取工具和Python依赖只在需要该功能时使用，详见 [素材说明](docs/ASSETS.md) 与 [部署指南](docs/DEPLOY.md)。
 
 ### 系统要求
 
 | 项目 | 要求 |
 |---|---|
-| 开服的电脑 | Windows / macOS / Linux，Node.js 22 或 24（LTS）；磁盘约 700–850 MB（素材、依赖与本地提取贴图：完整包解压后约 710 MB）；内存空闲约 100 MB，每局再加几 MB |
-| 玩家 | 支持 WebGL 的现代浏览器（Chrome / Edge / Firefox / Safari 最新版），电脑、手机或平板（横屏） |
-| 网络 | 首次进入游戏时，每位玩家要从开服的电脑下载几十 MB 素材（之后走浏览器缓存）；对局中流量很小 |
+| 开服的电脑 | Windows / macOS / Linux，Node.js 22+；素材约1.2 GB，另需运行依赖和Git历史空间。服务器内存占用取决于房间数量与战斗模拟配置 |
+| 玩家 | 支持WebGL的现代浏览器（Chrome / Edge / Firefox / Safari），电脑、手机或平板，推荐横屏 |
+| 网络 | 玩家浏览器按使用的地图和干员从主机加载素材，之后使用浏览器缓存；联机玩家无需各自克隆仓库 |
 
 显卡较弱时可以在「设置」里调低画质，或在网址后加 `?board=2d`（强制 2D 棋盘）/ `?render=fallback`（不用 WebGL 的简化画面）。
 
@@ -173,6 +170,9 @@ node server/index.js  # 启动服务器：http://localhost:3000（也可 npm sta
 
 | 文档 | 内容 |
 |---|---|
+| [本分支说明](docs/LOCAL-EXPANSION.md) | 扩展规则、克隆运行与已发布内容的验证记录 |
+| [正式棋子皮肤与动作](docs/remaining-skins-draft.md) | 皮肤覆盖名单、动作选择、素材来源与实际渲染验证 |
+| [视觉恢复](docs/visual-restoration-migration-draft.md) / [地图材质](docs/material-restoration-draft.md) | 官方地图、显示与动画修复、材质支持范围和已知限制 |
 | [CHANGELOG.md](CHANGELOG.md) | 更新记录：每个版本修复了什么、哪些反馈经核实不是问题 |
 | [docs/PLAYING.md](docs/PLAYING.md) | 玩法指南：流程、经济、招募与晋升、摆阵、联防、盟约、最终攻势、结算称号 |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | 部署指南：Windows 开服与开机自启、防火墙、组网 / 隧道、反向代理与 HTTPS、Docker、systemd、排错 |
@@ -191,14 +191,17 @@ node server/index.js  # 启动服务器：http://localhost:3000（也可 npm sta
 ## 开发与测试
 
 ```bash
+npm ci                      # 开发与测试所需依赖；普通游玩无需执行
 npm run dev                 # node --watch：改动服务器代码后自动重启
-node --test                 # 单元 + 集成测试（约 3170 项；缺少素材 / 浏览器的用例会自动跳过）
+node --test                 # 单元与集成测试；浏览器用例按下方开关启用
 SP_E2E=1 node --test test/ui/mock.e2e.test.js        # 浏览器端到端测试，需要本机 Chrome（CHROME_PATH 可指定路径）
 SP_REAL_E2E=1 node --test test/ui/real.e2e.test.js   # 需要 Chrome + 已下载的素材
-RENDER_E2E=1 node --test 'test/render/*.browser.test.js'   # 渲染测试，部分需要本地提取的棋盘贴图
+RENDER_E2E=1 node --test 'test/render/*.browser.test.js'   # 渲染测试，需要 Chrome；可选本地提取用例按条件跳过
 GOLDEN_FULL=1 node --test test/golden.test.js           # 黄金结果：固定种子的整套战斗与人机对局摘要（默认只跑快速子集）
 node tools/perfbench.mjs --cpu 1,4,6 --profile             # 真实战斗的帧耗时基准（Chrome 降速 CPU 近似中低端手机），需要 Chrome + 已下载的素材
 ```
+
+以上环境变量是shell简写；PowerShell可先设置 `$env:RENDER_E2E='1'` 等，再运行对应的 `node --test` 命令。场景素材和皮肤清单分别由 `node tools/build-board-art.mjs`、`node tools/build-skins.mjs` 生成。
 
 - 游戏数据由 `npm run build-data`（`tools/build-data.mjs`）从官方数据表生成，不要手工修改 `data/*.json`。
 - 性能测试：`/dev/battle-perf.html` 在浏览器里跑一场真实战斗（对局用的战斗运行器、模拟和渲染），实时显示帧率与逐帧耗时；在手机上打开后点击「开始测量（10 秒）」，生成的报告可以复制后附在反馈中。用到的战斗来自 `node tools/capture-specs.mjs` 从固定种子的机器人对局里截取的数据（`public/dev/perf/`）。
@@ -251,7 +254,9 @@ node tools/perfbench.mjs --cpu 1,4,6 --profile             # 真实战斗的帧�
 
 An **unofficial, non-commercial fan remake** of Arknights' seasonal auto-chess tower-defense mode *Stronghold Protocol: Alliance*, played in the browser: solo, or 1–4 player co-op (AI teammates can fill seats). Combat is simulated in each player's browser, so a low-power PC can host.
 
-- **Run this fork:** install Node.js 22+, clone `https://github.com/KLBSTL/weishu.git`, then run `node server/index.js` and open <http://localhost:3000>. Downloaded art, fonts, browser libraries and production npm dependencies are included; no `npm install` or asset download is needed to play. Windows users can double-click `scripts/start-windows.bat`; macOS/Linux users can run `bash scripts/start.sh`. Optional local-client art is not included: the game uses a 2D board and fallback models. Developers can run `npm ci` to install development dependencies. The release-bundle instructions above describe upstream packaging, not published releases of this fork.
+- **Run this fork:** install Node.js 22+ and Git, run `git clone --depth 1 --branch main https://github.com/KLBSTL/weishu.git`, enter `weishu`, then run `node server/index.js` and open <http://localhost:3000>. Art, fonts, browser libraries and production dependencies are included; playing needs no `npm install` or separate asset download. Assets currently total about 1.2 GB, plus dependencies and Git history. Windows users can double-click `scripts/start-windows.bat`; macOS/Linux users can run `bash scripts/start.sh`. Developers use `npm ci` for development dependencies.
+- **This fork's features:** 43 squads and 25 alliances, including the Sarkaz/Columbia expansions and Ferdinand's power-armour squad; 11 official 3D maps with normal, metallic/smoothness and emission textures; 194 extra costumes for 126 formal operators and default Base actions for 128 operators. Select costumes and animation playback in operator details; browse alliance effects before starting a match. The official damage-number style and ammo counts are optional settings, both off by default.
+- **Optional local extraction:** the included maps work without an Arknights client. Extraction can provide additional UI/enemy/summon assets or local overrides; 2D and model fallbacks remain available. Scope and limitations: [assets](docs/ASSETS.md), [skins/actions](docs/remaining-skins-draft.md) and [scene materials](docs/material-restoration-draft.md).
 - **Languages:** Chinese (the default), English, 日本語, 한국어 and 繁體中文 — switch on the title screen or in Settings. Game texts come from the official clients; the Japanese, Korean and Traditional Chinese interface strings are machine translations (corrections welcome: [docs/I18N.md](docs/I18N.md)).
 - **Play with friends:** create a co-op room and share the 4-letter key or the `?room=KEY` link. On a LAN, use the address printed at start; otherwise use a virtual-LAN tool, a tunnel or a VPS — see [docs/DEPLOY.md](docs/DEPLOY.md).
 - **Disclaimer:** not affiliated with or endorsed by Hypergryph or Yostar. All Arknights names, art, audio, text and data are © their respective owners and are **not** covered by this project's GPL licence. For study and personal non-commercial use only — no selling, paid distribution, paid servers or monetisation of any kind. Content will be removed on request of the rights holders. Provided "as is", without warranty.
