@@ -21,9 +21,11 @@ export const MAX_SPECTATORS = 2;
 export const ROOM_CODE_LEN = 4;
 export const NAME_MAX_LEN = 12;
 
-export const DIFFICULTIES = ['FUNNY', 'NORMAL', 'HARD', 'ABYSS'];
-export const DIFFICULTY_NAMES = { FUNNY: N_('标准模拟'), NORMAL: N_('险境模拟'), HARD: N_('绝境模拟'), ABYSS: N_('终极模拟') };
-export const DIFFICULTY_COLORS = { FUNNY: '#f6a329', NORMAL: '#e85a1a', HARD: '#e73118', ABYSS: '#ff0024' };
+// FUNNY remains readable for old rooms, replays and tests; new UI choices start at NORMAL.
+export const DIFFICULTIES = ['FUNNY', 'NORMAL', 'HARD', 'ABYSS', 'CATASTROPHE'];
+export const SELECTABLE_DIFFICULTIES = ['NORMAL', 'HARD', 'ABYSS', 'CATASTROPHE'];
+export const DIFFICULTY_NAMES = { FUNNY: N_('标准模拟'), NORMAL: N_('险境模拟'), HARD: N_('绝境模拟'), ABYSS: N_('终极模拟'), CATASTROPHE: N_('天灾模拟') };
+export const DIFFICULTY_COLORS = { FUNNY: '#f6a329', NORMAL: '#e85a1a', HARD: '#e73118', ABYSS: '#ff0024', CATASTROPHE: '#c875ff' };
 
 // modeId in data/config.json = `mode_${type}_${difficulty.toLowerCase()}` with type single|multi
 export const modeIdFor = (roomMode, difficulty) =>

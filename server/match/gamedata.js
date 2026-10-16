@@ -4,7 +4,8 @@
 // unknown ids. Tunables come from data/config.json with the documented defaults (research 00-INDEX §2–§8) when a
 // key is missing, so a partial data set (tests, data being regenerated) still yields a working match.
 //
-// No custom balance (DESIGN §14 corrections, research 08 §6): enemy numbers are the official ones — the PRTS
+// Except for the maintainer's 天灾 extension (DESIGN §34), balance follows the official data (DESIGN §14, research 08 §6):
+// enemy numbers are the official ones — the PRTS
 // per-round enemyScale table of data/config.json, the leader pool = bloodPoint per player alive at the fight's start
 // (bossPoolShareOf). data/tuning.json only overrides result titles:
 //   titles[titleId]                                                { stat?, rule? } merged over config.titles
@@ -14,6 +15,7 @@
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 import { standInRecord } from '../../shared/standIn.js';
+import { CATASTROPHE_ENEMY, isCatastropheMode } from '../../shared/difficulty.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
 const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -43,11 +45,11 @@ export const DEFAULTS = Object.freeze({
   lpCapPerRound: 10,
   bossOvertimeAfter: 150,
   bossOvertimeDrainPerSec: 1,
-  hiddenCore: { single: 350, multi: 1200, minTeamLpExclusive: 1, difficulties: ['NORMAL', 'HARD', 'ABYSS'] },
+  hiddenCore: { single: 350, multi: 1200, minTeamLpExclusive: 1, difficulties: ['NORMAL', 'HARD', 'ABYSS', 'CATASTROPHE'] },
   dp: { init: 10, perSec: 1, max: 99 },
   unite: { maxHelpers: 2, templates: { 1: 'act1autochess_escaped_single', 2: 'act1autochess_escaped_multi' } },
   timers: { infoCheck: 25, bandDraft: 50, bandTurn: 30, battleCheck: 3, spFirst: 30, spTurn: 16 },
-  bans: { FUNNY: { core: 0, addon: 1 }, NORMAL: { core: 3, addon: 4 }, HARD: { core: 3, addon: 4 }, ABYSS: { core: 3, addon: 4 } },
+  bans: { FUNNY: { core: 0, addon: 1 }, NORMAL: { core: 3, addon: 4 }, HARD: { core: 3, addon: 4 }, ABYSS: { core: 3, addon: 4 }, CATASTROPHE: { core: 3, addon: 4 } },
   bandDraft: { skipsPerPlayer: 1, timeoutBandId: 'band_bldsk' },
   leftoverFundsKeptByBands: ['band_cannot'],
 });
@@ -150,11 +152,12 @@ export class GameData {
    */
   bossPoolHp(bossId, aliveCount) {
     const boss = this.boss(bossId);
-    const diff = this.difficulty;
+    const diff = this.mode.baseDifficulty || this.difficulty;
     let base = boss && boss.bloodPoint && Number.isFinite(boss.bloodPoint[diff]) ? boss.bloodPoint[diff] : null;
     if (base == null && boss && boss.bloodPoint) base = Object.values(boss.bloodPoint).find((v) => Number.isFinite(v)) ?? null;
     if (base == null) base = 500000;
-    return Math.max(1, Math.round(base * this.bossPoolShare(aliveCount)));
+    const extra = isCatastropheMode(this.modeId) ? CATASTROPHE_ENEMY.hpMul : 1;
+    return Math.max(1, Math.round(base * this.bossPoolShare(aliveCount) * extra));
   }
 
   /**
@@ -295,11 +298,12 @@ export class GameData {
   /** Copies of a base chess in the shared pool. */
   poolCopies(baseId) {
     const ov = this.economy.poolCopiesOverrides;
-    if (ov && typeof ov === 'object' && Number.isInteger(ov[baseId]) && ov[baseId] >= 0) return ov[baseId];
     const tier = this.tierOf(baseId);
     const pc = this.economy.poolCopies;
     const v = pc && typeof pc === 'object' ? pc[tier] : undefined;
-    return Number.isInteger(v) && v >= 0 ? v : (DEFAULTS.poolCopies[tier] ?? 10);
+    const cap = ov && typeof ov === 'object' && Number.isInteger(ov[baseId]) && ov[baseId] >= 0 ? ov[baseId]
+      : Number.isInteger(v) && v >= 0 ? v : (DEFAULTS.poolCopies[tier] ?? 10);
+    return cap * (isCatastropheMode(this.modeId) && (tier === 5 || tier === 6) ? 2 : 1);
   }
 
   /** Copies needed to merge (0 = never merges: golden chess). */

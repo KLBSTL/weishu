@@ -828,7 +828,8 @@ export function DifficultyIcon({ difficulty, class: cls }) {
   useData('assets');
   const [badSrc, setBadSrc] = useState(null);
   const ui = DIFFICULTY_NAMES[difficulty] ? data.get('assets')?.ui : null;
-  const src = ui && typeof ui === 'object' ? ui[`modeIcon/mode_${String(difficulty).toLowerCase()}_icon`] : null;
+  const src = difficulty === 'CATASTROPHE' ? '/icons/catastrophe.svg'
+    : ui && typeof ui === 'object' ? ui[`modeIcon/mode_${String(difficulty).toLowerCase()}_icon`] : null;
   if (typeof src === 'string' && src && badSrc !== src) {
     return html`<img class=${cx('icon', 'dicon', cls)} src=${src} alt="" draggable=${false} onError=${() => setBadSrc(src)} />`;
   }

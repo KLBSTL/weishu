@@ -1,5 +1,10 @@
 # DATA.md — generated game data (`data/*.json`)
 
+Local 天灾 modes (`mode_single_catastrophe`, `mode_multi_catastrophe`) are generated last by
+`tools/catastrophe-data.mjs`: ABYSS rounds, stages, drafts, boss templates and result factors are inherited.
+Eight legacy in-scope modes remain in the data, plus these two local modes. `baseDifficulty: ABYSS` chooses
+the blood-point basis; `bossEnemyModifiers` records the additional battle rules. See [天灾](design/catastrophe.md).
+
 Local map extension: `tools/relay-stage-data.mjs` adds `local_relay_lab` after building the original mode pools,
 bringing the atlas count to 14. Its `manualOnly: true` and `modes` fields control explicit selection through
 `shared/stages.js`; `q` is a healing ground tile and `v` is high-ground active originium.

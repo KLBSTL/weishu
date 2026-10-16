@@ -54,6 +54,7 @@ import { MIN_DAMAGE_RATIO, ELEMENT, ELEMENT_ORDER, PALSY_MAX } from './constants
 import { BOSS_HIT_LIMIT } from '../../shared/constants.js';
 import { evadesGround } from './targeting.js';
 import { clampNumericShields } from './buffs.js';
+import { CATASTROPHE_ENEMY, isCatastropheBossBattle } from '../../shared/difficulty.js';
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -300,13 +301,15 @@ export function dealDamage(battle, source, target, dmgIn) {
     if (ts.flags.invulnerable || sleepBlocks(target, hs, dmg)) return 0;
   }
   const type = dmg.type;
+  // Difficulty reduction also covers elemental HP damage and hit-count enemies; element gauge fills exited above.
+  const difficultyMul = target.side === 'enemy' && isCatastropheBossBattle(battle) ? CATASTROPHE_ENEMY.damageTakenMul : 1;
   // dodge. The yellow MISS (PRTS: a hit that would have been red, dodged) is classified after the existing roll
   // and does not roll again. Source stats are peeked so a dirty attacker is not refreshed just to label the dodge.
   if (dmg.canDodge && (type === 'phys' || type === 'arts')) {
     const p = type === 'phys' ? ts.dodgePhys : ts.dodgeArts;
     if (p > 0 && battle.rng() < p) {
       const peeked = !dmg.sourceless ? peekStats(source) : null;
-      const red = officialDamageMark(landedPreShield(dmg, type, ts, peeked, target), officialExpectedAmount(dmg, type, ts, target)) === 'r';
+      const red = officialDamageMark(landedPreShield(dmg, type, ts, peeked, target) * difficultyMul, officialExpectedAmount(dmg, type, ts, target)) === 'r';
       battle.fx('dodge', red
         ? { x: target.x, y: target.y, id: target.id, num: 'm' }
         : { x: target.x, y: target.y, id: target.id });
@@ -320,13 +323,13 @@ export function dealDamage(battle, source, target, dmgIn) {
   // The red test compares that 1 (or 0) with the ordinary expected damage: 特殊生命值机制均不考虑 on the expected side.
   if (ts.flags.hitCount || ts.flags.hitCountArts) {
     const counts = !(ts.flags.hitCountArts && !ts.flags.hitCount && type === 'phys');
-    const instance = counts ? 1 : 0;
+    const instance = counts ? difficultyMul : 0;
     const mark = officialDamageMark(instance, officialExpectedAmount(dmg, type, ts, target));
     return applyHpLoss(battle, source, target, absorbShields(battle, target, instance, type), dmg, mark);
   }
   // 无来源 damage (element bursts) takes nothing from its source's stats; the source still gets the credit below
   const ss = source && source.s && !dmg.sourceless ? source.s : null;
-  let final = landedPreShield(dmg, type, ts, ss, target);
+  let final = landedPreShield(dmg, type, ts, ss, target) * difficultyMul;
   // The 1.5× test uses this pre-shield total. The integer on the dmg event is whatever remains after shields and
   // hpDamage (PRTS can show a number that differs from the HP delta; [ASSUMED] the shown value stays that integer).
   const mark = officialDamageMark(final, officialExpectedAmount(dmg, type, ts, target));

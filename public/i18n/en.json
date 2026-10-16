@@ -1,4 +1,10 @@
 {
+  "天灾模拟": "Catastrophe Simulation",
+  "天灾": "Catastrophe",
+  "终极模拟基础上的天灾挑战": "A Catastrophe challenge based on Ultimate Simulation",
+  "领袖阶段敌方生命与攻击力增加": "Increased enemy HP and ATK during leader battles",
+  "敌方防御、法抗与减伤增加": "Increased enemy DEF, RES and damage reduction",
+  "高阶干员卡池数量增加": "Increased pool stock for high-tier Operators",
   "官方伤害数字": "Official damage numbers",
   "只显示达到官方暴击条件的红色数字。关闭时仍显示每一次命中。": "Show only red numbers that meet the official critical-hit rules. When disabled, show every hit.",
   "弹药数量": "Ammo count",

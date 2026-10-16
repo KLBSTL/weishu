@@ -100,7 +100,7 @@ test('docs and messages say what falls back without the local art and how a serv
   assert.match(read('tools/setup.mjs'), /\$\{localGaps\(local\)\}（重新提取：--local）/);
   const readme = read('README.md');
   assert.match(readme, /召唤物/);
-  assert.match(readme, /表情和「玩法说明」的教程图随上面的素材一起从公开镜像下载/);
-  assert.match(readme, /\*\*同一版本\*\*的整合包/);
+  assert.match(readme, /表情和「玩法说明」的教程图也已附带/);
+  assert.match(readme, /可选本地覆盖素材需与当前版本一致/);
   assert.ok(!/需本地提取/.test(read('docs/PLAYING.md')), 'PLAYING: the 玩法说明 pages come with the download');
 });

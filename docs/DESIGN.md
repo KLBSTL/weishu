@@ -50,3 +50,4 @@ normative lines it rewrote).
 | §31 | [design/relay-map.md](design/relay-map.md) | Local fan expansion — compact map and lobby selection |
 | §32 | [design/ai.md](design/ai.md) | Local AI growth, income and boss rehearsal |
 | §33 | [history/weishu-visual-migration.md](history/weishu-visual-migration.md) | Local visual migration and hit-grid boundary rules |
+| §34 | [design/catastrophe.md](design/catastrophe.md) | Local 天灾 difficulty and tier V/VI stock |

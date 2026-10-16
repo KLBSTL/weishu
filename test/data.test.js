@@ -237,7 +237,7 @@ test('waves: every template resolves spawns, routes and enemies', () => {
 
 test('config: modes, rounds and templates', () => {
   const inScope = Object.values(config.modes).filter((m) => m.inScope);
-  assert.equal(inScope.length, 8);
+  assert.equal(inScope.length, 10, 'eight legacy modes plus solo/co-op 天灾');
   for (const m of Object.values(config.modes)) {
     for (const [r, rd] of Object.entries(m.rounds)) {
       const tpls = rd.template ? [rd.template] : Object.values(rd.bossTemplates || {});

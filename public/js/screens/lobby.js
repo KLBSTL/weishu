@@ -12,7 +12,7 @@
 // config.json mode texts come localized from data.js.
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
+import { DIFFICULTIES, SELECTABLE_DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
 import { html, Button, Icon, MicroLabel, Panel, TextField, PingPill, AvatarFrame, Tooltip, Spinner, DifficultyIcon, doctorNo } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton } from '../ui/guide.js';
@@ -25,14 +25,20 @@ import { getConfig, getMode, getStage, useData } from '../data.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 
 /** Official mode texts (activity_table act2autochess.modeDataDict), fallback when config.json is absent. */
+const CATASTROPHE_TEXT = {
+  code: 'AC-5', desc: N_('终极模拟基础上的天灾挑战'),
+  effects: [N_('领袖阶段敌方生命与攻击力增加'), N_('敌方防御、法抗与减伤增加'), N_('高阶干员卡池数量增加')],
+};
 export const MODE_TEXT = {
   single: {
+    CATASTROPHE: CATASTROPHE_TEXT,
     FUNNY: { code: 'AC-1', desc: N_('时长较短的模拟训练'), effects: [N_('可以快速完成作战'), N_('常规奖励')] },
     NORMAL: { code: 'AC-2', desc: N_('敌方攻击强度较高的模拟训练'), effects: [N_('可使用盟约数增加'), N_('大幅增加奖励')] },
     HARD: { code: 'AC-3', desc: N_('敌方攻击强度极高的模拟训练'), effects: [N_('作战环境困难'), N_('出现更加危险的敌人')] },
     ABYSS: { code: 'AC-4', desc: N_('敌方攻击强度到达极限的模拟训练'), effects: [N_('作战环境无比困难'), N_('出现极度危险的敌人')] },
   },
   multi: {
+    CATASTROPHE: CATASTROPHE_TEXT,
     FUNNY: { code: 'AC-1', desc: N_('敌方攻击强度较低的模拟训练'), effects: [N_('作战环境较为温和'), N_('常规奖励')] },
     NORMAL: { code: 'AC-2', desc: N_('敌方攻击强度较高的模拟训练'), effects: [N_('可使用盟约数增加'), N_('大幅增加奖励')] },
     HARD: { code: 'AC-3', desc: N_('敌方攻击强度极高的模拟训练'), effects: [N_('作战环境困难'), N_('出现更加危险的敌人')] },
@@ -41,7 +47,7 @@ export const MODE_TEXT = {
 };
 
 /** Battlefield pool per difficulty when config.json is absent (the modes' `stages` lists; same for solo and co-op). */
-export const STAGE_POOL = { FUNNY: ['act1autochess_m01'], NORMAL: 8, HARD: 7, ABYSS: 7 };
+export const STAGE_POOL = { FUNNY: ['act1autochess_m01'], NORMAL: 8, HARD: 7, ABYSS: 7, CATASTROPHE: 7 };
 
 /**
  * Display name of a stage: stages.json when it is loaded, else derived from the id (act1 m0N → 战场#0N, act2 m0N → 战场#0(N+4)).
@@ -96,13 +102,13 @@ export function difficultyInfo(roomMode, difficulty) {
   const fallback = MODE_TEXT[roomMode === 'solo' ? 'single' : 'multi'][difficulty] || { code: '', desc: '', effects: [] };
   // modeIdFor() lower-cases the difficulty: never call it with a value the server did not validate.
   const m = DIFFICULTIES.includes(difficulty) ? getMode(modeIdFor(roomMode, difficulty)) : null;
-  const effects = Array.isArray(m?.effectDescList)
+  const effects = difficulty !== 'CATASTROPHE' && Array.isArray(m?.effectDescList)
     ? m.effectDescList.map((e) => String(e).replace(/^[·•・･\s]+/, '')).filter(Boolean)
     : fallback.effects.map((e) => t(e));
   const rounds = Number.isFinite(m?.lastRound) ? m.lastRound : roomMode === 'solo' && difficulty === 'FUNNY' ? 9 : 14;
   return {
     code: typeof m?.code === 'string' ? m.code : fallback.code,
-    desc: typeof m?.desc === 'string' ? m.desc : t(fallback.desc),
+    desc: difficulty !== 'CATASTROPHE' && typeof m?.desc === 'string' ? m.desc : t(fallback.desc),
     effects,
     rounds,
     hidden: difficulty !== 'FUNNY',
@@ -244,8 +250,8 @@ export function LobbyScreen() {
   useData('config');
   const [roomMode, setRoomMode] = useState(() => (loadPref('lobby.mode', 'coop') === 'solo' ? 'solo' : 'coop'));
   const [difficulty, setDifficulty] = useState(() => {
-    const d = loadPref('lobby.difficulty', 'FUNNY');
-    return DIFFICULTIES.includes(d) ? d : 'FUNNY';
+    const d = loadPref('lobby.difficulty', 'NORMAL');
+    return SELECTABLE_DIFFICULTIES.includes(d) ? d : 'NORMAL';
   });
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(null);
@@ -358,7 +364,7 @@ export function LobbyScreen() {
       <section class="lobby-right">
         <div class="section-label"><span class="section-label__idx num">02</span>${t('模拟难度')}<${MicroLabel}>DIFFICULTY<//></div>
         <div class="diff-list">
-          ${DIFFICULTIES.map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${difficulty === d} onSelect=${pickDifficulty} />`)}
+          ${SELECTABLE_DIFFICULTIES.map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${difficulty === d} onSelect=${pickDifficulty} />`)}
         </div>
         <div class="create-box">
           <${Tooltip} block=${true} text=${online ? null : t('正在连接服务器…')}>

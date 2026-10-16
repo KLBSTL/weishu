@@ -572,7 +572,7 @@ function MatchScreen() {
           leaked: Array.isArray(mine?.leaked) ? mine.leaked.length : 0,
           killed: mine?.killed ?? msg.result.killed,
           total: mine?.total ?? msg.result.total,
-          hard: diff === 'HARD' || diff === 'ABYSS',
+          hard: diff === 'HARD' || diff === 'ABYSS' || diff === 'CATASTROPHE',
         }));
       } catch { /* ignore */ }
     };
