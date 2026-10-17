@@ -120,7 +120,7 @@ export function prepareColumbia({ act }) {
   // Keep old ids and kits for saves/self-selection; remove only regular recruitment visibility.
   for (const [id, shop] of Object.entries(act.charShopChessDatas)) {
     const bonds = act.charChessDataDict[id]?.bondIds ?? [];
-    if (!RETAINED_CHARACTERS.includes(shop.charId) && bonds.some(b => ['egirShip', 'victoriaShip'].includes(b))) shop.isHidden = true;
+    if (!RETAINED_CHARACTERS.includes(shop.charId) && bonds.includes('egirShip')) shop.isHidden = true;
   }
   for (const suffix of ['a', 'b']) act.charChessDataDict[`chess_char_5_16_${suffix}`].bondIds = ['columbiaShip', 'skillfulShip'];
   // Ifrit remains Sarkaz/Farsight; she no longer counts toward Columbia.

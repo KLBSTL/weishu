@@ -278,7 +278,7 @@ function burst(battle, unit, { grid, amount = 0, type = 'phys', stun = 0, hits =
  * (`removed = false`) so its hooks survive and `battle.redeploy` accepts it.
  */
 function enableRespawn(battle, unit, { delay, onExpire = false, unlessManaged = false, requireOwner = false }) {
-  battle.on('death', (ctx) => {
+  const onExit = (ctx) => {
     if (ctx.unit !== unit || battle.finished || unit.mem.isClone || (unlessManaged && managed(unit))) return;
     if (unit.mem.replaced) { unit.mem.replaced = false; return; }
     const r = ctx.reason;
@@ -295,7 +295,9 @@ function enableRespawn(battle, unit, { delay, onExpire = false, unlessManaged = 
       if (b.time + 1e-9 < unit.mem.respawnAt) return;
       if (b.redeploy(unit, { free: false })) sched.cancel();
     }, { owner: unit });
-  }, { owner: unit, priority: -10 });
+  };
+  battle.on('death', onExit, { owner: unit, priority: -10 });
+  if (requireOwner) unit.mem.catastrophePointExit = () => onExit({ unit, reason: 'killed' });
 }
 
 /** Lifetime bound to the owner's running timed skill (the token vanishes when that activation ends). */
@@ -739,7 +741,7 @@ function wolfTimerReturn(battle, unit, seq) {
  * buff and fx.
  */
 export function installWolfTacticalPoint(battle, unit, { onEnter = null } = {}) {
-  battle.on('death', (ctx) => {
+  const onExit = (ctx) => {
     if (ctx.unit !== unit || battle.finished || !WOLF_TAC_EXITS.has(ctx.reason) || !wolfOwnerStands(unit)) return;
     unit.removed = false;
     // the 狼影 recovery time from the data; a record without one falls back to the token's redeploy time (data)
@@ -750,7 +752,9 @@ export function installWolfTacticalPoint(battle, unit, { onEnter = null } = {}) 
     unit.mem.wolfTac = tp;
     if (onEnter) onEnter(battle, unit);
     tp.timer = battle.after(t, () => wolfTimerReturn(battle, unit, seq), { owner: unit });
-  }, { owner: unit, priority: -10 });
+  };
+  battle.on('death', onExit, { owner: unit, priority: -10 });
+  unit.mem.catastrophePointExit = () => onExit({ unit, reason: FORCED_EXIT });
   // its owner leaving ends the form without a return ("不触发上述效果"): the piece waits for the owner's redeploy, which
   // brings a fresh pack (its initial 狼影) — as for a standing pack, which leaves with its owner
   battle.on('death', (ctx) => {

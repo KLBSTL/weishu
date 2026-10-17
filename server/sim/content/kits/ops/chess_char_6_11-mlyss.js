@@ -224,7 +224,7 @@ function mlyss(bb, chess, def) {
         }, { owner: unit });
         // "其被击败后会在25秒后自动刷新": one pending respawn at a time, on its tile, only while she is on the field and no
         // 流形 of hers stands (her redeploy summons it again as her 援军, tokens.js); expired / replaced ones do not return
-        battle.on('death', ({ unit: t, reason }) => {
+        const onFormExit = ({ unit: t, reason }) => {
           if (t === unit) { cancelPending(); return; }
           if (!mine(t) || t.mem.mlyssClone || reason !== 'killed' || !t.mem.mlyssHome || standing()) return;
           cancelPending();
@@ -242,7 +242,9 @@ function mlyss(bb, chess, def) {
           };
           entry.timer = battle.after(respawnOf(t), entry.spawn, { owner: unit });
           unit.mem.mlyssPending.push(entry);
-        }, { owner: unit });
+        };
+        battle.on('death', onFormExit, { owner: unit });
+        unit.mem.catastropheTokenExit = t => onFormExit({ unit: t, reason: 'killed' });
         battle.on('attack', ({ attacker: t, targets }) => {
           if (!mine(t) || !t.mem.mlyss || !live(t)) return;
           const tal = tokTal(t, 'steal_atk');

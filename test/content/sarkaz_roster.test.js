@@ -11,7 +11,8 @@ test('Sarkaz roster: nine unique identities, shop tiers, normal/elite defaults a
   assert.equal(members.length, 9);
   assert.equal(new Set(members.map((c) => c.charId)).size, 9);
   assert.deepEqual(members.find(c => c.charId === 'char_2012_typhon').bonds, ['sarkazShip', 'skillfulShip']);
-  assert.deepEqual(members.find(c => c.charId === 'char_311_mudrok').bonds, ['sarkazShip', 'deputShip']);
+  assert.deepEqual(members.find(c => c.charId === 'char_311_mudrok').bonds, ['sarkazShip', 'steadShip']);
+  assert.deepEqual(members.find(c => c.charId === 'char_147_shining').bonds, ['sarkazShip', 'deputShip']);
   for (const [, charId, tier, , addon, skillIndex] of SARKAZ_ROSTER) {
     const c = members.find((c) => c.charId === charId);
     assert.equal(c.tier, tier);

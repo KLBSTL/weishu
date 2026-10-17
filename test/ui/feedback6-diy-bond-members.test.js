@@ -91,7 +91,7 @@ describe('feedback6 R21C: the 自选 picks in the bond popup\'s member list', ()
     // the order rule (on board, owned, tier, id): after the unowned tier-5 members, before the tier-6 ones
     const ids = vic.map((r) => r.id);
     assert.ok(ids.indexOf('chess_char_5_03_a') < ids.indexOf(T5A) && ids.indexOf(T5A) < ids.indexOf(T5B), ids.join(' '));
-    assert.ok(!ids.includes('chess_char_5_08_a') && !ids.includes('chess_char_6_07_a'), 'disabled regular members are omitted');
+    assert.ok(ids.includes('chess_char_5_08_a') && ids.includes('chess_char_6_07_a'), 'restored Victoria members are included');
     assert.deepEqual(rowsOf('yanShip', priv).filter((r) => r.diy).map((r) => r.id), [T5B], '炎: 煌 only');
     assert.deepEqual(rowsOf('emptyShip', priv).filter((r) => r.diy), [], '协防: neither');
     assert.equal(rowsOf('victoriaShip', privOf({ diy: {} })).length, n, 'no picks: the members alone');

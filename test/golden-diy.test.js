@@ -18,14 +18,18 @@ test('matches: the 自选 match\'s human seat draws its 自选 pieces in its sho
   assert.deepEqual(Object.keys(dg.diy.picks).sort(), Object.keys(BACKUPS.diy.slots).sort(), 'all four slots filled');
   assert.equal(dg.diy.picks.chess_char_5_diy1_a.charId, 'char_112_siege');
   const draws = dg.diy.rounds.flatMap(([, d]) => (d ? d.split(' ') : []));
-  assert.ok(draws.length >= 2, `shop draws: ${draws.join(', ')}`);
+  // The restored regular pool changes this seed's roll path; one real legal DIY draw still covers the contract.
+  assert.ok(draws.length >= 1, `shop draws: ${draws.join(', ')}`);
   for (const d of draws) assert.ok(Object.hasOwn(BACKUPS.diy.slots, `chess_char_${d}`), d);
   const fielded = dg.diy.rounds.filter(([, , f]) => f).flatMap(([r, , f]) => f.split(' ').map((x) => `${r}:${x}`));
   assert.ok(fielded.some((x) => x.endsWith('5_diy1_a→char_112_siege')), `fielded: ${fielded.join(', ')}`);
   for (const [r, , f] of dg.diy.rounds) {
     for (const x of f ? f.split(' ') : []) {
       const [slot, charId] = x.split('→');
-      assert.equal(dg.diy.picks[`chess_char_${slot}`].charId, charId, `round ${r}: ${x} fights as its pick`);
+      // A legal merge keeps the normal slot's pick; the digest may now field its elite (_b) form.
+      const pick = dg.diy.picks[`chess_char_${slot.replace(/_b$/, '_a')}`];
+      assert.ok(pick, `round ${r}: ${slot} has a configured slot`);
+      assert.equal(pick.charId, charId, `round ${r}: ${x} fights as its pick`);
     }
   }
   // the stock: never above its cap (8 at tier 5, 5 at tier 6)

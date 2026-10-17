@@ -55,6 +55,10 @@ export class FxSim {
    */
   simFx(kind, x, y, extra) {
     const ex = extra && typeof extra === 'object' ? extra : {};
+    if (kind === 'telegraph' && ex.cancel && ex.key != null) {
+      for (const zn of this.zones) if (zn.key === String(ex.key)) zn.t = zn.dur;
+      return;
+    }
     const spec = fxSpec(kind, ex);
     if (spec.a === 'none') return; // an event the screen does not show (hitCap)
     const at = spec.pt ? this._point(Number(x), Number(y)) : this._where(Number(x), Number(y), ex);
@@ -98,7 +102,7 @@ export class FxSim {
         const d = Math.max(0.4, dur || 1);
         if (r >= 12) { this.flashScreen(col, 0.45, d); break; }
         if (ex.tiles) this.tileFlash(tilesAround(at.x, at.y, r, ex.tiles), col, d, true);
-        else this.zone(at.x, at.y, at.z, r, col, d, 'ring', true);
+        else this.zone(at.x, at.y, at.z, r, col, d, 'ring', true, ex.key != null ? String(ex.key) : null);
         break;
       }
       // 盟约寒风 (谢拉格's field-wide wind — the device emits it with no anchor unit): a blizzard up the field and a

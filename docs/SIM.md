@@ -1,10 +1,11 @@
 # SIM.md — battle simulation engine reference (server/sim)
 
-天灾 boss/hidden specs keep `modeId` and `round` in their serialized description. In rounds14/15 only, enemy spawn
-stats additionally scale HP×100 / ATK×10 / DEF×10 / RES×3, including dynamic summons. Their incoming HP damage is
-multiplied by0.05 after mitigation, including true/elemental/hit-count damage, before shields and boss hit limits.
-Original spawn mods remain unscaled for inheritance; the shared leader pool is separately scaled once. See
-[天灾 rules](design/catastrophe.md) for transitions, exceptions and the matching server economy.
+天灾 specs keep `modeId` and `round` in their serialized description and inherit ABYSS. R1–13 adds speed×1.5;
+R14 adds HP×1.5 and Physical/Arts damage×0.75; R15 adds HP×2 and Physical/Arts damage×0.5. Stages do not compound.
+Dynamic enemies and shared leader pools scale once; original spawn mods stay unscaled. Hit-count units ignore every
+damage reduction and lose one hit per valid instance. Hidden boss additions live in `content/catastrophe.js`:
+defensive/shared SP, source-independent shields, pre-numeric-shield punishment (`beforeDamageShields`),
+interrupted charge and death-free forced exit. See [天灾 rules](design/catastrophe.md) for details and server economy.
 
 Local healing terrain: `tile_healing` maps to `healing` in the grid, with an allied terrain buff ticking once
 per second through `heal(..., {self: true, regen: true})`. Its `stage.special.healing.maxHpRatio` is 0.03.

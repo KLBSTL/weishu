@@ -32,7 +32,7 @@ test('droppable chess = the 55 NORMAL base chess; checkNotOwned keeps those, dro
   assert.equal(drop.length, 55);
   assert.ok(drop.every((c) => c.chessType === 'NORMAL' && !c.isGolden && c.backup.charId !== c.charId));
   assert.equal(all.filter((c) => c.chessType === 'PRESET' && isDroppableChess(c)).length, 0, 'PRESET always fields its own operator');
-  assert.equal(drop.filter((c) => c.visible).length, 44, '44 in the current shop; hidden records retain compatibility');
+  assert.equal(drop.filter((c) => c.visible).length, 48, '48 in the current shop; hidden records retain compatibility');
   const res = checkNotOwned([SARIA, SILVER, SILVER, CATHY, chess(SILVER).goldenId, 'chess_char_9_99_a', 'chess_diy_5_1_a', MLYSS], chess);
   assert.deepEqual(res, { ok: true, notOwned: [SILVER, SARIA, MLYSS].sort(), dropped: 5 });
   assert.deepEqual(checkNotOwned([], chess), { ok: true, notOwned: [], dropped: 0 });

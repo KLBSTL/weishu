@@ -78,7 +78,7 @@ export class BattleDeploy {
   kill(unit, killer = null) {
     if (!unit || !unit.alive) return;
     unit.hp = 0;
-    if (this._hooks.kill) this.emit('kill', { killer, victim: unit });
+    if (!this._suppressDeathEvents && this._hooks.kill) this.emit('kill', { killer, victim: unit });
     // a nested kill/retreat inside the handlers already removed it: a later handler's hp write must not stick
     if (!unit.alive) { if (!unit.bossPool) unit.hp = 0; return; }
     if (unit.hp > 0 && !unit.bossPool) { // revived by a kill handler (clamped: a handler may write any number)
@@ -95,12 +95,12 @@ export class BattleDeploy {
    * `dying`: a forced exit that plays the operator's death animation — a knock-out put off by its own effect (史尔特尔's
    * 余烬, 骑士戒律 + 竞技旗); the `death` hook carries it (Touch's 超脱 counts such an exit: content/tokens.js).
    */
-  retreat(unit, { reason = 'retreat', permanent = false, dying = false } = {}) {
+  retreat(unit, { reason = 'retreat', permanent = false, dying = false, suppressDeath = false } = {}) {
     if (!unit || !unit.alive || unit.side !== 'ally') return;
-    this._remove(unit, reason, null, permanent, dying);
+    this._remove(unit, reason, null, permanent, dying, suppressDeath);
   }
 
-  _remove(unit, reason, killer = null, permanent = false, dying = false) {
+  _remove(unit, reason, killer = null, permanent = false, dying = false, suppressDeath = false) {
     this._cutAttackStand(unit);
     unit.alive = false;
     unit.removeReason = reason;
@@ -157,7 +157,7 @@ export class BattleDeploy {
     }
     // the reason ('killed' | 'retreat' | 'expired' | …) lets the client keep the knock-down sound for real knock-outs
     if (reason !== 'leak') this._ev(['die', unit.id, reason]);
-    if (this._hooks.death) this.emit('death', { unit, reason, killer, dying: !!dying });
+    if (!suppressDeath && !this._suppressDeathEvents && this._hooks.death) this.emit('death', { unit, reason, killer, dying: !!dying });
     if (unit.removed) this._toRelease.push(unit);
   }
 

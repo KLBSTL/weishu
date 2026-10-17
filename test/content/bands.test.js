@@ -474,6 +474,17 @@ test('玛恩纳 业务指标: each <卡西米尔> operator bought ⇒ +1 fund ne
   cover('band_mlynar');
 });
 
+test('贾维 hidden income: R1–3 +0, R4–6 +1, R7 onward +2; description unchanged', () => {
+  const { m, ps, at } = setup({ band: 'band_chiave' });
+  for (const [round, bonus] of [[1, 0], [3, 0], [4, 1], [6, 1], [7, 2], [15, 2]]) {
+    at(round);
+    const ev = { round, income: 10, pending: 0 };
+    m.dispatch(ps, 'onIncome', ev);
+    assert.equal(ev.income, 10 + bonus);
+  }
+  assert.equal(DATA.bands.band_chiave.desc.includes('资金'), false);
+});
+
 test('贾维 团伙行动: every 6 manual refreshes ⇒ a <叙拉古> operator (≤ shop level), at most 2 per round', () => {
   const seed = seedWithBond('siracusaShip', 4, 2);
   const { m, ps, at } = setup({ band: 'band_chiave', seed });

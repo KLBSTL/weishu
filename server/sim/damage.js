@@ -54,7 +54,7 @@ import { MIN_DAMAGE_RATIO, ELEMENT, ELEMENT_ORDER, PALSY_MAX } from './constants
 import { BOSS_HIT_LIMIT } from '../../shared/constants.js';
 import { evadesGround } from './targeting.js';
 import { clampNumericShields } from './buffs.js';
-import { CATASTROPHE_ENEMY, isCatastropheBossBattle } from '../../shared/difficulty.js';
+import { catastropheDamageMul } from '../../shared/difficulty.js';
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -301,8 +301,8 @@ export function dealDamage(battle, source, target, dmgIn) {
     if (ts.flags.invulnerable || sleepBlocks(target, hs, dmg)) return 0;
   }
   const type = dmg.type;
-  // Difficulty reduction also covers elemental HP damage and hit-count enemies; element gauge fills exited above.
-  const difficultyMul = target.side === 'enemy' && isCatastropheBossBattle(battle) ? CATASTROPHE_ENEMY.damageTakenMul : 1;
+  // Only physical/Arts HP damage receives the stage reduction; hit-count instances bypass every reduction below.
+  const difficultyMul = target.side === 'enemy' ? catastropheDamageMul(battle, type) : 1;
   // dodge. The yellow MISS (PRTS: a hit that would have been red, dodged) is classified after the existing roll
   // and does not roll again. Source stats are peeked so a dirty attacker is not refreshed just to label the dodge.
   if (dmg.canDodge && (type === 'phys' || type === 'arts')) {
@@ -323,7 +323,7 @@ export function dealDamage(battle, source, target, dmgIn) {
   // The red test compares that 1 (or 0) with the ordinary expected damage: 特殊生命值机制均不考虑 on the expected side.
   if (ts.flags.hitCount || ts.flags.hitCountArts) {
     const counts = !(ts.flags.hitCountArts && !ts.flags.hitCount && type === 'phys');
-    const instance = counts ? difficultyMul : 0;
+    const instance = counts ? 1 : 0;
     const mark = officialDamageMark(instance, officialExpectedAmount(dmg, type, ts, target));
     return applyHpLoss(battle, source, target, absorbShields(battle, target, instance, type), dmg, mark);
   }
@@ -336,6 +336,8 @@ export function dealDamage(battle, source, target, dmgIn) {
   // 限伤: a leader's hit of ≥ BOSS_HIT_LIMIT in a boss / hidden battle is cancelled before it reaches shields / HP — what
   // ran before it (the attack, its SP, `hit` hook effects, separate element 损伤) stays; nothing after it happens
   if (final > 0 && leaderHitCancelled(battle, target, final)) return 0;
+  if (final > 0 && battle._hooks.beforeDamageShields) battle.emit('beforeDamageShields', { source: hs, target, amount: final, dmg, credit: source });
+  if (!target.alive) return 0;
   final = absorbShields(battle, target, final, type);
   // 伤判效果 after the barriers (header): a handler may lower what reaches the HP — never raise it (a 流失 skips this)
   if (final > 0 && battle._hooks.hpDamage) {

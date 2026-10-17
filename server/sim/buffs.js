@@ -17,7 +17,7 @@ export function clampNumericShields(unit) {
   if (!(ratio >= 0) || !Number.isFinite(ratio)) return;
   let left = Math.max(0, unit.s.maxHp * ratio);
   for (const b of unit.buffs) {
-    if (!(b.shield > 0) || !(b.timeLeft > 0)) continue;
+    if (!(b.shield > 0) || !(b.timeLeft > 0) || b.data?.numericShieldCapExempt) continue;
     const value = Math.min(left, b.shield);
     left -= value;
     if (value !== b.shield) { b.shield = value; unit.markDirty(); }
@@ -47,7 +47,7 @@ export const ADD_KEYS = Object.freeze([
 export const MUL_KEYS = Object.freeze([
   'atkMul', 'defMul', 'hpMul', 'resMul', 'moveMul', 'dmgDealtMul', 'dmgTakenMul', 'physTakenMul', 'artsTakenMul',
   'trueTakenMul', 'elemTakenMul', 'elementalTakenMul', 'healingDealtMul', 'healingTakenMul', 'spRecoveryMul', 'redeployMul',
-  'atkScaleMul', 'physDealtMul', 'artsDealtMul',
+  'atkScaleMul', 'physDealtMul', 'artsDealtMul', 'aspdFinalMul',
 ]);
 /**
  * Boolean flag keys (OR). `taunt` is also accepted as a numeric mod. `liftoff` = 起飞 of an ally (蒂比's skills): blocks

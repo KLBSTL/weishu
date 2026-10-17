@@ -25,11 +25,12 @@ function setup(L = 0, gs = {}, count = 6) {
     if (!tags.length) h.b.emit('attack', { attacker: ops[0], targets: [target], isSkill: false });
   } };
 }
-test('Columbia has ten identities without Ifrit; 106 regular recruits; retained exceptions stay visible', () => {
+test('Columbia has ten identities without Ifrit; 114 regular recruits with Victoria restored', () => {
   const visible = Object.values(ds.raw.chess).filter(c => !c.isGolden && c.visible);
-  assert.equal(visible.length, 106);
+  assert.equal(visible.length, 114);
   assert.equal(visible.filter(c => c.bonds.includes('columbiaShip')).length, 10);
-  for (const c of visible.filter(c => c.bonds.some(b => ['egirShip', 'victoriaShip'].includes(b)))) assert.ok(RETAINED_CHARACTERS.includes(c.charId), c.name);
+  for (const c of visible.filter(c => c.bonds.includes('egirShip'))) assert.ok(RETAINED_CHARACTERS.includes(c.charId), c.name);
+  assert.equal(visible.filter(c => c.bonds.includes('victoriaShip')).length, 10);
   for (const id of RETAINED_CHARACTERS) assert.ok(visible.some(c => c.charId === id), id);
   for (const [, charId, tier, , addon, skill] of COLUMBIA_ROSTER) {
     const c = visible.find(c => c.charId === charId);

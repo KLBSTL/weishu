@@ -8,6 +8,14 @@ import { numericShieldTotal } from '../../server/sim/buffs.js';
 
 const close = (a, b) => assert.ok(Math.abs(a - b) < 1e-6, `expected ${b}, got ${a}`);
 
+test('confirmed local custom bonds survive data rebuild: Mudrock Sarkaz/Steadfast, Shining Sarkaz/Support', () => {
+  const h = makeBattle({ autoFinish: false });
+  for (const form of ['a', 'b']) {
+    assert.deepEqual(h.b.data.rawChess(`chess_char_4_18_${form}`).bonds, ['sarkazShip', 'steadShip']);
+    assert.deepEqual(h.b.data.rawChess(`chess_char_4_sarkaz_shining_${form}`).bonds, ['sarkazShip', 'deputShip']);
+  }
+});
+
 test('Sarkaz roster interaction regression: Echo retaliation cannot recurse through Mlynar reflection', () => {
   const h = makeBattle({ units: [{ chessId: 'chess_char_5_19_b', row: 10, col: 5 }], autoFinish: false });
   h.step();

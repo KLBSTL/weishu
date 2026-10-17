@@ -48,6 +48,16 @@ test('a zone re-sent under the same key is moved / resized in place — one laye
   assert.equal(fx.zones.length, 4, 'another key, and unkeyed zones (锡人\'s units, one event each), are zones of their own');
 });
 
+test('an interrupted keyed telegraph ends immediately without clearing unrelated warnings', () => {
+  const fx = fxShell();
+  fx.simFx('telegraph', 5, 10, { r: 3, dur: 8, key: 'catastrophe:concord:1' });
+  fx.simFx('telegraph', 8, 10, { r: 2, dur: 8, key: 'other' });
+  fx.simFx('telegraph', 5, 10, { key: 'catastrophe:concord:1', cancel: true });
+  fx._updateZones(0);
+  assert.equal(fx.zones.length, 1);
+  assert.equal(fx.zones[0].key, 'other');
+});
+
 test('persistent areas are dimmer and share their light when they overlap; short bursts and telegraphs keep theirs', () => {
   const zone = (x, dur = 6, r = 2, warn = false) => ({ x, y: 10, r, dur, warn });
   const alone = zone(2);

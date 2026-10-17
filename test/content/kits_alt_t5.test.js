@@ -63,14 +63,14 @@ function cast(h, u, max = 15) {
 
 test('tier 5: every selectable skill of every visible chess has a hand-authored spec (normal + elite)', () => {
   const rep = kitCoverage({ tier: 5 });
-  assert.equal(rep.summary.chess, 17);
+  assert.equal(rep.summary.chess, 18);
   assert.equal(rep.summary.covered, rep.summary.skills, rep.chess.flatMap((r) => r.skills.filter((s) => !s.covered).map((s) => `${r.name} S${s.index + 1}`)).join(', '));
   assert.equal(rep.summary.chessFullyCovered, rep.summary.chess);
 });
 
 test('tier 5: every chess × every legal skill × every module fights with its authored spec and casts, no content errors', () => {
   const bases = ds.chessIds().filter((id) => /^chess_char_5_\d+_a$/.test(id) && raw(id).visible);
-  assert.equal(bases.length, 16);
+  assert.equal(bases.length, 17);
   let n = 0;
   for (const base of bases) {
     const gold = base.replace(/_a$/, '_b');

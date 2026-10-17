@@ -27,7 +27,7 @@ import { t, tc, N_ } from '../../../shared/i18n.js';
 /** Official mode texts (activity_table act2autochess.modeDataDict), fallback when config.json is absent. */
 const CATASTROPHE_TEXT = {
   code: 'AC-5', desc: N_('终极模拟基础上的天灾挑战'),
-  effects: [N_('领袖阶段敌方生命与攻击力增加'), N_('敌方防御、法抗与减伤增加'), N_('高阶干员卡池数量增加')],
+  effects: [N_('道中敌人移速增加，两路类型不同'), N_('领袖阶段敌方生命与物理、法术减伤增加'), N_('隐秘核心领袖能力增加')],
 };
 export const MODE_TEXT = {
   single: {
@@ -102,7 +102,7 @@ export function difficultyInfo(roomMode, difficulty) {
   const fallback = MODE_TEXT[roomMode === 'solo' ? 'single' : 'multi'][difficulty] || { code: '', desc: '', effects: [] };
   // modeIdFor() lower-cases the difficulty: never call it with a value the server did not validate.
   const m = DIFFICULTIES.includes(difficulty) ? getMode(modeIdFor(roomMode, difficulty)) : null;
-  const effects = difficulty !== 'CATASTROPHE' && Array.isArray(m?.effectDescList)
+  const effects = Array.isArray(m?.effectDescList)
     ? m.effectDescList.map((e) => String(e).replace(/^[·•・･\s]+/, '')).filter(Boolean)
     : fallback.effects.map((e) => t(e));
   const rounds = Number.isFinite(m?.lastRound) ? m.lastRound : roomMode === 'solo' && difficulty === 'FUNNY' ? 9 : 14;

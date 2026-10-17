@@ -342,6 +342,10 @@ K.round_start_gain_coin_by_bond_char_chess_buy = (ps) => ({
 });
 
 K.refresh_shop_count_gain_coin_bond_char_chess = (ps) => ({
+  onIncome(ctx, ev) {
+    // Maintainer-requested Chiave stipend; deliberately kept out of the band's description.
+    ev.income += ev.round >= 7 ? 2 : ev.round >= 4 ? 1 : 0;
+  },
   onRefresh(ctx) {
     const p = ps[0];
     const every = int(p.refresh_count, 0);

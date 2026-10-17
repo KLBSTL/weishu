@@ -9,6 +9,28 @@ import { attachSkinCatalogue } from '../tools/assets/skin-catalogue.mjs';
 import { parseSkel } from '../tools/assets/skel.mjs';
 
 const sampleSkel = new URL('../public/assets/skins/char_274_astesi_epoque_23/Front/char_274_astesi_epoque_23.skel', import.meta.url);
+test('restored Victoria formal recruits expose their twelve existing costumes with complete models', () => {
+  const chess = Object.values(JSON.parse(readFileSync(new URL('../data/chess.json', import.meta.url), 'utf8')));
+  const catalogue = JSON.parse(readFileSync(new URL('../public/assets/skins/catalogue.json', import.meta.url), 'utf8'));
+  const names = ['刺玫', '洛洛', '薄绿', '风笛', '凯瑟琳', '号角', '维娜·维多利亚', '焰影苇草'];
+  let total = 0;
+  for (const name of names) {
+    const c = chess.find(c => c.name === name && !c.isGolden);
+    assert.ok(c?.visible, name);
+    assert.ok(catalogue.defaults[c.charId], name + ' default');
+    const skins = catalogue.chars[c.charId] || [];
+    total += skins.length;
+    for (const skin of skins) {
+      const models = [...Object.values(skin.spine || {}), skin.base].filter(Boolean);
+      assert.ok(models.length > 0, name);
+      for (const model of models) for (const url of [model.skel, model.atlas, ...model.textures]) {
+        assert.ok(existsSync(new URL('../public' + url, import.meta.url)), name + ': ' + url);
+      }
+    }
+  }
+  assert.equal(total, 12);
+});
+
 test('Spine metadata: a file and an offset view of its bytes produce identical animations and bounds', { skip: !existsSync(sampleSkel) }, () => {
   const bytes = readFileSync(sampleSkel);
   const exact = new Uint8Array(bytes);

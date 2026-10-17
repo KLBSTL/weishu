@@ -573,7 +573,10 @@ function EnemyDetail({ enemy, snapHp, count, live = null }) {
     ${imm.length ? html`<p class="dhint"><${Icon} name="shield" />${t('免疫：{list}', { list: imm })}</p>` : null}
     ${Array.isArray(enemy.abilities) && enemy.abilities.length ? html`<${Section} title=${t('能力')} micro="ABILITIES">
       <ul class="dabil">${abilityRows(enemy.abilities, !!live?.silenced).map((a, i) => html`<li key=${i} class=${a.off ? 'is-off' : null}><${RichText} text=${a.text} /></li>`)}</ul>
-    <//>` : enemy.descRaw || enemy.desc ? html`<${Section} title=${t('说明')}><${RichText} as="p" text=${enemy.descRaw || enemy.desc} class="dtext" /><//>` : null}`;
+    <//>` : enemy.descRaw || enemy.desc ? html`<${Section} title=${t('说明')}><${RichText} as="p" text=${enemy.descRaw || enemy.desc} class="dtext" /><//>` : null}
+    ${enemy.catastropheAbilities?.length ? html`<${Section} title=${t('天灾隐秘核心专属')} micro="CATASTROPHE">
+      <ul class="dabil">${enemy.catastropheAbilities.map((text, i) => html`<li key=${i}><${RichText} text=${t(text)} /></li>`)}</ul>
+    <//>` : null}`;
 }
 
 /**

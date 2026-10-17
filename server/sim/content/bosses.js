@@ -76,6 +76,8 @@ import {
   remainingRoute, stayRoute, stepToward, setHits, hitCount, lpLoss, blinkForward, canCast, unbalancedNow, absorbArts, nthOf,
 } from './enemies.js';
 import { hypot, powi } from '../detmath.js';
+import { isCatastropheHiddenBattle } from '../../../shared/difficulty.js';
+import { installCatastropheBosses, bindCatastropheBoss, catastrophePipeAttack, catastropheEchoChanged } from './catastrophe.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants
@@ -263,6 +265,7 @@ function summonMods(b, hpRatio = null) {
 
 export function install(battle) {
   ensureInstalled(battle);
+  installCatastropheBosses(battle);
   battle.on('enemySpawn', ({ enemy }) => onSpawn(battle, enemy), { priority: 90 });
   // "最终攻势中，敌方领袖不会受到侵蚀损伤" (PRTS 卫戍协议：盟约/PRTS盟约记录 规则; research 06 §10.1): leaders ignore erosion gauge damage
   battle.on('elementHit', (c) => { if (c.target && c.target.isBoss && c.dmg.element === 'erosion') c.dmg.cancel = true; }, { priority: 100 });
@@ -278,6 +281,7 @@ function onSpawn(b, e) {
   let list = [];
   try { list = kit(ab, e, b, tpl) || []; } catch (err) { b._handlerError('content:bosses', e, err); }
   attach(b, e, list);
+  bindCatastropheBoss(b, e, tpl, summonMods);
   // patrol loop for leaders / parts
   const raw = rawRouteOf(b, e, tpl);
   if (raw && Array.isArray(raw.steps) && raw.steps.some((s) => s && s.t === 'patrol')) attach(b, e, [patrolLoop()]);
@@ -393,7 +397,10 @@ function kitHelm(ab, e, b, tpl) {
       tick(b2, e2) {
         if (P.low || !(e2.hpRatio < lowRatio)) return;
         P.low = true;                                     // <20 %: damage taken ×0.5 (no extra shell: see 灭顶之灾)
-        b2.addBuff(e2, { key: 'boss:helmGuard', persist: true, visible: true, mods: { physTakenMul: lowScale, artsTakenMul: lowScale } }); // 物理与法术伤害降低
+        const mods = isCatastropheHiddenBattle(b2) && e2.defId === 'enemy_9013_acstmk_2'
+          ? { physTakenMul: .2, artsTakenMul: .2, trueTakenMul: .2, elementalTakenMul: .2 }
+          : { physTakenMul: lowScale, artsTakenMul: lowScale };
+        b2.addBuff(e2, { key: 'boss:helmGuard', persist: true, visible: true, mods });
         b2.fx('phase', { x: e2.x, y: e2.y, id: e2.id, kind: 'helmLow' });
       },
     },
@@ -660,7 +667,8 @@ function kitGun(ab, e, b) {
 function kitSpring(ab, e) {
   const kind = /9018/.test(e.defId) ? 'arts' : /9019/.test(e.defId) ? 'element' : 'hits';
   const scale = T(ab, '1.damage_scale') ?? 1, regen = T(ab, '1.regenerate_duration') ?? 0;
-  const P = { up: false, barrier: 0, hits: 0, downAt: null };
+  const P = { kind, up: false, barrier: 0, hits: 0, downAt: null };
+  e.mem.ab.springShield = P;
   const gun = (b) => nearestOf(b, e, (o) => isGun(o));
   const raise = (b) => {
     P.up = true;
@@ -674,6 +682,7 @@ function kitSpring(ab, e) {
   return [
     {
       spawn(b) { raise(b); },
+      death() { P.up = false; },
       hitIn(c, b, e2) {
         if (!P.up) return;
         const ty = c.dmg.type;
@@ -759,19 +768,21 @@ function kitSpring(ab, e) {
 const echoesOf = (b, form) => b.enemies.filter((o) => o.alive && o.defId === ECHO_KEY && o.mem.ab && o.mem.ab.form === form);
 
 /** Switch an echo's form. */
-export function setEchoForm(b, echo, form) {
+export function setEchoForm(b, echo, form, source = null) {
   const ab = echo.mem.ab;
   if (!ab) return;
+  const changed = ab.form != null && ab.form !== form;
   ab.form = form;
   ab.strikes = 0;
   const mods = form === 'gold' ? { aspd: T(ab, '1.attack_speed') ?? 0 } : { atkPct: T(ab, '2.atk') ?? 0, moveMul: 1 - (T(ab, '2.move_speed') ?? 0) };
   b.addBuff(echo, { key: 'boss:echoForm', persist: true, visible: true, mods });
   b.fx('phase', { x: echo.x, y: echo.y, id: echo.id, kind: `echo_${form}` });
+  if (changed) catastropheEchoChanged(b, source);
 }
 
 /** An echo takes a strike/hit: pulse around it (PRTS “余音” "受到伤害时对半径1.6范围内的我方单位造成…": an area selection of the
  *  echo — no unblocking 隐匿 operator) and count towards the form switch. */
-export function echoHit(b, echo) {
+export function echoHit(b, echo, source = null) {
   const ab = echo.mem.ab;
   if (!ab || !echo.alive) return;
   const atk = echo.s.atk;
@@ -783,7 +794,7 @@ export function echoHit(b, echo) {
   }
   const need = ab.form === 'gold' ? T(ab, '1.hit_times_to_switch') : T(ab, '2.hit_times_to_switch');
   ab.strikes = (ab.strikes ?? 0) + 1;
-  if (need > 0 && ab.strikes >= need) setEchoForm(b, echo, ab.form === 'gold' ? 'dark' : 'gold');
+  if (need > 0 && ab.strikes >= need) setEchoForm(b, echo, ab.form === 'gold' ? 'dark' : 'gold', source);
 }
 
 function kitEcho(ab, e) {
@@ -830,7 +841,8 @@ function pipeCore(ab, e, b, tpl, { form, prefix }) {
       e2.lastAttackAt = b2.time;
       e2.stats.attacks++;
       b2.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: `${prefix}Strike` });
-      echoHit(b2, t);
+      echoHit(b2, t, e2);
+      catastrophePipeAttack(b2, e2);
     },
   };
 }
@@ -847,10 +859,10 @@ function kitPipe(ab, e, b, tpl) {
       fire(b2, e2) { // 【裂管之奏】 three strikes on every dark echo
         const r = s.bb.range_radius ?? 0, ep = s.bb.ep_damage_ratio ?? 0;
         for (const echo of echoesOf(b2, 'dark')) for (let k = 0; k < 3; k++) b2.after(k * PIPE_STRIKE_GAP, () => {
-          if (!e2.alive || !echo.alive) return;
+          if (!e2.alive || !echo.alive || e2.mem.catastropheCasting) return;
           b2.fx('explode', { x: echo.x, y: echo.y, r, kind: 'pipeStrike' });
           for (const u of areaAllies(b2, e2, echo.x, echo.y, r)) { hurt(b2, e2, u, e2.s.atk, 'arts'); elem(b2, e2, u, 'apoptosis', e2.s.atk * ep); }
-          echoHit(b2, echo);
+          echoHit(b2, echo, e2);
         }, { owner: e2 });
       },
     },
@@ -869,7 +881,7 @@ function kitString(ab, e, b, tpl) {
         for (const echo of echoesOf(b2, 'gold')) {
           b2.fx('explode', { x: echo.x, y: echo.y, r, kind: 'stringStrike' });
           for (const u of areaAllies(b2, e2, echo.x, echo.y, r)) { hurt(b2, e2, u, e2.s.atk, 'arts'); elem(b2, e2, u, 'apoptosis', e2.s.atk * ep); }
-          setEchoForm(b2, echo, 'dark');
+          setEchoForm(b2, echo, 'dark', e2);
         }
       },
     },

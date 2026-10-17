@@ -10,7 +10,7 @@ import {
   unbalancedNow,
 } from './helpers.js';
 import { hypot } from '../../detmath.js';
-import { CATASTROPHE_ENEMY, isCatastropheBossBattle } from '../../../../shared/difficulty.js';
+import { catastropheHpMul } from '../../../../shared/difficulty.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // archetypes
@@ -486,7 +486,7 @@ function husk({ hits, delay, stealthy = true, unblock = false, onHusk = null, ke
       rebirthCleanse(b, e);
       e.profile.noAttack = true;
       e.lastAttackAt = -Infinity;                         // the snapshot shows no attack of the fallen warrior
-      setHits(e, hits * (isCatastropheBossBattle(b) ? CATASTROPHE_ENEMY.hpMul : 1));
+      setHits(e, hits * catastropheHpMul(b));
       hitCount(b, e, true);
       b.addBuff(e, { key, visible: true, persist: true, flags: { disarm: true, ...(stealthy ? { stealth: true } : {}), ...(unblock ? { unblockable: true } : {}) } });
       b.addBuff(e, { key: `${key}:reborn`, duration: HUSK_REBIRTH, flags: { invulnerable: true, untargetable: true, unblockable: true, noMove: true, noDisplace: true } });

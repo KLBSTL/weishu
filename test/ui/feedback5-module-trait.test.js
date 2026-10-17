@@ -57,9 +57,9 @@ const cardRows = (tree) => [...walk(tree)].filter((n) => hasClass(n, 'lo-minfo__
   k: textOf([...walk(row)].find((n) => hasClass(n, 'lo-minfo__k'))), text: richText(row), kind: row.props['data-trait'] ?? null,
 }));
 
-test('the data: 153 elite modules offered, 110 of them add a line after the class trait (the report\'s "only the extra trait")', () => {
-  assert.equal(modules.length, 153);
-  assert.equal(added.length, 110);
+test('the data: 165 elite modules offered, 116 of them add a line after the class trait (the report\'s "only the extra trait")', () => {
+  assert.equal(modules.length, 165);
+  assert.equal(added.length, 116);
   for (const { g, m } of added) {
     // the record keeps the class trait (or the module's rewrite of it) beside the added line
     assert.ok(m.traitOverride.desc && m.traitOverride.desc !== m.traitOverride.moduleDesc, `${g.chessId} ${m.uniEquipId}`);

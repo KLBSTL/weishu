@@ -20,6 +20,7 @@ test('天灾: lobby choices, legacy preference, icon, room switching and a real 
     await c.click('.diff-card', '天灾');
     await c.page.waitForFunction(() => [...document.querySelectorAll('.diff-card img')].some(e => e.src.endsWith('/icons/catastrophe.svg') && e.complete && e.naturalWidth > 0));
     const effects = await c.page.$$eval('.diff-card.is-selected .diff-card__effects > span:not(.diff-card__stage)', els => els.map(e => e.textContent));
+    assert.deepEqual(effects, ['道中敌人移速增加，两路类型不同', '领袖阶段敌方生命与物理、法术减伤增加', '隐秘核心领袖能力增加']);
     assert.ok(effects.every(text => text.includes('增加')));
     assert.ok(effects.every(text => !/[0-9%×]/.test(text)), 'difficulty descriptions use qualitative wording');
     await sleep(350); // let the existing selection transition finish before capturing its visual state

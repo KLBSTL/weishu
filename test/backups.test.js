@@ -51,7 +51,7 @@ test('chess: 145 base chess — 86 PRESET / 55 NORMAL / 4 DIY — and every reco
   for (const c of ofType('DIY')) assert.deepEqual(c.backup, { charId: null, tmplId: null, skillIndex: 0, uniEquipId: null, potRank: 0 });
   // the only stored potential above 0: 宴 and 野鬃, both PRESET (their own backup)
   assert.deepEqual(base.filter((c) => c.backup.potRank !== 0).map((c) => c.chessId), ['chess_char_1_18_a', 'chess_char_1_19_a']);
-  assert.deepEqual(ofType('NORMAL').filter((c) => c.isHidden).map((c) => c.chessId), ['chess_char_3_05_a', 'chess_char_4_07_a', 'chess_char_4_09_a', 'chess_char_5_05_a', 'chess_char_5_08_a', 'chess_char_5_13_a', 'chess_char_5_18_a', 'chess_char_6_04_a', 'chess_char_6_07_a', 'chess_char_6_08_a', 'chess_char_6_10_a']);
+  assert.deepEqual(ofType('NORMAL').filter((c) => c.isHidden).map((c) => c.chessId), ['chess_char_3_05_a', 'chess_char_4_09_a', 'chess_char_5_05_a', 'chess_char_5_13_a', 'chess_char_5_18_a', 'chess_char_6_04_a', 'chess_char_6_10_a']);
 });
 
 test('chess: the backup fields are the official shop row, verbatim', { skip: !HAS_CACHE && 'no .cache/gamedata' }, () => {

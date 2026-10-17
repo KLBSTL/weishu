@@ -156,7 +156,7 @@ export class GameData {
     let base = boss && boss.bloodPoint && Number.isFinite(boss.bloodPoint[diff]) ? boss.bloodPoint[diff] : null;
     if (base == null && boss && boss.bloodPoint) base = Object.values(boss.bloodPoint).find((v) => Number.isFinite(v)) ?? null;
     if (base == null) base = 500000;
-    const extra = isCatastropheMode(this.modeId) ? CATASTROPHE_ENEMY.hpMul : 1;
+    const extra = isCatastropheMode(this.modeId) ? (boss?.hidden ? CATASTROPHE_ENEMY.hiddenHpMul : CATASTROPHE_ENEMY.bossHpMul) : 1;
     return Math.max(1, Math.round(base * this.bossPoolShare(aliveCount) * extra));
   }
 
@@ -303,7 +303,7 @@ export class GameData {
     const v = pc && typeof pc === 'object' ? pc[tier] : undefined;
     const cap = ov && typeof ov === 'object' && Number.isInteger(ov[baseId]) && ov[baseId] >= 0 ? ov[baseId]
       : Number.isInteger(v) && v >= 0 ? v : (DEFAULTS.poolCopies[tier] ?? 10);
-    return cap * (isCatastropheMode(this.modeId) && (tier === 5 || tier === 6) ? 2 : 1);
+    return cap;
   }
 
   /** Copies needed to merge (0 = never merges: golden chess). */

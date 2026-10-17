@@ -74,7 +74,7 @@ export function bossPoolHp(gd, bossId, aliveCount) {
   const tune = typeof gd.bossHpMul === 'function' ? gd.bossHpMul(bossId) : 1;
   const share = typeof gd.bossPoolShare === 'function' ? gd.bossPoolShare(aliveCount)
     : bossPoolShareOf(gd.mode && gd.mode.bossHpScale, gd.config && gd.config.bossHpScale, !!gd.isSolo, aliveCount);
-  const extra = isCatastropheMode(gd.modeId) ? CATASTROPHE_ENEMY.hpMul : 1;
+  const extra = isCatastropheMode(gd.modeId) ? (boss?.hidden ? CATASTROPHE_ENEMY.hiddenHpMul : CATASTROPHE_ENEMY.bossHpMul) : 1;
   return Math.max(1, Math.round(base * share * tune * extra));
 }
 

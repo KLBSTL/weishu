@@ -4,7 +4,6 @@
 import { TICK, COLS } from '../../constants.js';
 import { aggroCmp, areaSelectable } from '../../targeting.js';
 import { periodicDamage } from '../../damage.js';
-import { CATASTROPHE_ENEMY, isCatastropheBossBattle } from '../../../../shared/difficulty.js';
 import {
   nthOf, T, hurt, alliesInTiles, targetsNear, allTargets, areaAllies, areaAlliesInTiles, auraAllies, targetAndArea,
   byPriority, setForm, auraBuff, watchDeaths, unbalancedNow,
@@ -398,10 +397,9 @@ function kitUglyThing(ab) {
       onReborn(b, e) {                              // 大祭司形态: 不进行攻击，无法被阻挡，每秒受到真实伤害
         P.pilot = true;
         e.profile.noAttack = true;
-        const extra = isCatastropheBossBattle(b) ? CATASTROPHE_ENEMY : { defMul: 1, resMul: 1 };
         b.addBuff(e, {
           key: 'ab:pilot', persist: true, visible: true, flags: { unblockable: true }, interval: 1,
-          mods: { moveMul: 1 + run.spd, defFlat: run.def != null ? run.def * extra.defMul - e.base.def : 0, resFlat: run.res != null ? run.res * extra.resMul - e.base.res : 0 },
+          mods: { moveMul: 1 + run.spd, defFlat: run.def != null ? run.def - e.base.def : 0, resFlat: run.res != null ? run.res - e.base.res : 0 },
           onTick: ({ battle, unit }) => { if (run.dmg > 0) battle.dealDamage(null, unit, { amount: run.dmg, type: 'true', canDodge: false, tags: ['enemyAbility', 'pilotBurn'] }); },
         });
       },

@@ -43,7 +43,7 @@ test('room.loadout ops: structure (≤ 256 charIds → { potential 1–6?, culti
   // the operators one may set: the 112-chess roster's charIds (hidden twins share them) and the 71 owned 自选 picks
   assert.ok(IDS.has(VIGNA_CHAR) && IDS.has(KALTS) && IDS.has(WANG));
   assert.ok(!IDS.has(SHARP) && !IDS.has(GRANI.backup.charId), 'a prototype / stand-in character is no setting');
-  assert.equal(IDS.size, 171);
+  assert.equal(IDS.size, 179);
   const has = (id) => IDS.has(id);
   assert.deepEqual(checkLoadoutOps(undefined, has), { ok: true, ops: {} });
   assert.deepEqual(checkLoadoutOps({ [VIGNA_CHAR]: { potential: 2 }, [KALTS]: { potential: 6, cultivate: 3 } }, has), { ok: true, ops: { [VIGNA_CHAR]: { potential: 2, cultivate: 3 } } });

@@ -6,13 +6,55 @@ import { canSelectStage } from '../../shared/stages.js';
 import { GameData } from '../../server/match/gamedata.js';
 import { SharedPool } from '../../server/match/pool.js';
 import { bossPoolHp, hiddenEligible } from '../../server/match/finalAssault.js';
-import { buildBossWave, setupMatchWaves } from '../../server/match/waves.js';
+import { buildBossWave, buildNormalWave, setupMatchWaves, gateOf } from '../../server/match/waves.js';
 import { createRng } from '../../server/sim/rng.js';
 import { buildBattleSpec, createBattleFromSpec } from '../../server/sim/spec.js';
 import { makeBattle, enemyRec, chessRec } from '../helpers/battleHarness.js';
 import { DATA, makeMatch } from './harness.js';
 
 const approx = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-6, `${actual} expected ${expected}`);
+
+test('天灾 starts with 4 regular candidates; two distinct lane types preserve same-seed ABYSS counts/timing/routes', () => {
+  for (const type of ['single', 'multi']) for (let seed = 1; seed <= 40; seed++) {
+    const gd = new GameData(DATA, `mode_${type}_catastrophe`), base = new GameData(DATA, `mode_${type}_abyss`);
+    const setup = setupMatchWaves(gd, createRng(seed)), original = setupMatchWaves(base, createRng(seed));
+    assert.equal(new Set(setup.factions).size, 4);
+    assert.deepEqual(setup.picks, original.picks, 'R14/R15 and the baseline action counts retain the ABYSS schedule');
+    const again = setupMatchWaves(gd, createRng(seed));
+    assert.deepEqual(setup.lanePicks, again.lanePicks);
+    for (let round = 1; round <= 13; round++) {
+      const wave = buildNormalWave(gd, createRng(5), setup.factions, round);
+      const old = buildNormalWave(base, createRng(5), original.factions, round);
+      assert.notEqual(wave.lanePicks.upper.type, wave.lanePicks.lower.type);
+      for (const p of Object.values(wave.lanePicks)) assert.ok([...setup.factions, 'SPECIAL'].includes(p.type));
+      assert.deepEqual(wave.spawns.map(s => [s.count, s.time, s.interval, s.routeIndex]), old.spawns.map(s => [s.count, s.time, s.interval, s.routeIndex]));
+      assert.deepEqual(wave.routes, old.routes);
+      for (const s of wave.spawns) {
+        const pick = wave.lanePicks[gateOf(wave.routes[s.routeIndex].start, false)];
+        assert.ok([pick.key, pick.normal, pick.elite].includes(s.enemyKey));
+      }
+    }
+  }
+});
+
+test('天灾 R1–13 speed ×1.5 applies once to spawns and inherited summons, never to R14/R15', () => {
+  for (const round of [1, 4, 13, 14, 15]) {
+    const h = makeBattle({ modeId: 'mode_multi_catastrophe', round, kind: round <= 13 ? 'normal' : round === 14 ? 'boss' : 'hidden',
+      content: 'none', autoFinish: false, defs: { enemies: { fast: enemyRec({ key: 'fast', speed: 1 }) } } }).step();
+    const u = h.spawn('fast', { pos: [10, 7], mods: { speedMul: 1.15 } });
+    const child = h.spawn('fast', { pos: [10, 8], mods: u.mods });
+    approx(u.s.moveSpeed, 1.15 * (round <= 13 ? 1.5 : 1));
+    approx(child.s.moveSpeed, u.s.moveSpeed);
+  }
+});
+
+test('R15 has ×2 HP and 50% physical/Arts reduction without R14 carry-over', () => {
+  const h = field({ round: 15, kind: 'hidden' }), e = h.enemy('enemy_dummy');
+  assert.equal(e.s.maxHp, 4000);
+  for (const [type, expected] of [['phys', 490], ['arts', 450], ['true', 1000], ['elemental', 1000]]) {
+    approx(h.b.dealDamage(null, e, { type, amount: 1000 }), expected);
+  }
+});
 
 test('天灾 replaces 标准 in the four UI choices while legacy records remain readable', () => {
   assert.deepEqual(SELECTABLE_DIFFICULTIES, ['NORMAL', 'HARD', 'ABYSS', 'CATASTROPHE']);
@@ -40,10 +82,10 @@ for (const type of ['single', 'multi']) {
     for (let r = 1; r <= 15; r++) assert.deepEqual(gd.baseEnemyScale(r), base.baseEnemyScale(r));
   });
 
-  test(`${type} shared pool doubles tiers V/VI including overrides, retaining take/return accounting`, () => {
+  test(`${type} shared pool retains ABYSS stock including tier V/VI overrides`, () => {
     const pool = new SharedPool(gd);
     for (const chess of gd.visibleChess) {
-      const expected = base.poolCopies(chess) * (base.tierOf(chess) >= 5 ? 2 : 1);
+      const expected = base.poolCopies(chess);
       assert.equal(gd.poolCopies(chess), expected, chess);
       assert.equal(pool.cap(chess), expected, chess);
       assert.equal(pool.take(chess, expected + 2), expected);
@@ -51,13 +93,14 @@ for (const type of ['single', 'multi']) {
       assert.equal(pool.give(chess, expected + 2), expected);
       assert.equal(pool.left(chess), expected);
     }
-    assert.equal(pool.cap('chess_char_6_11_a'), 8, '缪尔赛思 override is doubled too');
+    assert.equal(pool.cap('chess_char_6_11_a'), 4, '缪尔赛思 keeps its original override');
   });
 
-  test(`${type} every leader has ABYSS shared HP ×100, including multiplayer alive-count scaling`, () => {
+  test(`${type} final/hidden leaders have ABYSS shared HP ×1.5/×2, including alive-count scaling`, () => {
     for (const boss of Object.keys(DATA.bosses)) for (const alive of [1, 2, 3, 4]) {
-      assert.equal(bossPoolHp(gd, boss, alive), bossPoolHp(base, boss, alive) * 100, boss);
-      assert.equal(gd.bossPoolHp(boss, alive), base.bossPoolHp(boss, alive) * 100, boss);
+      const mul = DATA.bosses[boss].hidden ? 2 : 1.5;
+      assert.equal(bossPoolHp(gd, boss, alive), bossPoolHp(base, boss, alive) * mul, boss);
+      assert.equal(gd.bossPoolHp(boss, alive), base.bossPoolHp(boss, alive) * mul, boss);
       assert.equal(gd.bossPoolHp(boss, alive), bossPoolHp(gd, boss, alive));
     }
   });
@@ -90,7 +133,7 @@ for (const type of ['single', 'multi']) {
         else if (!e.s.flags.hitCount && !e.s.flags.hitCountArts) {
           const def = b.data.getEnemy(spawn.enemyKey);
           const rawHp = wave.overrides?.[spawn.enemyKey]?.stats?.maxHp ?? def.maxHp;
-          approx(e.base.maxHp, rawHp * (spawn.mods?.hpMul ?? 1) * 100);
+          approx(e.base.maxHp, rawHp * (spawn.mods?.hpMul ?? 1) * (round === 15 ? 2 : 1.5));
         }
         assert.deepEqual(e.base, copy.base, `${bossId} client/server spawn stats`);
         assert.equal(e.hp, copy.hp);
@@ -113,19 +156,19 @@ function field({ modeId = 'mode_multi_catastrophe', round = 14, kind = 'boss' } 
 
 test('all 天灾 spawn routes apply once, including inherited mods on dynamic summons', () => {
   const h = field(), e = h.enemy('enemy_dummy');
-  assert.equal(e.s.maxHp, 200000);
-  assert.equal(e.s.atk, 6000);
-  assert.equal(e.s.def, 200);
-  assert.equal(e.s.res, 30);
+  assert.equal(e.s.maxHp, 3000);
+  assert.equal(e.s.atk, 600);
+  assert.equal(e.s.def, 20);
+  assert.equal(e.s.res, 10);
   const child = h.b.spawnEnemy('enemy_dummy', { pos: [11, 8], mods: e.mods });
-  assert.deepEqual(child.base, e.base, 'a child inherits original wave mods, never 100× a second time');
+  assert.deepEqual(child.base, e.base, 'a child inherits original wave mods, never applies the stage multiplier twice');
   const summoned = h.b.spawnEnemy('enemy_dummy', { pos: [11, 8] });
-  assert.equal(summoned.s.maxHp, 100000);
-  assert.equal(summoned.s.atk, 2000);
+  assert.equal(summoned.s.maxHp, 1500);
+  assert.equal(summoned.s.atk, 200);
 });
 
-for (const [type, expected] of [['phys', 40], ['arts', 35], ['true', 50], ['elemental', 50]]) {
-  test(`天灾 ${type} HP damage has 95% reduction after mitigation`, () => {
+for (const [type, expected] of [['phys', 735], ['arts', 675], ['true', 1000], ['elemental', 1000]]) {
+  test(`天灾 R14 ${type} has only the confirmed physical/Arts reduction`, () => {
     const h = field(), e = h.enemy('enemy_dummy');
     approx(h.b.dealDamage(null, e, { type, amount: 1000, canDodge: false }), expected);
     approx(e.hp, e.s.maxHp - expected);
@@ -134,10 +177,11 @@ for (const [type, expected] of [['phys', 40], ['arts', 35], ['true', 50], ['elem
   });
 }
 
-test('天灾 hit-count enemies also get reduction, without changing element buildup or direct HP loss rules', () => {
+test('hit-count enemies ignore every damage reduction, preserving element buildup and direct HP loss', () => {
   const h = field(), e = h.enemy('enemy_dummy');
   h.b.addBuff(e, { key: 'test:hitCount', flags: { hitCount: true } });
-  approx(h.b.dealDamage(null, e, { type: 'true', amount: 1000, canDodge: false }), 0.05);
+  h.b.addBuff(e, { key: 'all-guard', mods: { dmgTakenMul: .01, physTakenMul: .01, artsTakenMul: .01, trueTakenMul: .01, elementalTakenMul: .01 } });
+  for (const type of ['phys', 'arts', 'true', 'elemental']) approx(h.b.dealDamage(null, e, { type, amount: 1000, canDodge: false }), 1);
   const before = e.hp;
   h.b.loseHp(e, 100);
   approx(before - e.hp, 100);
@@ -145,7 +189,7 @@ test('天灾 hit-count enemies also get reduction, without changing element buil
   approx(e.elem.burn, 100);
 });
 
-test('a real reborn 深池逐火战士 keeps ×100 HP in its hit-count husk form', () => {
+test('a real reborn 深池逐火战士 retains the R14 multiplier in its hit-count husk form', () => {
   const huskHp = [];
   for (const modeId of ['mode_multi_abyss', 'mode_multi_catastrophe']) {
     const b = createBattleFromSpec(buildBattleSpec({ modeId, round: 14, kind: 'boss',
@@ -156,7 +200,7 @@ test('a real reborn 深池逐火战士 keeps ×100 HP in its hit-count husk form
     assert.equal(e.s.flags.hitCount, true);
     huskHp.push(e.s.maxHp);
   }
-  assert.equal(huskHp[1], huskHp[0] * 100);
+  assert.equal(huskHp[1], Math.round(huskHp[0] * 1.5));
 });
 
 for (const settings of [{ round: 13 }, { round: 14, kind: 'normal' }, { modeId: 'mode_multi_abyss' }, { modeId: 'mode_single_hard' }]) {

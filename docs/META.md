@@ -1,9 +1,11 @@
 # META.md — match & meta engine (server/match)
 
-天灾 (`CATASTROPHE`) inherits ABYSS mode data, draft schedules and hidden-core qualification. Only this difficulty
-doubles shop tier V/VI shared pool caps, including overrides (Muelsyse 4→8). Its R14/R15 shared leader pool uses
-ABYSS blood points × alive-player share ×100, matching the simulation enemy HP scale. UI selectors replace FUNNY
-with CATASTROPHE; legacy standard records remain readable. See [天灾 rules](design/catastrophe.md).
+天灾 (`CATASTROPHE`) inherits ABYSS mode data, draft schedules and hidden-core qualification. Stock uses original
+caps in every mode. Four regular factions plus SPECIAL supply distinct upper/lower picks each R1–13, preserving
+the original lane counts/times/routes. Its R14/R15 shared leader pool uses ABYSS blood points × alive-player share
+×1.5/×2 respectively. Chiave's band adds +1 income at R4–6, +2 at R7 onward, without changing its description.
+UI selectors replace FUNNY with CATASTROPHE; legacy standard records remain readable.
+See [天灾 rules](design/catastrophe.md).
 
 Columbia spending garrisons (Astesia / Mountain) are `SERVER_PREP_FIN`: `roundStats().spent` counts actual payments,
 reset by `PlayerRound.startRound`. Every 3 funds grant active Columbia/Arcane 1/2 layers for tier-4 Astesia (capped

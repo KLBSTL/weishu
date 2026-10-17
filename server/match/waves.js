@@ -36,6 +36,7 @@
 // largest owner group (client `_CalculateActionPredelayConsiderUid`, decoded).
 
 import { createRng, deriveSeed } from '../sim/rng.js';
+import { isCatastropheMode } from '../../shared/difficulty.js';
 
 const ACLOON = 'enemy_9012_acloon';
 const DEFAULT_PLACEHOLDERS = Object.freeze({
@@ -197,7 +198,8 @@ export function setupMatchWaves(gd, rng, selectedStageId = null) {
   }
   // factions
   const types = gd.factions.types && typeof gd.factions.types === 'object' ? gd.factions.types : {};
-  const n = Number.isInteger(gen(gd).specialEnemyNum) ? gen(gd).specialEnemyNum : 3;
+  const catastrophe = isCatastropheMode(gd.modeId);
+  const n = catastrophe ? 4 : Number.isInteger(gen(gd).specialEnemyNum) ? gen(gd).specialEnemyNum : 3;
   const random = Object.values(types).filter((t) => t && t.involveRandom).map((t) => t.type).sort();
   const shuffled = random.slice();
   rng.shuffle(shuffled);
@@ -211,11 +213,29 @@ export function setupMatchWaves(gd, rng, selectedStageId = null) {
   // the 15-round schedule and picks (own rng stream derived from the setup rng's state: the draws above and whatever
   // the caller draws next from `rng` are unchanged)
   const srng = scheduleRng(rng);
-  const typeSlots = makeTypeSchedule(gd, srng, chosen);
+  // Keep the ABYSS action/count schedule; the fourth candidate and two lane picks use their own stream.
+  const typeSlots = makeTypeSchedule(gd, srng, catastrophe ? chosen.slice(0, 3) : chosen);
   const picks = [null];
   for (let r = 1; r <= typeSlots.length; r++) picks.push(pickRoundEntry(gd, srng, typeSlots[r - 1], r));
-  Object.defineProperty(factions, 'schedule', { value: Object.freeze({ typeSlots: typeSlots.slice(), picks }), enumerable: false });
-  return { stageId, factions, bossId, hiddenBossId, typeSlots, picks };
+  const lanePicks = [null];
+  if (catastrophe) {
+    const lrng = createRng(deriveSeed(srng.state(), 'catastrophe:lanes'));
+    for (let r = 1; r <= 13; r++) {
+      const candidates = [...factions, 'SPECIAL'];
+      lrng.shuffle(candidates);
+      const selected = [];
+      for (const type of candidates) {
+        const pick = pickRoundEntry(gd, lrng, type, r);
+        if (pick && !selected.some(p => p.type === pick.type)) selected.push(pick);
+        if (selected.length === 2) break;
+      }
+      if (selected.length !== 2) throw new Error('天灾 requires two different available lane types');
+      lanePicks[r] = { upper: selected[0], lower: selected[1] };
+    }
+  }
+  const schedule = Object.freeze({ typeSlots: typeSlots.slice(), picks, ...(catastrophe ? { lanePicks } : {}) });
+  Object.defineProperty(factions, 'schedule', { value: schedule, enumerable: false });
+  return { stageId, factions, bossId, hiddenBossId, typeSlots, picks, ...(catastrophe ? { lanePicks } : {}) };
 }
 
 /**
@@ -380,6 +400,21 @@ export function buildNormalWave(gd, rng, factions, round) {
   if (!tpl) return { templateId, spawns: [], routes: [], extraRoutes: [], timeLimit, overrides: {}, pick: null, entries: { ground: null, fly: null }, actions: [] };
   const pick = roundPick(gd, rng, factions, round);
   const { spawns, actions } = templateSpawns(gd, tpl, round, pick);
+  const lanePicks = isCatastropheMode(gd.modeId) && round <= 13
+    ? (factions?.schedule?.lanePicks ?? factions?.lanePicks)?.[round] : null;
+  if (lanePicks) for (const spawn of spawns) {
+    const route = tpl.routes[spawn.routeIndex];
+    const selected = lanePicks[gateOf(route?.start, false)];
+    const original = tpl.spawns[spawn.actionIndex];
+    const slot = original?.slot ?? classOf(gd, original?.key ?? spawn.enemyKey);
+    const key = (slot.startsWith('S') ? selected.key : slot.startsWith('E') ? selected.elite : selected.normal) || selected.key;
+    if (!key || !gd.enemy(key)) continue;
+    spawn.enemyKey = key;
+    spawn.mods.slot = slot[0] + (isFlyKey(gd, key) ? 'F' : '');
+    spawn.preview = previewInfo(gd, key, route, false, false);
+    const action = actions.find(a => a.index === spawn.actionIndex);
+    if (action) action.key = key;
+  }
   return {
     templateId,
     spawns,
@@ -388,6 +423,7 @@ export function buildNormalWave(gd, rng, factions, round) {
     timeLimit,
     overrides: tpl.overrides && typeof tpl.overrides === 'object' ? tpl.overrides : {},
     pick,
+    ...(lanePicks ? { lanePicks } : {}),
     entries: entriesView(gd, pick),
     actions,
   };

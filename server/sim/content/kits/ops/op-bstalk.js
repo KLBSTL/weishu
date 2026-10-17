@@ -11,16 +11,23 @@ export function crabKit() {
   return { trait: { noHeal: true }, install(battle, unit) {
     const block = (unit.def.talents ?? []).reduce((n, t) => num(t.bb?.block_cnt, n), 1);
     battle.addBuff(unit, { key: 'bstalk:noHeal', mods: { blockCnt: block }, flags: { noHeal: true }, persist: true, allowDead: true });
-    battle.on('fatal', ctx => {
-      if (ctx.unit !== unit || unit.mem.bstalkTemporary) return;
-      ctx.prevented = true; unit.hp = 1; battle.releaseBlocked(unit);
+    const rest = () => {
+      unit.hp = 1; battle.releaseBlocked(unit);
       const generation = unit.mem.bstalkRecover = (unit.mem.bstalkRecover ?? 0) + 1;
       battle.addBuff(unit, { key: REST, flags: { noBlock: true, disarm: true, invulnerable: true, untargetable: true } });
       const delay = unit.ownerUnit?.def?.raw?.status?.phase >= 2 ? 15 : 17;
       battle.after(delay, () => {
         if (unit.alive && unit.ownerUnit?.alive && unit.mem.bstalkRecover === generation) refreshCrab(battle, unit);
       }, { owner: unit });
+    };
+    battle.on('fatal', ctx => {
+      if (ctx.unit !== unit || unit.mem.bstalkTemporary) return;
+      ctx.prevented = true; rest();
     }, { owner: unit });
+    unit.mem.catastropheForceExit = () => {
+      if (unit.mem.bstalkTemporary || !unit.ownerUnit?.alive) return false;
+      rest(); return true;
+    };
     battle.on('death', ({ unit: u }) => {
       if (u === unit.ownerUnit && unit.alive) battle.retreat(unit, { reason: 'owner-left', permanent: true });
     }, { owner: unit });

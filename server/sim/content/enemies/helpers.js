@@ -140,7 +140,7 @@ export function silenced(e) { return !!e.s.flags.silence; }
 export function unbalancedNow(b, e) { return !!(b && e && b.time < e.unbalanceUntil - 1e-9); }
 
 /** Can enemy `e` use a skill now: alive, on the field, not stunned, not silenced (`sil`), not in its 失衡 state (`b` given). */
-export function canCast(e, sil, b = null) { return e.alive && !e.hidden && !e.s.flags.stun && !(sil && e.s.flags.silence) && !unbalancedNow(b, e); }
+export function canCast(e, sil, b = null) { return e.alive && !e.hidden && !e.s.flags.stun && !e.mem.catastropheCasting && !(sil && e.s.flags.silence) && !unbalancedNow(b, e); }
 
 // ---------------------------------------------------------------------------------------------------------------
 // helpers (exported for bosses.js)

@@ -1,5 +1,12 @@
 # Golden results
 
+Catastrophe confirmation / Victoria restoration (2026-10-17): the published corpus has 293 scenarios
+(51 roster, 50 bonds, 25 fields, 18 matches, 11 stand-ins, 138 DIY). Compared with the prior GitHub main,
+141 existing scenarios intentionally change, three roster groups are added, none removed; all DIY results stay unchanged.
+[Publication scenario audit](../../docs/catastrophe-release-golden.md) names every change. Golden JSON is rebuilt
+with the already-published AI; paused local layer/Boss AI optimizations are excluded. Dedicated tests cover the
+new Catastrophe mechanics, since the original corpus contains no Catastrophe scenarios. All 293 rechecked.
+
 Visual migration (2026-10-15): roster-042 and standin-04 intentionally change for half-to-even hit tiles;
 [scenario audit](../../docs/visual-migration-golden.md). The previously published AI and match digests are preserved.
 

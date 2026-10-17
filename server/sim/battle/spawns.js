@@ -10,7 +10,7 @@ import { compileRoute } from '../ai.js';
 import { unitInfo } from '../snapshot.js';
 import { normalizeRoute, normalizeEnemy } from '../simdata.js';
 import { fin } from './util.js';
-import { CATASTROPHE_ENEMY, isCatastropheBossBattle } from '../../../shared/difficulty.js';
+import { catastropheHpMul, catastropheSpeedMul } from '../../../shared/difficulty.js';
 
 const FALLBACK_ENEMY = Object.freeze({
   type: 'enemy', id: 'enemy_unknown', key: 'enemy_unknown', name: '未知敌人', rank: 'NORMAL', maxHp: 2000, atk: 200, def: 100, res: 0,
@@ -113,7 +113,8 @@ export class BattleSpawns {
     const m0 = opts.mods || {};
     const m = { hpMul: mm(m0.hpMul, true), atkMul: mm(m0.atkMul), defMul: mm(m0.defMul), resMul: mm(m0.resMul), speedMul: mm(m0.speedMul) };
     // Keep e.mods unscaled: split children and boss summons inherit them and apply this rule once on their own spawn.
-    if (isCatastropheBossBattle(this)) for (const key of ['hpMul', 'atkMul', 'defMul', 'resMul']) m[key] *= CATASTROPHE_ENEMY[key];
+    m.hpMul *= catastropheHpMul(this);
+    m.speedMul *= catastropheSpeedMul(this);
     const e = new Unit({
       id: ++this._idSeq, side: 'enemy', kind: 'enemy', def, defId: def.key ?? enemyKey, name: def.name,
       x: start[1], y: start[0], motion: def.motion,
