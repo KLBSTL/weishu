@@ -243,7 +243,7 @@ function resolveRun(find, form) {
  * a stunned enemy freezes its current clip.
  */
 function resolveStun(find) {
-  const stun = find('Stun') ?? find('Stun_1') ?? find('Dizzy_Loop');
+  const stun = find('Stun') ?? find('Stun_1') ?? find('Stun_A') ?? find('Dizzy_Loop');
   const begin = find('Stun_Begin') ?? find('Dizzy_Begin');
   if (stun) return clip(begin, stun, find('Stun_End') ?? find('Dizzy_End'));
   if (begin) return clip(null, begin, null);

@@ -91,7 +91,7 @@ const guard = (o = {}) => chessRec({ id: 'test_guard', stats: { maxHp: 2000, atk
 
 test('coverage: every 悬赏 / 战术决策 effect and every 道具补给 / 机密商店 item has a content choice: handler', () => {
   const ids = choiceCardIds(DATA);
-  assert.equal(ids.bounty.length, 129, '129 ENEMY_GAIN effects');
+  assert.equal(ids.bounty.length, 141, '129 original + 12 advanced ENEMY_GAIN effects');
   assert.equal(ids.tactic.length, 43, '43 BUFF_GAIN effects');
   // 60 normal EQUIP items − the 5 effect-only ones (4 special 维式重锤, 突变细胞: never sold, user playtest #4)
   assert.equal(ids.items.length, 55, '55 shop items including two Columbia and two Sarkaz equipment');

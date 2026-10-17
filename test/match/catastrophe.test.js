@@ -79,10 +79,14 @@ for (const type of ['single', 'multi']) {
     assert.equal(gd.difficulty, 'CATASTROPHE');
     assert.equal(gd.bossRound, 14);
     assert.equal(gd.hiddenRound, 15);
-    assert.deepEqual(gd.mode.rounds, base.mode.rounds);
+    const expectedRounds = structuredClone(base.mode.rounds); expectedRounds['12'].isSpPrepare = true;
+    assert.deepEqual(gd.mode.rounds, expectedRounds);
     assert.deepEqual(gd.mode.stages, base.mode.stages);
     assert.deepEqual(gd.mode.shopSlots, base.mode.shopSlots);
-    assert.deepEqual(gd.choices.schedule[id], base.choices.schedule[baseId]);
+    const originalSchedule = structuredClone(gd.choices.schedule[id]);
+    delete originalSchedule.rounds['12']; originalSchedule.spRounds = originalSchedule.spRounds.filter(r => r !== 12);
+    assert.deepEqual(originalSchedule, base.choices.schedule[baseId]);
+    assert.equal(gd.choices.schedule[id].rounds['12'].bountyDraft, 'advanced');
     assert.deepEqual(gd.bans(gd.difficulty), base.bans(base.difficulty));
     assert.equal(hiddenEligible(gd, { layerSum: 10000, teamLp: 26 }), true);
     assert.equal(hiddenEligible(gd, { layerSum: 1, teamLp: 26 }), false);

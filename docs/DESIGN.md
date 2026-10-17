@@ -1,5 +1,7 @@
 # 卫戍协议：盟约 — Web Remake · Architecture & Contracts (DESIGN.md)
 
+Local extension §36: [天灾R12高级首领悬赏](design/advanced-bounties.md) — independent legal-set draft, lower-lane leaders and final-kill rewards.
+
 This is the **single source of truth** for every implementer. Research lives in `docs/research/` (start with `00-INDEX.md`; where a research file's body and its "Addendum (critic)" disagree, the addendum wins). When this document and research disagree, **this document wins**; when this document is silent, follow research; when both are silent, choose the simplest faithful behaviour and write it down in the module's header comment.
 
 Language: player-facing text is **Simplified Chinese** by default, with an English switch since 0.2.0 (§25.2, docs/I18N.md: UI strings through `t('中文')`, game texts from the official Chinese data or the official EN client's). Code, comments and identifiers are English.
@@ -52,3 +54,4 @@ normative lines it rewrote).
 | §33 | [history/weishu-visual-migration.md](history/weishu-visual-migration.md) | Local visual migration and hit-grid boundary rules |
 | §34 | [design/catastrophe.md](design/catastrophe.md) | Local 天灾 difficulty and tier V/VI stock |
 | §35 | [design/ultimate-enemies.md](design/ultimate-enemies.md) | Ultimate groups, lane budgets and three DIY operators |
+| §36 | [design/advanced-bounties.md](design/advanced-bounties.md) | Catastrophe R12 advanced leader bounties |

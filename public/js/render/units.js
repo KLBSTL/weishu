@@ -371,6 +371,23 @@ const dollRoles = (idle, die, attack = null) => Object.freeze({
   idle, deploy: idle, die, attack: attack ? Object.freeze({ begin: null, loop: attack, end: null }) : null, attackDown: null, skill: null,
 });
 export const FORMS = Object.freeze({
+  enemy_1506_patrt: rebirth('revive_1', 'revive_2', 'revive_3', clipSet('Idle_2', 'Move_2', 'Die', 'Attack_2')),
+  enemy_1546_cliff: rebirth('Revive_Begin', 'Revive_Loop', 'Revive_End'),
+  enemy_2038_sydonq: Object.freeze({
+    reborn: Object.freeze({ change: 'Skill_1_Begin', roles: clipSet('Skill_1_Loop', 'Skill_1_Loop', 'Die') }),
+    form2: Object.freeze({ change: 'Skill_1_End', roles: clipSet('Idle', 'Move_2', 'Die') }),
+  }),
+  enemy_2055_smlead: Object.freeze({
+    annihilation: Object.freeze({ change: null, roles: clipSet('Idle', 'Move_B', 'Die') }),
+    normal: Object.freeze({ change: null, roles: clipSet('Idle', 'Move_A', 'Die', 'Attack') }),
+  }),
+  enemy_1533_stmkgt: Object.freeze({
+    reborn: Object.freeze({ change: 'Die_A', roles: clipSet('Die_A', 'Die_A', 'Die_B') }),
+    form2: Object.freeze({ change: null, roles: clipSet('Idle_B', 'Move_B', 'Die_B', 'Attack_B') }),
+    barrage: Object.freeze({ change: 'Skill_2_Begin_A', leave: 'Skill_2_End_A', roles: clipSet('Default_A', 'Default_A', 'Die_A') }),
+    barrage2: Object.freeze({ change: 'Skill_2_Begin_B', leave: 'Skill_2_End_B', roles: clipSet('Default_B', 'Default_B', 'Die_B') }),
+    normal: Object.freeze({ change: 'Skill_2_End_A', roles: clipSet('Idle_A', 'Move_A', 'Die_A', 'Attack_A') }),
+  }),
   char_1023_ghost2: Object.freeze({
     doll: Object.freeze({ change: 'Start_B', end: 'Die_B', leave: 'Start_2', roles: dollRoles('Idle_B', 'Die_B_2') }),
   }),

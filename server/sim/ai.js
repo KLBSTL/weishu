@@ -658,6 +658,7 @@ function advanceRoute(b, e, dt, R, standing = false) {
       continue;
     }
     if (leg.t === 'wait') {
+      if (e.mem.ignoreRouteWait) { R.waitLeft = null; R.legIdx++; R.pts = null; continue; }
       if (R.waitLeft == null) R.waitLeft = leg.time;
       const use = Math.min(budget, R.waitLeft);
       R.waitLeft -= use;

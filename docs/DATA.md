@@ -752,6 +752,10 @@ field), 助战 borrows (`borrowCount` 20), and a player's potential / 练度 per
 `aceffect_char_1…4`).
 # Local Sarkaz extension
 
+R12 advanced bounties (2026-10-17): `tools/catastrophe-bounty-data.mjs` adds nine enemy records (seven leaders, thorn, Reunion soldier),
+bringing enemies to 293, and twelve independent `advanced` bounty cards/effects. Catastrophe alone adds R12 to `spRounds`;
+the original schedules/pools remain intact. Four approved base-stat overrides precede round scaling. See [§36](design/advanced-bounties.md).
+
 2026-10-17: `tools/ultimate-enemies-data.mjs` adds 34 round-gated groups (101 entries total), 284 enemies,
 89 backup units / 259 forms, and 72 owned DIY picks. `entryId` is distinct from the special enemy key because
 multiple groups deliberately reuse a special. Optional `minRound/maxRound/difficulties` filter those groups;

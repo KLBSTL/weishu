@@ -46,6 +46,7 @@ import { finishRelayStage } from './relay-stage-data.mjs';
 import { finishRecruitment } from './recruitment-data.mjs';
 import { finishCatastrophe } from './catastrophe-data.mjs';
 import { prepareUltimateEnemies, finishUltimateEnemies } from './ultimate-enemies-data.mjs';
+import { prepareAdvancedBounties, finishAdvancedBounties } from './catastrophe-bounty-data.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -4069,6 +4070,7 @@ async function main() {
   prepareSarkaz(ctx);
   prepareColumbia(ctx);
   prepareUltimateEnemies(ctx);
+  prepareAdvancedBounties(ctx);
   log('building…');
   // one pass of the operator builders per potential rank (潜能 1–6, ctx.potRank): the full-potential pass is the data,
   // annotated below with what every lower rank changes (attachPotential)
@@ -4103,6 +4105,7 @@ async function main() {
   finishRelayStage(files, officialPath);
   finishCatastrophe(files);
   finishUltimateEnemies(files);
+  finishAdvancedBounties(files);
 
   // the unit forms rebuild every PRESET chess at every rank (before the annotation: each pass as built)
   const errors = [...validateAll(files), ...passes.flatMap((p) => checkUnitFormParity(p.ctx, p.chess).map((e) => `${e} (potential rank ${p.ctx.potRank})`))];

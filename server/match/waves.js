@@ -591,6 +591,11 @@ function bountyPlan(gd, round, wave, bounties, playerId, side) {
       const motionOk = r && (fly ? r.motion === 'FLY' : r.motion !== 'FLY' && r.motion !== 'E_NUM');
       const sideOk = !(side === 'L' || side === 'R') || (r && Array.isArray(r.end) && (side === 'R' ? r.end[1] > BOSS_MID_COL : r.end[1] < BOSS_MID_COL));
       if (!motionOk || !sideOk) routeIndex = routeByMotion(routes, fly, side);
+      // Advanced leaders keep the normal insertion time, but have one lower-lane body on the picker's field.
+      if (c.advancedBounty && c.coin > 0) {
+        const lower = routes.findIndex(r => r.motion !== 'FLY' && r.motion !== 'E_NUM' && gateOf(r.start, leader) === 'lower');
+        if (lower >= 0) routeIndex = lower;
+      }
       const spec = {
         time: time + run.start * step,
         enemyKey: c.enemyKey,
@@ -603,6 +608,7 @@ function bountyPlan(gd, round, wave, bounties, playerId, side) {
         preview: previewInfo(gd, c.enemyKey, routes[routeIndex], false, leader),
       };
       if (host) spec.actionIndex = host.index;
+      if (c.advancedBounty) spec.mods.bountyLpr = 1;
       if (c.payout !== 'perfect' && Number(c.coin) > 0) spec.bounty = { coins: Math.trunc(c.coin), ownerPlayerId: playerId };
       specs.push(spec);
     }

@@ -9,6 +9,10 @@ The weishu distribution includes downloaded art, Spine models, audio, fonts and 
 The distributed board pack is `public/assets/scenes/catalogue.json` plus its 132 referenced resources (11 scenes and base board/gate/device art). `tools/import-board-art.py <upstream-v0.2.6-full.zip>` checks the pinned archive SHA256 before importing only art. `node tools/build-board-art.mjs` validates every file hash and regenerates `data/assets.json.boardArt` / `boardStats` without replacing skins. `tools/fetch-assets.mjs` attaches the same catalogue before pruning. Optional machine-local entries retain priority, with distributed entries filling gaps. The mesh buffer has a `.mesh` URL (identical source bytes): this host's Chrome returned an empty 204 for `.bin`, whereas Node read it normally; the specific intervening component was not identified. Both extensions are served as compressible octet streams. Keep original art ownership and NOTICE; full release archives, caches and local extraction manifests are not distributed.
 Everything the client needs is listed in **`data/assets.json`**. The client should only request URLs that appear in that manifest.
 
+Catastrophe R12 (2026-10-17): seven advanced leader models, the weeping thorn and Reunion soldier reuse the upstream
+enemy assets and licences. Phase/rebirth clip mappings live in `render/units.js`; `Stun_A` is recognised by the role builder.
+The browser test loads and renders all nine models and checks every mapped form clip. See [§36](design/advanced-bounties.md).
+
 The scene surface supplement is `public/assets/scenes/materials.json` plus 22 lossless PNGs in `scene/material`.
 `tools/import-scene-materials.py --ab-root <verified-bundles> --index <hot_update_list.json>` checks each official theme
 bundle's MD5, exports only enabled N/M/E references, and records source hashes. Re-run `node tools/build-board-art.mjs`;

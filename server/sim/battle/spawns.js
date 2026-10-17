@@ -130,6 +130,7 @@ export class BattleSpawns {
     e.blockWeight = def.blockCnt ?? 1;
     e.hitArea = def.hitArea ?? null;   // 巨型单位 hit rectangle (body.js); null = a point
     e.lpr = def.lpr;
+    if (m0.bountyLpr === 1) e.lpr = 1;
     e.mods = opts.mods ?? null;
     e.tag = opts.tag ?? null;
     e.bounty = opts.bounty ?? null;

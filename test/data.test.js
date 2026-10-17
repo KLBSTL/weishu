@@ -817,6 +817,10 @@ test('independent re-derivation of every chess and enemy stat from the raw offic
   const swapped = new Set(Object.values(act.effectBuffInfoDataDict).flat().filter((b) => b.key === 'round_start_all_player_change_enemy_2')
     .flatMap((b) => b.blackboard.filter((kv) => kv.key === 'enemylist').flatMap((kv) => kv.valueStr.split(','))));
   assert.equal(swapped.size, 4);
+  const advancedOverrides = {
+    enemy_2013_csbot: { maxHp: 20000, atk: 900 }, enemy_2072_skdny2: { maxHp: 30000, atk: 350 },
+    enemy_2038_sydonq: { maxHp: 40000, atk: 1400 }, enemy_2055_smlead: { maxHp: 60000, atk: 700 },
+  }; // User-confirmed R12 design; all other fields still checked against the official database.
   for (const e of Object.values(enemies)) {
     const base = db.get(e.key).find((l) => l.level === 0).enemyData;
     const o = ov.get(e.key);
@@ -834,6 +838,7 @@ test('independent re-derivation of every chess and enemy stat from the raw offic
       lpr: swapped.has(e.key) ? 1 : pick((x) => x.lifePointReduce, 1), massLevel: pick((x) => x.attributes?.massLevel, 0),
       motion: pick((x) => x.motion, 'WALK'),
     };
+    Object.assign(exp, advancedOverrides[e.key]);
     for (const [key, v] of Object.entries(exp)) {
       const got = e.stats[key];
       assert.ok(typeof v === 'number' ? Math.abs(v - got) < 1e-6 : v === got, `${e.key} ${e.name}: ${key} ${got} vs official ${v}`);

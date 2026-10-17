@@ -686,7 +686,7 @@ test('player feedback after 0.1.0 (DESIGN §21, v0.1.1): every report mapped, th
   assert.match(sec(20), /drawn uniformly, no multi-round cap — \*\*superseded by §21\.2\*\*/);
   const pools = {};
   for (const c of Object.values(DATA.choices.cards.bounty)) if (c && c.draftPool) pools[c.draftPool] = (pools[c.draftPool] || 0) + 1;
-  assert.deepEqual(pools, { initial: 42, boss: 20, hunter: 24 }, 'choices.json draftPool counts');
+  assert.deepEqual(pools, { initial: 42, boss: 20, hunter: 24, advanced: 12 }, 'choices.json draftPool counts (original 86 + R12 12)');
   // §5.4 foesInRadius / §5.3 stealth vs area damage = the engine; splash radii = §5.6 = SIM
   const { Battle } = await import('../server/sim/Battle.js');
   assert.equal(typeof Battle.prototype.foesInRadius, 'function');

@@ -117,6 +117,7 @@ import { FLY_KITS } from './enemies/fly.js';
 import { SPECIAL_KITS } from './enemies/special.js';
 import { LEADER_KITS } from './enemies/leaders.js';
 import { ULTIMATE_KITS } from './enemies/ultimate.js';
+import { ADVANCED_BOUNTY_KITS } from './enemies/advanced-bounty.js';
 import { hypot } from '../detmath.js';
 
 export {
@@ -286,10 +287,12 @@ export const KITS = Object.freeze({
   ...SPECIAL_KITS,
   ...LEADER_KITS,
   ...ULTIMATE_KITS,
+  ...ADVANCED_BOUNTY_KITS,
 });
 
 /** Keys deliberately left to their data stats (reason). */
 export const STATS_ONLY = Object.freeze({
+  enemy_1002_nsabr: 'plain Reunion soldier (zero-pay advanced bounty)',
   enemy_1137_plasm: 'plain melee child; official death splits are on its mothers',
   enemy_2046_smwar: 'durable physical melee; no added charge or unblockable ability',
   enemy_1000_gopro_2: 'plain melee', enemy_1001_bigbo: 'plain leader (bounty)', enemy_1005_yokai: 'FLY, no attack (engine)',

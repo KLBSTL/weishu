@@ -146,7 +146,7 @@ export class BattleLifecycle {
     // §5.5) — never merely because it emptied: the h07_04 pair leader (official route: no wait) can walk into the
     // objective, and the field then idles while another field may still empty the pool or the overtime drain ends it.
     const poolHolds = !!this.sharedBoss && (this.kind === 'boss' || this.kind === 'hidden');
-    if (this.autoFinish && !poolHolds && !this._pending.length && !this.enemies.some((e) => e.alive) && this.started) {
+    if (this.autoFinish && !poolHolds && !this._pending.length && !this.enemies.some((e) => e.alive && !e.mem.nonPrimary) && this.started) {
       if (!this._hasPendingEnemySchedules()) { this._finish('cleared'); return; }
     }
     if (this.time >= this.timeLimit - 1e-9) { this._timeout(); return; }

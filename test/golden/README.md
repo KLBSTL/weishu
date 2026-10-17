@@ -93,3 +93,7 @@ node tools/golden.mjs --twice                   # determinism: the corpus twice 
 
 Ultimate groups/DIY (2026-10-17): regenerate with the published AI; the [audit](../../docs/ultimate-three-release-golden.md)
 lists moved scenarios and new Clement coverage. Paused local AI changes are excluded.
+
+Catastrophe R12 advanced bounties (2026-10-17): 294 scenarios verified with published AI; 51 roster and 11 stand-in
+scenarios move because nine new enemies enter the sorted mixed-enemy allocation. Other families are unchanged.
+Every moved case is listed in [the audit](../../docs/r12-bounty-golden-audit.md).

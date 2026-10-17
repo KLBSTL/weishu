@@ -327,7 +327,7 @@ test('#2 never offered by a draft (in none of the 59 official bounty drafts): mu
   assert.deepEqual(reasons, { perfect: 20, hidden: 4, unseen: 19 });
   const pools = {};
   for (const c of CARDS) if (c.draft) pools[c.draftPool] = (pools[c.draftPool] || 0) + 1;
-  assert.deepEqual(pools, { initial: 42, boss: 20, hunter: 24 });
+  assert.deepEqual(pools, { initial: 42, boss: 20, hunter: 24, advanced: 12 });
   for (const modeId of [...COOP_BOUNTY_MODES, 'mode_single_hard', 'mode_single_abyss']) {
     for (const r of DATA.choices.schedule[modeId].spRounds) {
       for (const d of drafts(modeId, r, 40)) {

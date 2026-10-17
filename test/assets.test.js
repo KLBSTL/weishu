@@ -107,6 +107,7 @@ describe('animation-role resolver (research 07 §5.4)', () => {
     assert.deepEqual(dz.stun, { begin: 'Dizzy_Begin', loop: 'Dizzy_Loop', end: 'Dizzy_End' });
     assert.deepEqual(resolveRoles(['Attack', 'Die', 'Idle', 'Stun', 'Stun_End'], {}).stun, { begin: null, loop: 'Stun', end: 'Stun_End' });
     assert.equal(resolveRoles(['Attack', 'Die', 'Idle', 'Move'], {}).stun, null);
+    assert.deepEqual(resolveRoles(['Idle_A', 'Stun_A', 'Stun_B'], {}).stun, { begin: null, loop: 'Stun_A', end: null });
   });
 
   // PR #275: a model's own Run cycle is a role of its own (猎狗pro: Move_Loop 0.80 s, Run_Loop 0.53 s); the move choice
@@ -134,7 +135,7 @@ describe('animation-role resolver (research 07 §5.4)', () => {
       for (const [id, sp] of models) {
         if (!sp.animations || !Object.keys(sp.animations).some((n) => re.test(n))) continue;
         seen++;
-        if (!ok(sp.anims || {}, id)) bad.push(id);
+        if (!ok(sp.anims || {}, id, sp)) bad.push(id);
       }
       return { bad, seen };
     };
@@ -149,7 +150,11 @@ describe('animation-role resolver (research 07 §5.4)', () => {
       assert.deepEqual(bad, []);
     });
     test('every enemy with numbered skill clips has a clip per slot (盐风主教昆图斯: Skill_01..04)', () => {
-      const { bad, seen } = walk(/^Skill_?0*[1-9](?:$|_)/i, (a, id) => !id.startsWith('enemies.') || !!a.skills);
+      const { bad, seen } = walk(/^Skill_?0*[1-9](?:$|_)/i, (a, id, sp) => {
+        if (!id.startsWith('enemies.')) return true;
+        const slots = new Set(Object.keys(sp.animations).map(n => /^Skill_?0*(\d+)(?:$|_)/i.exec(n)?.[1]).filter(Boolean).map(Number));
+        return slots.size === 1 && slots.has(1) ? !!a.skill : [...slots].every(n => !!a.skills?.[n - 1]);
+      });
       assert.ok(seen >= 10, `models with numbered skill clips (${seen})`);
       assert.deepEqual(bad, []);
       const q = manifest.enemies.enemy_1521_dslily.spine.anims;

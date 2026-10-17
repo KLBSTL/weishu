@@ -198,6 +198,7 @@ export function bountyCard(gd, c) {
   return {
     kind: 'bounty', id: c.effectId, name: c.name, desc: bountyText(c.desc || '', c), descRaw: bountyText((eff && eff.descRaw) || null, c), tier: c.tier, coin: c.coin,
     payout: c.payout, rounds: bountyBattles(c), enemyKey: c.enemyKey, count: c.count,
+    ...(c.advancedBounty ? { advancedBounty: true } : {}),
   };
 }
 
@@ -313,6 +314,11 @@ function structuredBounty(rng, kind, spec, byId) {
 function bountyDraftCards(gd, rng, n, sch, round) {
   const kind = typeof sch.bountyDraft === 'string' ? sch.bountyDraft : bountyDraftKind(round);
   const all = Array.isArray(gd.choices.cards && gd.choices.cards.bounty) ? gd.choices.cards.bounty : [];
+  if (kind === 'advanced') {
+    const sets = advancedBountySets(all.filter(c => c.advancedBounty && gd.enemy(c.enemyKey)), gd.isSolo);
+    const chosen = sets.length ? sets[Math.floor(rng() * sets.length)] : [];
+    return rng.shuffle(chosen.slice()).map(c => bountyCard(gd, c));
+  }
   const eligible = all.filter((c) => c && draftBounty(c, kind) && gd.enemy(c.enemyKey));
   const byId = new Map(eligible.map((c) => [c.effectId, c]));
   const spec = gd.choices.bountyDrafts && gd.choices.bountyDrafts[kind];
@@ -320,6 +326,25 @@ function bountyDraftCards(gd, rng, n, sch, round) {
   const taken = new Set(out);
   if (out.length < n) out.push(...drawDistinct(rng, eligible, n - out.length, taken));
   return rng.shuffle(out).slice(0, n).map((c) => bountyCard(gd, c));
+}
+
+/** Enumerate each unordered legal offer exactly once: solo 30 sets; multi 87 sets, all uniformly selected. */
+export function advancedBountySets(cards, solo = false) {
+  const zero = cards.filter(c => c.coin === 0), out = [];
+  const low = cards.filter(c => c.coin >= 3 && c.coin <= (solo ? 6 : 5));
+  const high = cards.filter(c => c.coin >= (solo ? 7 : 6) && c.coin <= (solo ? 9 : 7));
+  if (solo) {
+    for (const z of zero) for (const l of low) for (const h of high) out.push([z, l, h]);
+  } else {
+    const top = cards.filter(c => c.coin === 9);
+    for (const z of zero) for (let i = 0; i < low.length; i++) for (let j = i + 1; j < low.length; j++) {
+      for (let k = 0; k < high.length; k++) for (let l = k + 1; l < high.length; l++) for (const t of top) {
+        const set = [z, low[i], low[j], high[k], high[l], t];
+        if (set.reduce((sum, c) => sum + c.coin, 0) <= 30) out.push(set);
+      }
+    }
+  }
+  return out;
 }
 
 /**

@@ -131,7 +131,8 @@ export class Unit {
 
   _recalc() {
     const prevMax = this._s ? this._s.maxHp : this.base.maxHp;
-    const { add, mul, flags, shield, permRangeExtend } = aggregateMods(this.buffs);
+    const ignored = this.mem.ignoredStatuses;
+    const { add, mul, flags, shield, permRangeExtend } = aggregateMods(ignored ? this.buffs.filter(b => !ignored.has(b.status)) : this.buffs);
     const a = (k) => add[k] ?? 0;
     const m = (k) => mul[k] ?? 1;
     const b = this.base;

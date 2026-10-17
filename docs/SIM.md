@@ -1,5 +1,11 @@
 # SIM.md — battle simulation engine reference (server/sim)
 
+R12 advanced leaders use `content/enemies/advanced-bounty.js`; their KO/phase changes reuse `reborn()` and do not award kills.
+`mods.bountyLpr: 1` overrides objective loss only for the selected target; children strip that override and the bounty.
+`mem.nonPrimary` enemies do not hold auto-clear open (the delayed weeping thorn); their delayed spawn is not a pending objective.
+Wood's `mem.ignoredStatuses` temporarily suppresses existing bind/sluggish buffs while their timers run, and `mem.ignoreRouteWait`
+skips stationary route legs during annihilation. See [§36](design/advanced-bounties.md) for rules and timing assumptions.
+
 天灾 specs keep `modeId` and `round` in their serialized description and inherit ABYSS. R1–13 adds speed×1.5;
 R14 adds HP×1.5 and Physical/Arts damage×0.75; R15 adds HP×2 and Physical/Arts damage×0.5. Stages do not compound.
 Dynamic enemies and shared leader pools scale once; original spawn mods stay unscaled. Hit-count units ignore every

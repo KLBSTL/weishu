@@ -159,7 +159,8 @@ test('#4 data: cards.bounty marks the draft pool — 战术特训 (教鞭), the 
     else assert.equal(c.draftExcluded, null);
   }
   assert.deepEqual(reasons, { perfect: 20, hidden: 4, unseen: 19 });
-  assert.equal(list.filter((c) => c.draft).length, 86);
+  assert.equal(list.filter((c) => c.draft && !c.advancedBounty).length, 86);
+  assert.equal(list.filter((c) => c.advancedBounty).length, 12);
   const multi = list.filter((c) => c.rounds >= 99 && c.payout === 'kill');
   assert.equal(multi.length, 7, '多轮悬赏 · 假想敌 ×6 + 山海众头目·多轮悬赏');
   assert.ok(multi.every((c) => !c.draft && c.draftExcluded === 'unseen'), 'in none of the 59 official bounty drafts');

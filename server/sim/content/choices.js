@@ -122,6 +122,7 @@ export function bountyOf(effect, card = null) {
     multiRound: rounds > 1,
     enemyKey: b.bbStr.enemy_id,
     count: Math.max(1, int(bb.count, 1)),
+    ...(effect.advancedBounty ? { advancedBounty: true } : {}),
   };
 }
 

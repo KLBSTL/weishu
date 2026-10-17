@@ -174,6 +174,7 @@ export class MatchSpDraft {
       roundsLeft: rounds,
     };
     ps.bounties.push(b);
+    if (card.advancedBounty) b.card.advancedBounty = true;
     ps.dirty();
     return b.id;
   }
