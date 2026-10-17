@@ -138,6 +138,13 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       }
       return s;
     });
+    // Income checks also include legitimate non-income grants during shop/recruitment refresh (e.g. Foresight).
+    let duringRoundStart = false, roundExtraFunds = 0;
+    wrap(ps, 'addFunds', function (orig, n, opts = {}) {
+      const added = orig(n, opts);
+      if (duringRoundStart && !['income', 'ai-income'].includes(opts.reason)) roundExtraFunds += added;
+      return added;
+    });
     wrap(ps, 'startRound', function (orig, r) {
       const f0 = ps.funds;
       const p0 = ps.pendingFunds;
@@ -146,7 +153,9 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       const offers0 = ps.offers.slice();
       const layout0 = ps.shop.layout || { chess: ps.shop.slots.length, item: 0 };
       incomeEv.delete(ps);
-      const res = orig(r);
+      duringRoundStart = true; roundExtraFunds = 0;
+      let res;
+      try { res = orig(r); } finally { duringRoundStart = false; }
       check('round start', () => {
         const id = ps.playerId;
         const inc = incomeEv.get(ps);
@@ -156,7 +165,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
         else {
           if (inc.initial.income !== want || inc.initial.pending !== p0) fail(`${id}: onIncome started with ${inc.initial.income}+${inc.initial.pending}, expected ${want}+${p0}`);
           const nn = (v) => (Number.isFinite(v) && v > 0 ? Math.trunc(v) : 0);
-          const credited = nn(inc.ev.income) + nn(inc.ev.pending) + (ps.isBot && ps.alive ? botIncomeBonus(r) : 0) - (ps.round.spent || 0);
+          const credited = nn(inc.ev.income) + nn(inc.ev.pending) + (ps.isBot && ps.alive ? botIncomeBonus(r) : 0) + roundExtraFunds - (ps.round.spent || 0);
           if (ps.funds - f0 !== credited) fail(`${id}: funds ${f0} → ${ps.funds}, credited ${credited}`);
         }
         const upWant = r > 1 ? Math.max(0, up0 - 1) : up0;

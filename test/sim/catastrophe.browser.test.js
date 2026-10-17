@@ -4,10 +4,6 @@ import { existsSync } from 'node:fs';
 import { buildBattleSpec, createBattleFromSpec } from '../../server/sim/spec.js';
 import { getDefaultSource } from '../../server/sim/simdata.js';
 import { catastropheProbe } from '../helpers/catastropheProbe.js';
-import { DATA } from '../match/harness.js';
-import { GameData } from '../../server/match/gamedata.js';
-import { setupMatchWaves, buildNormalWave } from '../../server/match/waves.js';
-import { createRng } from '../../server/sim/rng.js';
 
 const CHROME = process.env.CHROME_PATH;
 test('Catastrophe v2: Chromium/Node storage, cooldown, half-HP queue and synchronous burst exit match', {
@@ -29,10 +25,9 @@ test('Catastrophe v2: Chromium/Node storage, cooldown, half-HP queue and synchro
           units: [{ uid: 1, chessId: 'chess_char_1_01_a', row: 10, col: 4, dir: 'RIGHT', items: [] }] }],
       });
       if (kind === 'path') {
-        const gd = new GameData(DATA, 'mode_single_catastrophe'), setup = setupMatchWaves(gd, createRng(4));
-        const wave = buildNormalWave(gd, createRng(5), setup.factions, 1);
-        spec = buildBattleSpec({ kind: 'normal', round: 1, seed: 4, modeId: gd.modeId, stageId: 'act2autochess_m04',
-          timeLimit: 90, routes: wave.routes, spawns: [{ ...wave.spawns.find(s => s.routeIndex === 2), count: 1, time: 0 }] });
+        spec = buildBattleSpec({ kind: 'normal', round: 1, seed: 4, modeId: 'mode_single_catastrophe', stageId: 'act2autochess_m04',
+          timeLimit: 90, routes: [{ motion: 'WALK', start: [9,10], end: [9,2], checkpoints: [] }],
+          spawns: [{ enemyKey: 'enemy_1422_lrsldr', routeIndex: 0, count: 1, time: 0 }] });
       }
       const expected = JSON.parse(JSON.stringify(catastropheProbe(createBattleFromSpec(spec, getDefaultSource(), { quiet: true }), kind)));
       assert.deepEqual(expected.errors, []);

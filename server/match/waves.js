@@ -138,7 +138,10 @@ function entryList(gd) {
  */
 export function pickRoundEntry(gd, rng, type, round) {
   const half = round <= firstHalfMax(gd);
-  const ok = (e) => e.type === type && !!e.firstHalf === half && e.key !== ACLOON && !!gd.enemy(e.key) && !gd.inactiveEnemies.has(e.key);
+  const ok = (e) => e.type === type
+    && (e.minRound != null ? round >= e.minRound && round <= e.maxRound : !!e.firstHalf === half)
+    && (!e.difficulties || e.difficulties.includes(gd.mode.difficulty))
+    && e.key !== ACLOON && !!gd.enemy(e.key) && !gd.inactiveEnemies.has(e.key);
   let cands = entryList(gd).filter(ok);
   if (!cands.length && type !== 'SPECIAL') return pickRoundEntry(gd, rng, 'SPECIAL', round);
   if (!cands.length) return null;
@@ -148,7 +151,8 @@ export function pickRoundEntry(gd, rng, type, round) {
     const keys = (Array.isArray(list) ? list : []).map((x) => (typeof x === 'string' ? x : x && x.key)).filter((k) => typeof k === 'string' && gd.enemy(k) && k !== ACLOON);
     return keys.length ? keys[Math.floor(rng() * keys.length)] : null;
   };
-  return { round, type: e.type, key: e.key, normal: pickKey(e.N), elite: pickKey(e.E), fly: typeof e.fly === 'boolean' ? e.fly : isFlyKey(gd, e.key), firstHalf: half };
+  return { round, type: e.type, key: e.key, normal: pickKey(e.N), elite: pickKey(e.E), fly: typeof e.fly === 'boolean' ? e.fly : isFlyKey(gd, e.key), firstHalf: half,
+    ...(e.entryId ? { entryId: e.entryId } : {}) };
 }
 
 /** Round type schedule: each chosen type × its slot count, filled with SPECIAL to maxLevelCnt, shuffled. */
@@ -200,7 +204,8 @@ export function setupMatchWaves(gd, rng, selectedStageId = null) {
   const types = gd.factions.types && typeof gd.factions.types === 'object' ? gd.factions.types : {};
   const catastrophe = isCatastropheMode(gd.modeId);
   const n = catastrophe ? 4 : Number.isInteger(gen(gd).specialEnemyNum) ? gen(gd).specialEnemyNum : 3;
-  const random = Object.values(types).filter((t) => t && t.involveRandom).map((t) => t.type).sort();
+  const random = Object.values(types).filter((t) => t && t.involveRandom
+    && (!t.difficulties || t.difficulties.includes(gd.mode.difficulty))).map((t) => t.type).sort();
   const shuffled = random.slice();
   rng.shuffle(shuffled);
   const chosen = shuffled.slice(0, Math.min(n, shuffled.length));
@@ -314,13 +319,14 @@ function previewInfo(gd, key, route, boss = false, leader = undefined) {
  * @returns {{ spawns: object[], actions: object[] }} actions[i] = { index, key, tplKey, slot, time, count, tplCount, window, routeIndex, valid,
  *   server } (`server` = client ShouldActionUpToServer: valid, not the leader, no random spawn group)
  */
-function templateSpawns(gd, tpl, round, pick) {
+function templateSpawns(gd, tpl, round, pick, lanePicks = null) {
   const scale = scaleFor(gd, round);
   const ph = placeholderMap(gd);
   const routes = Array.isArray(tpl.routes) ? tpl.routes : [];
   const leader = isLeaderTemplate(tpl);
   const spawns = [];
   const actions = [];
+  const selectedByAction = new Map();
   const list = Array.isArray(tpl.spawns) ? tpl.spawns : [];
   for (let i = 0; i < list.length; i++) {
     const s = list[i];
@@ -339,8 +345,10 @@ function templateSpawns(gd, tpl, round, pick) {
     let count = n;
     let step = interval;
     const p = !isBoss && !isPart ? ph[key0] : null;
-    if (p && pick) {
-      const newKey = p.cls === 'special' ? pick.key : p.cls === 'elite' ? pick.elite : pick.normal;
+    const selected = lanePicks?.[gateOf(routes[routeIndex]?.start, false)] ?? pick;
+    selectedByAction.set(i, selected);
+    if (p && selected) {
+      const newKey = p.cls === 'special' ? selected.key : p.cls === 'elite' ? selected.elite : selected.normal;
       if (typeof newKey === 'string' && gd.enemy(newKey)) {
         if (isFlyKey(gd, newKey) !== !!p.fly) {
           // the other movement class: not spawned, not sent, not previewed (isValid = false)
@@ -375,12 +383,33 @@ function templateSpawns(gd, tpl, round, pick) {
     // bounty is inserted into (the others spawn locally on their own timing)
     actions.push({ index: i, key, tplKey: key0, slot: s.slot ?? null, time, count, tplCount: n, window, routeIndex, valid: true, server: !isBoss && !s.group });
   }
+  // A per-field preset limit, in actual spawn order. Runtime children are deliberately not counted here.
+  const used = new Map();
+  for (const s of spawns.slice().sort((a,b) => a.time - b.time || a.actionIndex - b.actionIndex)) {
+    const selected = selectedByAction.get(s.actionIndex);
+    if (!selected?.entryId || selected.type !== 'SUMMON') continue;
+    const rule = gen(gd).presetMotherCaps?.[s.enemyKey]?.find(([lo,hi]) => round >= lo && round <= hi);
+    if (!rule) continue;
+    const action = actions.find(a => a.index === s.actionIndex);
+    const remaining = rule[2] - (used.get(s.enemyKey) || 0);
+    if (remaining > 0) {
+      s.count = Math.min(s.count, remaining);
+      used.set(s.enemyKey, (used.get(s.enemyKey) || 0) + s.count);
+    } else {
+      s.enemyKey = selected.normal;
+      s.count = replacedCount(gd, action.tplKey, action.tplCount, s.enemyKey);
+      s.preview = previewInfo(gd, s.enemyKey, routes[s.routeIndex], false, leader);
+    }
+    s.interval = s.count > 1 ? Math.max(action.window / s.count, MIN_ACTION_INTERVAL_RATIO * action.window) : 0;
+    action.key = s.enemyKey;
+    action.count = s.count;
+  }
   return { spawns, actions };
 }
 
 function entriesView(gd, pick) {
   if (!pick) return { ground: null, fly: null };
-  const e = gd.factions.entries && gd.factions.entries[pick.key];
+  const e = gd.factions.entries && gd.factions.entries[pick.entryId ?? pick.key];
   const view = e ? { ...e, pick } : { key: pick.key, type: pick.type, firstHalf: pick.firstHalf, pick };
   return pick.fly ? { ground: null, fly: view } : { ground: view, fly: null };
 }
@@ -399,31 +428,10 @@ export function buildNormalWave(gd, rng, factions, round) {
   const timeLimit = gd.combatTimeLimit(round);
   if (!tpl) return { templateId, spawns: [], routes: [], extraRoutes: [], timeLimit, overrides: {}, pick: null, entries: { ground: null, fly: null }, actions: [] };
   const pick = roundPick(gd, rng, factions, round);
-  const { spawns, actions } = templateSpawns(gd, tpl, round, pick);
   const lanePicks = isCatastropheMode(gd.modeId) && round <= 13
     ? (factions?.schedule?.lanePicks ?? factions?.lanePicks)?.[round] : null;
-  if (lanePicks) for (const spawn of spawns) {
-    const route = tpl.routes[spawn.routeIndex];
-    const selected = lanePicks[gateOf(route?.start, false)];
-    const original = tpl.spawns[spawn.actionIndex];
-    const slot = original?.slot ?? classOf(gd, original?.key ?? spawn.enemyKey);
-    const key = (slot.startsWith('S') ? selected.key : slot.startsWith('E') ? selected.elite : selected.normal) || selected.key;
-    if (!key || !gd.enemy(key)) continue;
-    spawn.enemyKey = key;
-    // A lane substitution may change WALK ↔ FLY. Keep the action/index/timing, but use that movement class's
-    // authored route from the same gate to the same goal (flying patrol checkpoints may be walls for walkers).
-    const fly = isFlyKey(gd, key);
-    if ((route?.motion === 'FLY') !== fly) {
-      const compatible = tpl.routes.find(r => (r.motion === 'FLY') === fly
-        && r.start?.[0] === route?.start?.[0] && r.start?.[1] === route?.start?.[1]
-        && r.end?.[0] === route?.end?.[0] && r.end?.[1] === route?.end?.[1]);
-      spawn.route = compatible ?? { ...route, motion: fly ? 'FLY' : 'WALK', checkpoints: [] };
-    }
-    spawn.mods.slot = slot[0] + (isFlyKey(gd, key) ? 'F' : '');
-    spawn.preview = previewInfo(gd, key, route, false, false);
-    const action = actions.find(a => a.index === spawn.actionIndex);
-    if (action) action.key = key;
-  }
+  // Resolve the final lane pick BEFORE movement filtering and per-action budgeting. Never reuse another pick's counts.
+  const { spawns, actions } = templateSpawns(gd, tpl, round, pick, lanePicks);
   return {
     templateId,
     spawns,

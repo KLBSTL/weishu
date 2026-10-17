@@ -453,4 +453,9 @@ The project's code is GPL-3.0-or-later (`LICENSE`); none of the items below is c
   - **Bender:** © Jovanny Lemonad (Oleg Zhuravlev, Ivan Gladkikh). Free for personal and commercial use.
   - **Novecento Wide:** © Jan Tonellato / Synthview. Free licence.
   - Both are mirrored from TimWangZi/The-font-of-Arknights.
+
+2026-10-17: the skin builder keeps the formal-roster restriction with exactly three explicit DIY exceptions:
+Ascalon, Bellone and Clement. Three default Base models and Ascalon's one extra costume are added, for
+195 extra costumes / 707 extra/default-Base models in the catalogue. Bellone/Clement have no extra costume
+in the pinned upstream tree. Source and scope: [§35](design/ultimate-enemies.md).
   - Noto Sans SC and Noto Serif SC (SIL OFL) are loaded from Google Fonts, not self-hosted.

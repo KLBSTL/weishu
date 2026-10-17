@@ -6,7 +6,7 @@ import { canSelectStage } from '../../shared/stages.js';
 import { GameData } from '../../server/match/gamedata.js';
 import { SharedPool } from '../../server/match/pool.js';
 import { bossPoolHp, hiddenEligible } from '../../server/match/finalAssault.js';
-import { buildBossWave, buildNormalWave, setupMatchWaves, gateOf } from '../../server/match/waves.js';
+import { buildBossWave, buildNormalWave, setupMatchWaves, gateOf, replacedCount, isFlyKey } from '../../server/match/waves.js';
 import { createRng } from '../../server/sim/rng.js';
 import { buildBattleSpec, createBattleFromSpec } from '../../server/sim/spec.js';
 import { makeBattle, enemyRec, chessRec } from '../helpers/battleHarness.js';
@@ -14,7 +14,7 @@ import { DATA, makeMatch } from './harness.js';
 
 const approx = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-6, `${actual} expected ${expected}`);
 
-test('天灾 starts with 4 regular candidates; two distinct lane types preserve same-seed ABYSS counts/timing/routes', () => {
+test('天灾 starts with 4 candidates; each lane uses its final enemy budget and movement class with original windows/routes', () => {
   for (const type of ['single', 'multi']) for (let seed = 1; seed <= 40; seed++) {
     const gd = new GameData(DATA, `mode_${type}_catastrophe`), base = new GameData(DATA, `mode_${type}_abyss`);
     const setup = setupMatchWaves(gd, createRng(seed)), original = setupMatchWaves(base, createRng(seed));
@@ -27,11 +27,19 @@ test('天灾 starts with 4 regular candidates; two distinct lane types preserve 
       const old = buildNormalWave(base, createRng(5), original.factions, round);
       assert.notEqual(wave.lanePicks.upper.type, wave.lanePicks.lower.type);
       for (const p of Object.values(wave.lanePicks)) assert.ok([...setup.factions, 'SPECIAL'].includes(p.type));
-      assert.deepEqual(wave.spawns.map(s => [s.count, s.time, s.interval, s.routeIndex]), old.spawns.map(s => [s.count, s.time, s.interval, s.routeIndex]));
       assert.deepEqual(wave.routes, old.routes);
       for (const s of wave.spawns) {
+        const action = DATA.waves[wave.templateId].spawns[s.actionIndex];
         const pick = wave.lanePicks[gateOf(wave.routes[s.routeIndex].start, false)];
+        const ph = DATA.factions.generation.placeholders[action.key];
+        if (!ph) { assert.equal(s.enemyKey, action.key); continue; }
         assert.ok([pick.key, pick.normal, pick.elite].includes(s.enemyKey));
+        assert.equal(isFlyKey(gd,s.enemyKey),ph.fly);
+        const expected=replacedCount(gd,action.key,action.count,s.enemyKey);
+        const capped=DATA.factions.generation.presetMotherCaps[s.enemyKey] && pick.type==='SUMMON';
+        assert.ok(capped ? s.count<=expected : s.count===expected);
+        assert.equal(s.time,action.time);
+        assert.equal(s.interval,s.count>1?Math.max(action.count*action.interval/s.count,.05*action.count*action.interval):0);
       }
     }
   }

@@ -45,6 +45,7 @@ import { prepareColumbia, finishColumbia, COLUMBIA_ROSTER } from './columbia-dat
 import { finishRelayStage } from './relay-stage-data.mjs';
 import { finishRecruitment } from './recruitment-data.mjs';
 import { finishCatastrophe } from './catastrophe-data.mjs';
+import { prepareUltimateEnemies, finishUltimateEnemies } from './ultimate-enemies-data.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -1368,8 +1369,7 @@ function buildBackups(ctx, chess) {
   const legal6 = Object.keys(charTable).filter((id) => {
     const ch = charTable[id];
     return id.startsWith('char_') && requirements.has(ch.rarity) && ch.profession !== 'TOKEN' && ch.profession !== 'TRAP'
-      // Newer upstream tables include Clement; no kit/art in this 0.2.2 baseline. Keep this expansion's DIY pool stable.
-      && id !== 'char_4231_clemnt' && !ch.isNotObtainable && (!roster.has(id) || [...SARKAZ_ROSTER, ...COLUMBIA_ROSTER].some((r) => r[1] === id && !r[3] && r[2] >= 4));
+      && !ch.isNotObtainable && (!roster.has(id) || [...SARKAZ_ROSTER, ...COLUMBIA_ROSTER].some((r) => r[1] === id && !r[3] && r[2] >= 4));
   }).sort(naturalCmp);
   const collabNumber = (ch) => DIY_EXCLUDED_NUMBER_PREFIXES.some((p) => new RegExp(`^${p}\\d`).test(ch.displayNumber || ''));
   const excluded = legal6.filter((id) => teamsOf(charTable[id]).some((t) => excludedTeams.has(t)) || collabNumber(charTable[id]));
@@ -2313,6 +2313,7 @@ const STATIC_BODIES = Object.freeze(new Set([
   'enemy_1017_defdrn', 'enemy_1040_bombd', 'enemy_1041_lazerd', 'enemy_1041_lazerd_2', 'enemy_1042_frostd', // 御4 / 暴鸰 / 法术大师A1 / A2 / 寒霜
   'enemy_1112_emppnt', 'enemy_1112_emppnt_2',                        // 帝国炮火先兆者 / 帝国炮火中枢先兆者
   'enemy_1269_nhfly', 'enemy_1321_wdarft',                           // 枯朽之种 / 枯朽萃聚使徒
+  'enemy_1269_nhfly_2', 'enemy_1321_wdarft_2',                       // new corrupted variants: same static-body rule
   'enemy_1355_mrfly', 'enemy_1355_mrfly_2', 'enemy_1407_hummbd',     // 护障 / 护障·P / 远眺
   'enemy_1430_lrrook', 'enemy_1521_dslily',                          // 愧悔魂灵圣杯 / 盐风主教昆图斯 (WALK)
   'enemy_9009_acfort', 'enemy_9014_acstma', 'enemy_9015_acstmb', 'enemy_9016_acstmr', // 假想敌：黑云 / “斩胄之剑” / “破胄之锤” / 刺胄之弹
@@ -4067,6 +4068,7 @@ async function main() {
   const ctx = await loadContext();
   prepareSarkaz(ctx);
   prepareColumbia(ctx);
+  prepareUltimateEnemies(ctx);
   log('building…');
   // one pass of the operator builders per potential rank (潜能 1–6, ctx.potRank): the full-potential pass is the data,
   // annotated below with what every lower rank changes (attachPotential)
@@ -4100,6 +4102,7 @@ async function main() {
   finishRecruitment(files);
   finishRelayStage(files, officialPath);
   finishCatastrophe(files);
+  finishUltimateEnemies(files);
 
   // the unit forms rebuild every PRESET chess at every rank (before the annotation: each pass as built)
   const errors = [...validateAll(files), ...passes.flatMap((p) => checkUnitFormParity(p.ctx, p.chess).map((e) => `${e} (potential rank ${p.ctx.potRank})`))];

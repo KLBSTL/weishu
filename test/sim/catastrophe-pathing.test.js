@@ -11,11 +11,13 @@ import { compileRoute } from '../../server/sim/ai.js';
 import { GEO } from '../../shared/constants.js';
 import { spawnChildren, stepGroundToward } from '../../server/sim/content/enemies/helpers.js';
 
-test('涨潮控制: seed 4 R1 ground substitutions never inherit the flying wall checkpoints', () => {
+test('涨潮控制: a ground lower lane never inherits the baseline flying pick or its wall checkpoints', () => {
   const gd = new GameData(DATA, 'mode_single_catastrophe');
   const setup = setupMatchWaves(gd, createRng(4));
+  // Fix the actual regression inputs, independent of future additions to the seeded type pool.
+  setup.lanePicks[1].lower = { type: 'SPECIAL', key: 'enemy_1043_zomsbr', normal: 'enemy_1043_zomsbr', elite: 'enemy_1043_zomsbr', fly: false };
   const wave = buildNormalWave(gd, createRng(5), setup.factions, 1);
-  const spawn = wave.spawns.find(s => s.routeIndex === 2);
+  const spawn = wave.spawns.find(s => s.enemyKey==='enemy_1043_zomsbr' && wave.routes[s.routeIndex].motion==='WALK' && wave.routes[s.routeIndex].start[0]===9);
   assert.equal(spawn.enemyKey, 'enemy_1043_zomsbr');
   const h = makeBattle({ stageId: 'act2autochess_m04', content: 'none', autoFinish: false,
     modeId: gd.modeId, round: 1, routes: wave.routes, timeLimit: 120 });
@@ -31,7 +33,7 @@ test('涨潮控制: seed 4 R1 ground substitutions never inherit the flying wall
 test('天灾 lane replacements: every effective ground leg remains reachable on 涨潮控制, both gates, all R1–13', () => {
   const gd = new GameData(DATA, 'mode_multi_catastrophe');
   const g = new Grid(getDefaultSource().getStage('act2autochess_m04'), GEO.NORMAL_RECT);
-  let substitutions = 0, flights = 0;
+  let substitutions = 0, flights = 0, walks = 0;
   for (let seed = 1; seed <= 40; seed++) {
     const setup = setupMatchWaves(gd, createRng(seed));
     for (let round = 1; round <= 13; round++) {
@@ -42,6 +44,7 @@ test('天灾 lane replacements: every effective ground leg remains reachable on 
         assert.equal(route.motion === 'FLY', fly, `${seed}/${round}/${s.enemyKey}`);
         if (s.route) substitutions++;
         if (fly) { flights++; continue; }
+        walks++;
         let pos = route.start;
         for (const leg of compileRoute(route, GEO.NORMAL_RECT)) {
           if (leg.t === 'appear') pos = [leg.r, leg.c];
@@ -52,7 +55,8 @@ test('天灾 lane replacements: every effective ground leg remains reachable on 
       }
     }
   }
-  assert.ok(substitutions > 100); assert.ok(flights > 100);
+  assert.equal(substitutions, 0, 'final picks now resolve directly to original matching routes');
+  assert.ok(flights > 100); assert.ok(walks > 100);
 });
 
 test('涨潮控制 movement: ground enters/leaves water with speed changes; flyers keep flight and ignore water', () => {

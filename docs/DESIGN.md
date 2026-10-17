@@ -51,3 +51,4 @@ normative lines it rewrote).
 | §32 | [design/ai.md](design/ai.md) | Local AI growth, income and boss rehearsal |
 | §33 | [history/weishu-visual-migration.md](history/weishu-visual-migration.md) | Local visual migration and hit-grid boundary rules |
 | §34 | [design/catastrophe.md](design/catastrophe.md) | Local 天灾 difficulty and tier V/VI stock |
+| §35 | [design/ultimate-enemies.md](design/ultimate-enemies.md) | Ultimate groups, lane budgets and three DIY operators |

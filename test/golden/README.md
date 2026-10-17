@@ -90,3 +90,6 @@ node tools/golden.mjs --twice                   # determinism: the corpus twice 
 - A new engine hook, event or chess record does not change the digests of the existing scenarios by itself — the
   hook list is frozen in the tool and the corpus is regenerated only on `golden:update` — but new data records do join
   the corpus there (the roster family enumerates `data/chess.json`).
+
+Ultimate groups/DIY (2026-10-17): regenerate with the published AI; the [audit](../../docs/ultimate-three-release-golden.md)
+lists moved scenarios and new Clement coverage. Paused local AI changes are excluded.

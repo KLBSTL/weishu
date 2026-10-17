@@ -72,7 +72,7 @@ test('type schedule: each chosen type owns exactly 3 of the 15 round slots, SPEC
   const r2 = createRng(9);
   const stageIds = gd.mode.stages.filter((id) => gd.stage(id) && gd.stage(id).active !== false && gd.stage(id).weight > 0);
   r2(); // stage
-  r2.shuffle(Object.values(DATA.factions.types).filter((t) => t.involveRandom).map((t) => t.type));
+  r2.shuffle(Object.values(DATA.factions.types).filter((t) => t.involveRandom && !t.difficulties).map((t) => t.type));
   r2(); // boss
   if (gd.hiddenRound) r2();
   assert.ok(stageIds.length > 0);

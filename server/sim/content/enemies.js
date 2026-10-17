@@ -116,6 +116,7 @@ import { REFLECTION_KITS } from './enemies/reflection.js';
 import { FLY_KITS } from './enemies/fly.js';
 import { SPECIAL_KITS } from './enemies/special.js';
 import { LEADER_KITS } from './enemies/leaders.js';
+import { ULTIMATE_KITS } from './enemies/ultimate.js';
 import { hypot } from '../detmath.js';
 
 export {
@@ -284,10 +285,13 @@ export const KITS = Object.freeze({
   ...FLY_KITS,
   ...SPECIAL_KITS,
   ...LEADER_KITS,
+  ...ULTIMATE_KITS,
 });
 
 /** Keys deliberately left to their data stats (reason). */
 export const STATS_ONLY = Object.freeze({
+  enemy_1137_plasm: 'plain melee child; official death splits are on its mothers',
+  enemy_2046_smwar: 'durable physical melee; no added charge or unblockable ability',
   enemy_1000_gopro_2: 'plain melee', enemy_1001_bigbo: 'plain leader (bounty)', enemy_1005_yokai: 'FLY, no attack (engine)',
   enemy_1005_yokai_2: 'FLY ranged (engine)', enemy_1005_yokai_3: 'FLY ranged (engine)', enemy_1006_shield: 'heavy defender',
   enemy_1006_shield_2: 'heavy defender', enemy_1006_shield_3: 'heavy defender', enemy_1007_slime: 'plain',
@@ -300,7 +304,7 @@ export const STATS_ONLY = Object.freeze({
   enemy_1381_winman: 'plain', enemy_1381_winman_2: 'plain', enemy_1387_winshd: '封冻/供暖器 zones absent', enemy_1415_mmkabi_2: 'chains absent',
   enemy_1433_dsbasi: 'plain', enemy_1433_dsbasi_2: 'plain', enemy_1438_dspred: '赘生甲壳 absent',
   enemy_2002_bearmi: 'plain', enemy_2002_bearmi_2: 'plain',
-  enemy_9012_acloon: '炎佑 is a bond summon (bonds.js)', enemy_10040_cnvbln: '狂欢时刻 absent', enemy_10043_sailor: 'bridges/cannons absent',
+  enemy_9012_acloon: '炎佑 is a bond summon (bonds.js)', enemy_10040_cnvbln: '狂欢时刻 absent',
   enemy_10073_mpcar: 'plain', enemy_10124_uashld_2: 'taunt is data; 矿工游击队 absent',
 });
 

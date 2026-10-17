@@ -752,6 +752,12 @@ field), 助战 borrows (`borrowCount` 20), and a player's potential / 练度 per
 `aceffect_char_1…4`).
 # Local Sarkaz extension
 
-`tools/sarkaz-data.mjs` supplies the roster and covenant augmentation to `build-data.mjs`. Regenerate rather than editing JSON. Six new formal entries reuse operator kits by charId; Meteorite/Hibiscus have separate expansion kits, excluded from the six-star DIY kit list. The later upstream Clement entry is excluded until its kit is supported. See [rules and training](design/sarkaz.md).
+2026-10-17: `tools/ultimate-enemies-data.mjs` adds 34 round-gated groups (101 entries total), 284 enemies,
+89 backup units / 259 forms, and 72 owned DIY picks. `entryId` is distinct from the special enemy key because
+multiple groups deliberately reuse a special. Optional `minRound/maxRound/difficulties` filter those groups;
+`presetMotherCaps` affects preset batches only. Original modes/type counts and formal recruits remain unchanged.
+See [§35](design/ultimate-enemies.md) for confirmed count coefficients and budget rules.
+
+`tools/sarkaz-data.mjs` supplies the roster and covenant augmentation to `build-data.mjs`. Regenerate rather than editing JSON. Six new formal entries reuse operator kits by charId; Meteorite/Hibiscus have separate expansion kits, excluded from the six-star DIY kit list. Clement is supported as a DIY-only pick as of 2026-10-17. See [rules and training](design/sarkaz.md) and [§35](design/ultimate-enemies.md).
 
 `tools/columbia-data.mjs` preserves six expansion entries and reuses native member slots. Contrail/Astgenne remain outside recruitment; Tin Man/Silence/Pinecone join Columbia: ten identities, excluding Ifrit. The 2026-10-17 revision restores eight formerly hidden Victoria identities while keeping Aegir hiding. Output: 290 normal/elite records, 114 visible base recruits (tiers 17/18/19/21/18/21), 25 bonds and 125 items. Two Columbia equipment pairs have generated effects and reuse native icons; normal versions enter the tier-3/6 shop pools. Beanstalk's token kit applies its blocking talent; Aphris S3's initial hand/deployment cap is three. Old kits and DIY forms remain available. See [Columbia rules](design/columbia.md) and [Catastrophe revision](design/catastrophe.md).

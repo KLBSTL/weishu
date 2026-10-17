@@ -1556,4 +1556,9 @@ yet — enemy content must pick one); 抵抗 covers the control statuses of `RES
 冻结/恐惧/诱导…, the rest follow the operator kits that grant it) and caps at 0.95; tactical points prefer enemy path tiles.
 # Local Sarkaz extension
 
+2026-10-17: `content/enemies/ultimate.js` implements the added Firepower/Breakthrough/Summon enemies;
+`kits/ops/op-clemnt.js` supplies Clement's three-skill DIY kit. Skill blackboards remain data-driven;
+the finite assumptions and the preset/runtime-summon distinction are documented in [§35](design/ultimate-enemies.md).
+`test/sim/ultimate.browser.test.js` replays the same skill/summon probe in Node and Chromium.
+
 See [Sarkaz rules](design/sarkaz.md) and [Columbia rules](design/columbia.md). Sarkaz uses `attack-riders.js` to exclude secondary damage. Sarkaz six opts recipients into a shared numeric-shield cap; `clampNumericShields` runs on buff addition, absorption and reads, excluding hit-count shields. Its true rider skips source multipliers but retains target multipliers. Columbia listens to enemy attacks with a team cooldown and snapshots total ATK/layers for bombardment and refreshed target DoT. `shared/combatStats.js` defines optional result counters. Shining's `sarkazShiningUsed` and Typhon's `sarkazTyphonUsed` map (piece UID to used allowance) survive compact results and result digests. `shared/typhonUsage.js` sanitizes the map; client reports retain only the player's own lineup UIDs. Typhon has independent 28/56 caps per piece; the match engine preserves each UID's maximum across sub-battles and resets usage in the next formal round.

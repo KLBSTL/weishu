@@ -9,6 +9,18 @@ import { attachSkinCatalogue } from '../tools/assets/skin-catalogue.mjs';
 import { parseSkel } from '../tools/assets/skel.mjs';
 
 const sampleSkel = new URL('../public/assets/skins/char_274_astesi_epoque_23/Front/char_274_astesi_epoque_23.skel', import.meta.url);
+test('only three selected DIY operators extend the skin scope; all default Base and available costumes exist', () => {
+  const catalogue = JSON.parse(readFileSync(new URL('../public/assets/skins/catalogue.json', import.meta.url), 'utf8'));
+  const ids=['char_4132_ascln','char_4037_demetr','char_4231_clemnt'];
+  assert.deepEqual(catalogue.scope.selectedDiy,ids);
+  assert.equal(catalogue.chars.char_4132_ascln.length,1);
+  assert.equal((catalogue.chars.char_4037_demetr || []).length,0);
+  assert.equal((catalogue.chars.char_4231_clemnt || []).length,0);
+  for(const id of ids){
+    const entries=[catalogue.defaults[id].base,...(catalogue.chars[id]||[]).flatMap(s=>[...Object.values(s.spine),s.base])];
+    for(const e of entries.filter(Boolean))for(const url of [e.skel,e.atlas,...e.textures])assert.ok(existsSync(new URL('../public'+url,import.meta.url)));
+  }
+});
 test('restored Victoria formal recruits expose their twelve existing costumes with complete models', () => {
   const chess = Object.values(JSON.parse(readFileSync(new URL('../data/chess.json', import.meta.url), 'utf8')));
   const catalogue = JSON.parse(readFileSync(new URL('../public/assets/skins/catalogue.json', import.meta.url), 'utf8'));

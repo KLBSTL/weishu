@@ -32,10 +32,10 @@ and alive-player factor, then ×1.5/×2; the leader syncs to that result without
 
 At setup four distinct regular factions are drawn, plus SPECIAL. Each R1–13 independently chooses two distinct
 candidates for upper/lower lanes. A separate deterministic lane RNG stream preserves the original ABYSS scheduling.
-The original template and slot determine each lane's count, time, interval and route index. When replacing WALK/FLY
-types, an explicit route uses the matching movement class's authored path from the same gate to the same goal;
-the original route table/index stays intact. Without a matching authored path, keep the gate/goal and use the ground
-flow field without flying patrol checkpoints. Unreachable ground checkpoints wait for a grid change, never walk
+Resolve the final lane pick before movement filtering and per-action budgeting (2026-10-17 correction,
+[§35](ultimate-enemies.md)). Recompute counts/intervals against each original batch budget/window, and skip the
+opposite movement class; original route indices and action start times stay intact.
+Unreachable ground checkpoints wait for a grid change, never walk
 straight through walls or ignore hard obstacles. Crates remain walkable at cost 1000 and can be broken as before.
 Rounds whose original upper lane has zero spawns keep zero there, rather than inventing additional enemies.
 Boss identities and their templates retain the original selection schedule.

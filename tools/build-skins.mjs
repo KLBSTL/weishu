@@ -27,11 +27,13 @@ const manifestFile = path.join(root, 'data/assets.json');
 const previous = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
 const chess = JSON.parse(fs.readFileSync(path.join(root, 'data/chess.json'), 'utf8'));
 const formalIds = new Set(Object.values(chess).filter(c => !c.isDiy && c.charId).map(c => c.charId));
+// Explicit user scope (2026-10-17): these three field-selection operators also expose their available costumes.
+const selectedDiy = ['char_4132_ascln', 'char_4037_demetr', 'char_4231_clemnt'];
 for (const job of report.models) {
   if (!job.ok) { errors.push(`${job.skinId}/${job.view}: download missing`); continue; }
   try {
     if (!previous.chars[job.charId] || !/^[a-zA-Z0-9_]+$/.test(job.skinId) || !/^[a-zA-Z0-9_]+$/.test(job.stem) || !['Front', 'Back', 'Base'].includes(job.view)) throw new Error('Invalid model identity');
-    if (!formalIds.has(job.charId)) throw new Error('Appearance outside formal chess roster');
+    if (!formalIds.has(job.charId) && !selectedDiy.includes(job.charId)) throw new Error('Appearance outside formal chess roster and selected DIY');
     if (job.defaultBase && (job.skinId !== job.charId || job.view !== 'Base')) throw new Error('Invalid default Base');
     const key = job.skinId + '/' + job.view;
     if (seen.has(key)) throw new Error('Duplicate model');
@@ -81,7 +83,7 @@ const validationFile = process.argv[4] ? path.resolve(root, process.argv[4]) : n
 if (validationFile) fs.writeFileSync(validationFile, JSON.stringify(summary, null, 2) + '\n');
 console.log(JSON.stringify(summary));
 if (errors.length) throw new Error('Skin validation failed; catalogue and manifest were not replaced');
-const catalogue = { source: report.source, scope: { kind: 'formal-chess', charIds: [...formalIds].sort() }, chars, defaults };
+const catalogue = { source: report.source, scope: { kind: 'formal-chess-and-selected-diy', charIds: [...formalIds].sort(), selectedDiy }, chars, defaults };
 fs.writeFileSync(catalogueFile, JSON.stringify(catalogue));
 const previousSkinStats = previous.skinStats;
 const files = new Set();
