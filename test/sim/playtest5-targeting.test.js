@@ -77,7 +77,7 @@ test('#220 (the owner\'s decision of 2026-10-08): a 速射手 blocking a ground 
     h.step();
     const u = h.unit(chessId);
     h.b.addBuff(u, { key: 'test:mute', flags: { silence: true } });
-    const walker = h.spawn('e_walker', { pos: [10, 7], routeIndex: 0, route: { motion: 'WALK', start: [10, 7], end: [10, 0], checkpoints: [] } });
+    const walker = h.spawn('e_walker', { pos: [10, 7], routeIndex: 0, route: { motion: 'WALK', start: [10, 7], end: [10, 3], checkpoints: [] } });
     assert.ok(h.runUntil(() => walker.blockedBy === u, 10), `${u.name} on a melee tile blocks the walker`);
     const o = h.spawn(other, { pos: [10, 6], routeIndex: 0, route: { motion: other === 'e_bat' ? 'FLY' : 'WALK', start: [10, 6], end: [10, 6], checkpoints: [] } });
     h.step();

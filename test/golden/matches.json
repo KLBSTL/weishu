@@ -1499,7 +1499,7 @@
           "title": {"id":"comment_3","name":"坚若磐石","picId":"comment_icon_3","text":"目标生命值损失最少"},
           "trophies": 8,
           "reward": 425,
-          "stats": {"activatedLayers":2331,"bossDamage":5813495,"dmgDealt":22004364,"gold":199,"itemsEquipped":27,"kills":301,"leaks":0,"lpLost":0,"merges":5,"perfectRounds":13,"refreshes":48},
+          "stats": {"activatedLayers":2331,"bossDamage":5805796,"dmgDealt":21977402,"gold":199,"itemsEquipped":27,"kills":301,"leaks":0,"lpLost":0,"merges":5,"perfectRounds":13,"refreshes":48},
           "lineup": ["3_16_a@12,8[4_02_e_b+4_04_e_a]","2_18_b@11,5[4_07_e_a+3_03_e_a]","3_17_b@11,8[3_11_e_a+5_09_e_a]","6_17_a@10,8[4_06_e_a+4_10_e_a]","4_14_a@9,6[1_02_e_b]","6_05_a@9,7[2_sarkaz_bone_e_b+3_06_e_b]","6_01_a@9,8[3_02_e_a+3_08_e_b]","2_12_a@9,9[4_11_e_a+3_09_e_a]"],
           "bonds": ["arcaneShip 0/300","columbiaShip 0/300","deputShip 0/319","egirShip 0/300","emptyShip 0/300","indomShip 1/327","investShip 0/300","kazimierzShip 1/323","kjeragShip 0/300","lateranoShip 0/300","maniShip 0/300","miraShip 0/300","preciShip 2/351","raidShip 0/300","sargonShip 0/300","sarkazShip 0/300","siracusaShip 0/300","skillfulShip 0/300","soloShip 1/312","steadShip 1/324","suntShip 1/306","swiftShip 1/388","victoriaShip 0/303","visiShip 0/300","yanShip 0/306"]
         },
@@ -1513,7 +1513,7 @@
           "title": {"id":"comment_1","name":"卫戍之星","picId":"comment_icon_1","text":"对敌方领袖造成伤害最高（仅胜利时）"},
           "trophies": 8,
           "reward": 425,
-          "stats": {"activatedLayers":2720,"bossDamage":8082401,"dmgDealt":22648508,"gold":268,"itemsEquipped":44,"kills":259,"leaks":8,"lpLost":0,"merges":12,"perfectRounds":11,"refreshes":78},
+          "stats": {"activatedLayers":2720,"bossDamage":8090100,"dmgDealt":22679126,"gold":268,"itemsEquipped":44,"kills":259,"leaks":8,"lpLost":0,"merges":12,"perfectRounds":11,"refreshes":78},
           "lineup": ["4_sarkaz_ifrit_b@11,5[3_06_e_a+4_06_e_a]","1_17_b@11,8[4_12_e_a+4_08_e_b]","4_04_b@10,7[4_04_e_b+3_05_e_a]","4_16_b@10,8[3_08_e_b+4_02_e_a]","2_sarkaz_hbisc2_b@9,6[1_05_e_b+3_05_e_b]","5_10_b@9,7[6_03_e_a+2_sarkaz_bone_e_b]","4_14_b@9,8[3_01_e_a+3_01_e_b]","6_11_a@9,9[6_06_e_a+3_08_e_a]"],
           "bonds": ["arcaneShip 1/351","columbiaShip 0/300","deputShip 0/304","egirShip 0/300","emptyShip 0/300","indomShip 0/300","investShip 0/300","kazimierzShip 0/308","kjeragShip 0/300","lateranoShip 0/300","maniShip 1/300","miraShip 0/300","preciShip 1/412","raidShip 1/360","sargonShip 0/300","sarkazShip 1/337","siracusaShip 1/300","skillfulShip 0/300","soloShip 0/300","steadShip 0/304","suntShip 2/300","swiftShip 0/419","victoriaShip 0/300","visiShip 1/360","yanShip 0/301"]
         }

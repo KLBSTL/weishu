@@ -410,6 +410,15 @@ export function buildNormalWave(gd, rng, factions, round) {
     const key = (slot.startsWith('S') ? selected.key : slot.startsWith('E') ? selected.elite : selected.normal) || selected.key;
     if (!key || !gd.enemy(key)) continue;
     spawn.enemyKey = key;
+    // A lane substitution may change WALK ↔ FLY. Keep the action/index/timing, but use that movement class's
+    // authored route from the same gate to the same goal (flying patrol checkpoints may be walls for walkers).
+    const fly = isFlyKey(gd, key);
+    if ((route?.motion === 'FLY') !== fly) {
+      const compatible = tpl.routes.find(r => (r.motion === 'FLY') === fly
+        && r.start?.[0] === route?.start?.[0] && r.start?.[1] === route?.start?.[1]
+        && r.end?.[0] === route?.end?.[0] && r.end?.[1] === route?.end?.[1]);
+      spawn.route = compatible ?? { ...route, motion: fly ? 'FLY' : 'WALK', checkpoints: [] };
+    }
     spawn.mods.slot = slot[0] + (isFlyKey(gd, key) ? 'F' : '');
     spawn.preview = previewInfo(gd, key, route, false, false);
     const action = actions.find(a => a.index === spawn.actionIndex);

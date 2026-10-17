@@ -107,7 +107,8 @@ export class BattleSpawns {
     let start = opts.pos ?? route?.start ?? [this.rect.r0, this.rect.c1];
     if (!Array.isArray(start) || !Number.isFinite(start[0]) || !Number.isFinite(start[1])) start = route?.start ?? [this.rect.r0, this.rect.c1];
     const R = this.rect; // spawn inside the field (same bounds as _clampPos)
-    start = [Math.max(R.r0 - 0.5, Math.min(R.r1 + 0.5, start[0])), Math.max(R.c0 - 0.5, Math.min(R.c1 + 0.5, start[1]))];
+    const edge = 0.5 - FIELD_EDGE_INSET;
+    start = [Math.max(R.r0 - edge, Math.min(R.r1 + edge, start[0])), Math.max(R.c0 - edge, Math.min(R.c1 + edge, start[1]))];
     // multipliers: finite and ≥ 0 (hp > 0), anything else counts as 1
     const mm = (v, pos = false) => { const n = fin(v, 1); return n < 0 || (pos && n <= 0) ? 1 : n; };
     const m0 = opts.mods || {};

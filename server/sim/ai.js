@@ -435,15 +435,14 @@ export function compileRoute(route, rect = null) {
 }
 
 /**
- * Flow field of a WALK leg target usable from tile key `k`: the live field, else the obstacle-free one (the goal is
- * walled off by hard blocks), else null.
+ * Flow field of a WALK leg target usable from tile key `k`. Crates are already traversable at cost 1000;
+ * a genuinely unreachable target must wait for a grid change, never ignore a wall or hard obstacle.
  */
 function legField(b, r, c, k) {
   const g = b.grid;
+  if (!g.walkable(r, c)) return null;
   const f = g.flowField(r, c);
   if (k >= 0 && f.dist[k] >= 0) return f;
-  const f2 = g.flowField(r, c, { ignoreObstacles: true });
-  if (k >= 0 && f2.dist[k] >= 0) return f2;
   return null;
 }
 
@@ -454,16 +453,18 @@ const tileKey = (b, e) => {
 
 /**
  * Build the waypoint list (world points) for the current move leg. Ground legs: the smoothed flow-field chain from
- * the enemy's tile (next[tile], next[next[tile]], …, the target) — straight to the target when no field reaches it.
+ * the enemy's tile (next[tile], next[next[tile]], …, the target). An unreachable leg stops until the grid changes.
  */
 function planLeg(b, e, leg) {
   const R = e.route;
+  R.unreachable = false;
   let pts;
   if (e.motion === 'FLY') {
     pts = [{ x: leg.c, y: leg.r }];
   } else {
     const k = tileKey(b, e);
     const f = legField(b, leg.r, leg.c, k);
+    R.unreachable = !f;
     pts = [];
     if (f) {
       let x = k;
@@ -475,7 +476,7 @@ function planLeg(b, e, leg) {
       }
     }
     const last = pts[pts.length - 1];
-    if (!last || last.x !== leg.c || last.y !== leg.r) pts.push({ x: leg.c, y: leg.r });
+    if (f && (!last || last.x !== leg.c || last.y !== leg.r)) pts.push({ x: leg.c, y: leg.r });
     // The smoothed chain is line-of-sight clear from the tile CENTRE only. An enemy re-planning off-centre (pushed,
     // released by 诱导, an obstacle change mid-segment) first steps back to its tile centre when the straight line to
     // the first waypoint would cut a tile it cannot walk (a fence corner, a crate) — else it would walk inside it.
@@ -683,6 +684,7 @@ function advanceRoute(b, e, dt, R, standing = false) {
     // move
     if (standing) { e.moving = false; return; }   // the walking waits for the attack clip
     if (!R.pts || R.version !== b.grid.version) planLeg(b, e, leg);
+    if (R.unreachable) { e.moving = false; return; }
     const speed = e.s.moveSpeed * MOVE_SCALE;
     if (speed <= 0) { e.moving = false; return; }
     let dist = speed * budget;

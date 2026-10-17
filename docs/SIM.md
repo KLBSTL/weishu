@@ -5,7 +5,8 @@ R14 adds HP×1.5 and Physical/Arts damage×0.75; R15 adds HP×2 and Physical/Art
 Dynamic enemies and shared leader pools scale once; original spawn mods stay unscaled. Hit-count units ignore every
 damage reduction and lose one hit per valid instance. Hidden boss additions live in `content/catastrophe.js`:
 defensive/shared SP, source-independent shields, pre-numeric-shield punishment (`beforeDamageShields`),
-interrupted charge and death-free forced exit. See [天灾 rules](design/catastrophe.md) for details and server economy.
+150-SP storage, post-completion cooldown, a 10s performance with half-HP free queue, synchronous burst exit and
+death-free removal. See [天灾 rules](design/catastrophe.md) for details and server economy.
 
 Local healing terrain: `tile_healing` maps to `healing` in the grid, with an allied terrain buff ticking once
 per second through `heal(..., {self: true, regen: true})`. Its `stage.special.healing.maxHpRatio` is 0.03.
@@ -245,7 +246,10 @@ outranking 恐惧); the smoothed chain is only line-of-sight
 clear from a tile centre, so an enemy re-planning off-centre first steps back to its tile centre when the straight line
 to its first waypoint would cut a tile it cannot walk or a crate (a pushed enemy never clips a fence corner or breaks
 the decorative crate on it — act1 m03 (11,5); test/sim/pathing.test.js). If crates cut every path the enemy walks through them, gets blocked by the crate
-and destroys it. FLY legs fly straight between checkpoints. `disappear` hides
+and destroys it. A truly unreachable or non-walkable ground checkpoint waits until the grid changes; no direct-line
+or hard-obstacle-ignoring fallback is allowed. Catastrophe lane substitutions match the actual WALK/FLY class to an
+authored route from the same gate/goal rather than making walkers follow flying wall checkpoints (seed 4 R1,
+act2autochess_m04 regression). FLY legs fly straight between checkpoints. `disappear` hides
 the enemy (untargetable, not in snapshots), `wait` pauses, `appear` teleports.
 
 **恐惧 movement** (`fear.js`, user playtest #6; PRTS 诱发移动 §恐惧): a feared enemy leaves its route. Each application
@@ -871,6 +875,7 @@ registration order. `battle.off(handle)` / `battle.off(name, fn)` / `battle.offO
 | `blocked` | `{ blocker, enemy }` | enemy became blocked |
 | `enemySpawn` / `enemyLeak` | `{ enemy }` | |
 | `elementBurst` | `{ source, target, element }` | before the burst's lock/effects; same-element fills of `target` are already refused |
+| `elementBurstApplied` | `{ source, target, element, buff }` | immediately after the burst lock is installed; synchronous forced exits can observe the actual burst state |
 | `palsyTrigger` | `{ enemy, buff, keep }` | a 麻痹 stack interrupts the enemy's normal attack ("触发麻痹"), before the stack is used: set `keep` to leave it (真言 噤声限域); a handler may kill the enemy (its turn ends) |
 | `dodge` | `{ source, target, dmg }` | an attack was dodged |
 | `boomerangCaught` | `{ unit, attackId, isSkill, x, y }` | a 回环射手 boomerang came back to its thrower (`ai.js throwBoomerang`; `isSkill` = thrown by a skill attack): 娜仁图亚 LPS-Y "每回收5次回旋投射物", S3 "投射物全部回收时" |

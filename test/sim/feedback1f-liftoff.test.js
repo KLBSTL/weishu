@@ -374,7 +374,7 @@ test('F3 review 2: 萨卡兹悖谬暴虐兵长\'s 暴击 splash ("无视无法�
   const h = makeBattle({
     stageId: 'act2autochess_m02', seed: 3, autoFinish: false, timeLimit: 400, hooks: ['hit', 'damaged'], captureNoisy: true,
     units: [{ chessId: TIPPI[0], row: 9, col: 5, carryState: { sp: 999 }, skillIndex: skillIndex(TIPPI[0], S1) }, { chessId: BAIT, row: 9, col: 4 }],
-    enemies: [{ key: WDRRL, route: { motion: 'WALK', start: [9, 8], end: [9, 1], checkpoints: [] }, mods: { hpMul: 1e3, atkMul: 0.3 } }],
+    enemies: [{ key: WDRRL, route: { motion: 'WALK', start: [9, 8], end: [9, 2], checkpoints: [] }, mods: { hpMul: 1e3, atkMul: 0.3 } }],
   });
   const u = h.unit(TIPPI[0]), bait = h.unit(BAIT);
   let e = null, airAtBlock = null;

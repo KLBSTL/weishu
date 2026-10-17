@@ -918,7 +918,7 @@ test('余 (elite): 阻挡 ⇒ element ×1.15 (module, elementHit); S3 gives the 
       { chessId: 'test_caster_a', row: 12, col: 3 },
       { chessId: 'test_guard_a', row: 12, col: 8 }, { chessId: 'test_guard_a', row: 9, col: 8, uid: 7 },
     ],
-    enemies: [{ key: 'enemy_walker', route: { motion: 'WALK', start: [10, 9], end: [10, 2], checkpoints: [] } }],
+    enemies: [{ key: 'enemy_walker', route: { motion: 'WALK', start: [10, 9], end: [10, 3], checkpoints: [] } }],
   });
   const u = h.unit('chess_char_6_03_b'), c = h.unit('test_caster_a');
   const t0 = u.def.talents[0].bb;

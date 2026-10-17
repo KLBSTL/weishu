@@ -1,5 +1,10 @@
 # Golden results
 
+Catastrophe second confirmation (2026-10-17): publication keeps the already-published AI and rebuilds all
+293 golden scenarios. The [publication audit](../../docs/catastrophe-second-release-golden.md) lists every moved case;
+the [local implementation audit](../../docs/catastrophe-second-golden.md) is separately labeled against the paused local AI.
+Dedicated boundary tests and Chromium/Node parity cover the new Catastrophe mechanics.
+
 Catastrophe confirmation / Victoria restoration (2026-10-17): the published corpus has 293 scenarios
 (51 roster, 50 bonds, 25 fields, 18 matches, 11 stand-ins, 138 DIY). Compared with the prior GitHub main,
 141 existing scenarios intentionally change, three roster groups are added, none removed; all DIY results stay unchanged.

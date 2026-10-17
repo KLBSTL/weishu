@@ -3,10 +3,12 @@
 // attach / dispatch, T, canCast …) and the selection and damage helpers (elem, hurt, areaAllies & friends, zone,
 // spawnChildren, setForm, lpLoss, expose …).
 
-import { ELEMENT } from '../../constants.js';
+import { ELEMENT, COLS } from '../../constants.js';
 import { canTargetAlly, sortAllyTargets, areaSelectable, auraSelectable } from '../../targeting.js';
 import { mitigate } from '../../damage.js';
 import { hypot } from '../../detmath.js';
+import { straightClear } from '../../grid.js';
+import { normalizeRoute } from '../../simdata.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants (numbers that exist nowhere in the data)
@@ -285,12 +287,28 @@ function modsWithoutBounty(mods) {
 /** Spawn `n` enemies at the parent's position that continue its route. Returns the spawned units. */
 export function spawnChildren(b, parent, key, n, opts = {}) {
   const out = [];
-  const route = opts.route ?? remainingRoute(parent);
+  let route = normalizeRoute(opts.route ?? remainingRoute(parent));
+  const ground = b.data.getEnemy(key)?.motion !== 'FLY';
+  // A ground child of a flyer cannot inherit aerial wall checkpoints.
+  if (ground && parent.motion === 'FLY' && !opts.route) route = { ...route, motion: 'WALK', checkpoints: [] };
   const cnt = Math.max(0, Math.min(20, Math.floor(n)));
   const mods = modsWithoutBounty(opts.mods ?? parent.mods ?? null);
   for (let i = 0; i < cnt; i++) {
     const off = cnt > 1 ? (i - (cnt - 1) / 2) * 0.2 : 0;
-    const pos = opts.pos ?? [parent.y, parent.x + off];
+    let pos = opts.pos ?? [parent.y, parent.x + off];
+    if (ground && !b.grid.groundPassable(Math.round(pos[0]), Math.round(pos[1]))) {
+      // [ASSUMED] A child dropped over forbidden terrain lands on the nearest reachable ground centre, row-major ties.
+      const goal = route.checkpoints?.find(cp => cp.type === 'MOVE')?.pos ?? route.end;
+      const field = goal && b.grid.flowField(...goal);
+      let best = null, distance = Infinity;
+      for (let r = b.rect.r0; r <= b.rect.r1; r++) for (let c = b.rect.c0; c <= b.rect.c1; c++) {
+        if (!b.grid.groundPassable(r, c) || (field && field.dist[r * COLS + c] < 0)) continue;
+        const dr = pos[0] - r, dc = pos[1] - c, d = dr * dr + dc * dc;
+        if (d < distance) { distance = d; best = [r, c]; }
+      }
+      if (!best) continue;
+      pos = best;
+    }
     const c = b.spawnEnemy(key, {
       pos, route, mods, tag: opts.tag ?? null, countInTotal: opts.countInTotal,
       ownerPlayerId: parent.ownerId ?? null, sourcePlayerId: parent.sourcePlayerId ?? null,
@@ -309,6 +327,25 @@ export function stepToward(u, tx, ty, dist) {
   u.x += (dx / d) * dist;
   u.y += (dy / d) * dist;
   return false;
+}
+
+/** Ground pursuit follows legal flow-field waypoints, including off-centre corner checks. */
+export function stepGroundToward(b, u, tx, ty, dist) {
+  if (u.motion === 'FLY') return stepToward(u, tx, ty, dist);
+  const sr = Math.round(u.y), sc = Math.round(u.x), er = Math.round(ty), ec = Math.round(tx);
+  if (!b.grid.walkable(er, ec)) return false;
+  const points = b.grid.waypoints(sr, sc, er, ec);
+  if (!points) return false;
+  const targets = points.slice(1).map(([r, c]) => ({ x: c, y: r }));
+  if (targets.length && !straightClear(b.grid, u.x, u.y, targets[0])) targets.unshift({ x: sc, y: sr });
+  targets.push({ x: tx, y: ty });
+  for (const p of targets) {
+    if (!b.grid.groundPassable(Math.round(p.y), Math.round(p.x))) return false;
+    const d = hypot(p.x - u.x, p.y - u.y);
+    if (d > dist + 1e-9) { stepToward(u, p.x, p.y, dist); return false; }
+    u.x = p.x; u.y = p.y; dist -= d;
+  }
+  return true;
 }
 
 /** Set a 频次 unit's hits (maxHp := hits, full): `n` rounded to a whole count, at least 1. */

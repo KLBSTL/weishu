@@ -1,8 +1,9 @@
 # DESIGN §34 — 天灾 difficulty
 
 Part of [DESIGN.md](../DESIGN.md). Maintainer-confirmed revision, 2026-10-17.
-Full specification: [确认稿](../catastrophe-confirmed-20261017.md).
-Implementation and validation: [实施记录](../catastrophe-revision-20261017.md).
+Full specification: [第二次确认稿](../catastrophe-second-confirmed-20261017.md), superseding corresponding parts of
+the [first confirmation](../catastrophe-confirmed-20261017.md).
+Implementation and validation: [第二次实施记录](../catastrophe-second-revision-20261017.md).
 
 ## 34. 天灾 — maintainer-defined difficulty
 
@@ -31,26 +32,45 @@ and alive-player factor, then ×1.5/×2; the leader syncs to that result without
 
 At setup four distinct regular factions are drawn, plus SPECIAL. Each R1–13 independently chooses two distinct
 candidates for upper/lower lanes. A separate deterministic lane RNG stream preserves the original ABYSS scheduling.
-The original template and slot determine each lane's count, time, interval and route; only its enemy key/type changes.
+The original template and slot determine each lane's count, time, interval and route index. When replacing WALK/FLY
+types, an explicit route uses the matching movement class's authored path from the same gate to the same goal;
+the original route table/index stays intact. Without a matching authored path, keep the gate/goal and use the ground
+flow field without flying patrol checkpoints. Unreachable ground checkpoints wait for a grid change, never walk
+straight through walls or ignore hard obstacles. Crates remain walkable at cost 1000 and can be broken as before.
 Rounds whose original upper lane has zero spawns keep zero there, rather than inventing additional enemies.
 Boss identities and their templates retain the original selection schedule.
+
+The shared ground-path repair also prevents wall landings by ground children dropped from flyers/spread positions,
+and makes the springs' 5s pursuit follow legal ground waypoints. `[ASSUMED]` an invalid child landing uses the nearest
+reachable ground centre, row-major ties. This path repair applies to every difficulty; Catastrophe ability changes
+remain Hidden Core-only. Existing fixed deep-water tiles keep their slowdown/damage and flight exemption; no periodic
+tide schedule is invented. See the [three moved golden cases](../catastrophe-second-golden.md).
 
 ### 34.2 Hidden Helm — 钢铁洪流
 
 Below 20% HP its former 50% Physical/Arts guard is replaced by 80% Physical/Arts/True/Elemental HP damage reduction;
 HP loss bypasses it. The difficulty Physical/Arts multiplier still applies separately.
 
-Steel Flood starts at 0/50 defensive SP. Each independent positive HP damage instance gives 1 SP; absorbed hits,
+Steel Flood starts at 0 defensive SP, stores up to 150 and consumes exactly 50 per cast, retaining the remainder.
+Each independent positive HP damage instance gives 1 SP; absorbed hits,
 element gauge and HP loss do not. It has lower priority than ready original skills and higher priority than ordinary
-attacks. The 3s charge stops ordinary attacks/other skills and SP gain.
+attacks. The 1s charge stops ordinary attacks/other skills and SP gain. A 5s cooldown starts at completion;
+SP still accumulates during that cooldown. The enhancement uses a snapshot taken BEFORE subtracting the cost.
 
-Completion summons one Imperial Armor solo or two on a paired field, using the original armor routes. All living
-enemies, including existing reinforcements and new armors, gain a numeric barrier equal to 1% of Helm's Max HP.
-This source caps at 2% per recipient, independently of other barrier caps/sources; it lasts until consumed/end of battle.
+| Pre-cost SP | Solo armors | Paired armors | Barrier per recipient, % Helm Max HP |
+|---|---:|---:|---:|
+| 50–99 | 1 | 2, one per side | 1% |
+| 100–149 | 2 | 4, two per side | 1% |
+| 150 | 2 | 4, two per side | 5% |
+
+Completion uses the original armor spawn points/routes. All living enemies, including existing reinforcements and
+new armors, receive the barrier. This source caps at 10% per recipient, independently of other barrier caps/sources;
+it lasts until consumed/end of battle.
 All living armors gain stun, freeze, sleep, bind, silence, fear, levitate and displacement immunity for the battle.
-Cold, elemental buildup/bursts and stat debuffs still work. Each enhanced armor's true kill removes 1% of Helm's
+Cold, elemental buildup/bursts and stat debuffs still work. Every armor's true kill removes 0.5% of Helm's
 Max HP exactly once; leaks do not. This fixed pool share bypasses the ordinary leader hit cap, like the original
-drone-link pool loss, so the percentage remains effective on large co-op pools.
+drone-link pool loss, so the percentage remains effective on large co-op pools. Preset, summoned and not-yet-enhanced
+armors all count.
 
 ### 34.3 Hidden Gun — 代赎之罚
 
@@ -69,21 +89,31 @@ With all three shields down each incoming allied hit instead removes another 200
 do not count as shielded. HP loss and transmitted losses never trigger the ability. Counter-tagged punishment cannot
 trigger allied reflection loops.
 
-### 34.4 Hidden Pipe/String — 管弦合鸣
+### 34.4 Hidden Pipe/String — 管弦和鸣
 
-One shared 0/30 SP pool. Each complete ordinary attack from either boss gives 1 SP; skill attacks do not.
+One shared SP pool starts at 0, ordinary cost/cap 30. Each complete ordinary attack from either boss gives 1 SP; skill attacks do not.
 An actual Echo form change caused by either boss adds 3 SP, including original skills; allied changes do not.
-Concord has priority over all original skills/attacks. During its joint 8s charge both bosses stop attacks/other skills
-and gain no SP. A keyed warning ring ends immediately on interruption.
+Concord has priority over ready original skills/attacks, while already-started authored strikes finish first.
+There is no charge: it immediately performs for 10s. Both bosses stop attacks/other skills and gain no SP throughout.
+A keyed performance ring ends immediately on interruption or completion.
 
-Completion applies 999 Necrosis to every deployed living ally, including summons and hidden/camouflaged units.
-Device summons are exempt. Afterwards every unit currently in Necrosis burst (including an earlier burst) is forcibly
+At seconds 1–10 it applies 100 Necrosis to every deployed living ally, including summons and hidden/camouflaged units.
+Device summons are exempt. At start, units already in Necrosis burst are expelled; throughout the performance, new
+burst entrants are expelled synchronously by `elementBurstApplied`, without waiting for the next pulse. Units are forcibly
 removed without fatal/kill/death dispatch, immortality/revive or operator redeploy. Nested removal callbacks also suppress
 friendly-death triggers. Tactical crabs, wolf points and Manifolds retain only their original recovery mechanisms;
 other later re-summoning is permitted.
 
-Any Echo killed during the charge interrupts it, clears SP and resumes both bosses. Pipe immediately takes true damage
+On Pipe's first HP ratio strictly below 50%, ordinary cost/cap permanently becomes 20 and one free performance is
+queued. It waits for any running skill/performance to finish and then starts as a separate 10s performance. It spends
+no SP and retains existing SP at natural completion (stored surplus is not discarded by the lower cap). This trigger
+cannot repeat after healing. There is no implemented half-HP dodge on Pipe: its unused probability data stays intact;
+Lucien's independent dodge implementation is unchanged.
+
+Any Echo killed during a performance interrupts that instance, clears SP and resumes both bosses. Pipe immediately takes true damage
 equal to 5% of its Max HP, bypassing all reductions, barriers and the single-hit cap; this can kill it.
+A queued half-HP free performance survives the interruption; a free performance that is itself interrupted has the
+same SP clearing and damage penalty. Natural completion does not clear SP.
 
 ### 34.5 Data and compatibility
 

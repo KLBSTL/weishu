@@ -507,7 +507,10 @@ function resolveBurst(battle, source, target, el) {
   const hit = (amount, type) => battle.dealDamage(source, target, { amount, type, element: el, canDodge: false, sourceless: true, tags });
   const lock = (duration, extra = {}) => {
     if (!(duration > 0)) { reset(); return null; }
-    return battle.addBuff(target, { key: `${el}Burst`, duration, visible: true, onExpire: reset, onRemove: reset, ...extra, flags: { burstLock: true, ...(extra.flags || {}) } });
+    const buff = battle.addBuff(target, { key: `${el}Burst`, duration, visible: true, onExpire: reset, onRemove: reset, ...extra, flags: { burstLock: true, ...(extra.flags || {}) } });
+    // Unlike elementBurst (before the lock), this observes the actual burst state immediately after it is applied.
+    if (battle._hooks.elementBurstApplied) battle.emit('elementBurstApplied', { source, target, element: el, buff });
+    return buff;
   };
   if (el === 'necrosis') {
     lock(cfg.duration, {

@@ -76,6 +76,7 @@ import {
   remainingRoute, stayRoute, stepToward, setHits, hitCount, lpLoss, blinkForward, canCast, unbalancedNow, absorbArts, nthOf,
 } from './enemies.js';
 import { hypot, powi } from '../detmath.js';
+import { stepGroundToward } from './enemies/helpers.js';
 import { isCatastropheHiddenBattle } from '../../../shared/difficulty.js';
 import { installCatastropheBosses, bindCatastropheBoss, catastrophePipeAttack, catastropheEchoChanged } from './catastrophe.js';
 
@@ -727,7 +728,7 @@ function kitSpring(ab, e) {
         // 0.2.1 it ended on arrival or within 1 tile). The casting gun dead: the nearest other gun; none left on the
         // field: it holds still, the gain running on.
         const g = d.gun && d.gun.alive ? d.gun : gun(b);
-        if (g) stepToward(e2, g.x, g.y, e2.s.moveSpeed * d.mul * MOVE_SCALE * dt);
+        if (g) stepGroundToward(b, e2, g.x, g.y, e2.s.moveSpeed * d.mul * MOVE_SCALE * dt);
         // 追逐模式 "对进入自身0.35半径范围内的我方单位（包括飞行单位）造成一次攻击力100%的物理普通伤害" (until 0.1.3: radius 0.5)
         for (const u of areaAllies(b, e2, e2.x, e2.y, CHARGE_RADIUS)) if (!d.hit.has(u)) { d.hit.add(u); hurt(b, e2, u, e2.s.atk, 'phys'); }
         if (b.time >= d.until) { e2.mem.ab.dash = null; b.removeBuff(e2, 'boss:dash'); if (e2.route) e2.route.pts = null; }
@@ -857,6 +858,7 @@ function kitPipe(ab, e, b, tpl) {
     s && {
       cd: s.cd, icd: s.icd, cond: (b2) => echoesOf(b2, 'dark').length > 0,
       fire(b2, e2) { // 【裂管之奏】 three strikes on every dark echo
+        if (e2.mem.catastropheConcord) e2.mem.catastropheOriginalUntil = b2.time + 2 * PIPE_STRIKE_GAP;
         const r = s.bb.range_radius ?? 0, ep = s.bb.ep_damage_ratio ?? 0;
         for (const echo of echoesOf(b2, 'dark')) for (let k = 0; k < 3; k++) b2.after(k * PIPE_STRIKE_GAP, () => {
           if (!e2.alive || !echo.alive || e2.mem.catastropheCasting) return;

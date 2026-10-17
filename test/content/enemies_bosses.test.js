@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { makeBattle, chessRec, checkInvariants } from '../helpers/battleHarness.js';
+import { makeBattle, flatStage, chessRec, checkInvariants } from '../helpers/battleHarness.js';
 import * as enemiesMod from '../../server/sim/content/enemies.js';
 import * as bossesMod from '../../server/sim/content/bosses.js';
 import { spawnYanyou } from '../../server/sim/content/tokens.js';
@@ -169,7 +169,7 @@ test(`${nm('enemy_10034_cnvsax')}: revealed (反隐) and not blocked it makes no
   const h = arena({ units: [{ chessId: 't_wall', row: 10, col: 6 }] });
   h.step();
   h.b.addBuff(h.unit('t_wall'), { key: 'test:noBlock', persist: true, flags: { noBlock: true } });
-  const e = put(h, 'enemy_10034_cnvsax', [9, 8], { move: true, route: { motion: 'WALK', start: [9, 8], end: [9, 1], checkpoints: [] } });
+  const e = put(h, 'enemy_10034_cnvsax', [9, 8], { move: true, route: { motion: 'WALK', start: [9, 8], end: [9, 2], checkpoints: [] } });
   h.b.addBuff(e, { key: 'test:reveal', persist: true, flags: { reveal: true } });
   const x0 = e.x;
   h.run(4);
@@ -718,7 +718,7 @@ for (const key of ['enemy_1234_dsubrl', 'enemy_1234_dsubrl_2']) {
     const g = h.unit('t_gun');
     h.b.addBuff(g, { key: 'test:noBlock', persist: true, flags: { noBlock: true } });
     g.profile.noAttack = true;
-    const e = put(h, key, [9, 8], { move: true, route: { motion: 'WALK', start: [9, 8], end: [9, 1], checkpoints: [] } });
+    const e = put(h, key, [9, 8], { move: true, route: { motion: 'WALK', start: [9, 8], end: [9, 2], checkpoints: [] } });
     const x0 = e.x;
     h.run(4);
     assert.ok(e.profile.noAttack && e.stats.attacks === 0, 'never attacks');
@@ -742,7 +742,10 @@ for (const key of ['enemy_1234_dsubrl', 'enemy_1234_dsubrl_2']) {
 }
 
 test('GitHub #93: 深溟巢涌者 keeps walking with the 炎佑 dragon in range; only its pulse (no attack) reaches the dragon', () => {
-  const h = makeBattle({ seed: 7, autoFinish: false, timeLimit: 120, defs: { chess: { t_wall: WALL('t_wall') } }, kits: { t_wall: NOATK },
+  const stage = flatStage();
+  // This movement fixture needs a legal lane to column 0, rather than the default forbidden border/high tile.
+  for (let r = 9; r <= 12; r++) stage.rows[r] = 'rrr' + stage.rows[r].slice(3);
+  const h = makeBattle({ stage, seed: 7, autoFinish: false, timeLimit: 120, defs: { chess: { t_wall: WALL('t_wall') } }, kits: { t_wall: NOATK },
     units: [{ chessId: 't_wall', row: 12, col: 1 }], hooks: ['damaged'], captureNoisy: true });
   h.step();
   const [y] = spawnYanyou(h.b, 'p1', { atk: 0, hp: 50000 });
@@ -2046,7 +2049,7 @@ for (const key of ['enemy_2085_skzjxd', 'enemy_2085_skzjxd_2']) {
   test(`${nm(key)}: 无法攻击/被阻挡 (PRTS 天赋) — walks through a blocker, never attacks`, () => {
     const h = arena({ units: [{ chessId: 't_wall', row: 10, col: 5 }], hooks: ['blocked'] });
     h.step();
-    const e = put(h, key, [10, 7], { move: true, route: { motion: 'WALK', start: [10, 7], end: [10, 2], checkpoints: [] } });
+    const e = put(h, key, [10, 7], { move: true, route: { motion: 'WALK', start: [10, 7], end: [10, 3], checkpoints: [] } });
     assert.ok(e.s.flags.unblockable);
     assert.ok(e.profile.noAttack);
     h.runUntil(() => e.x < 4, 60);
