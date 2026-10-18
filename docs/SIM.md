@@ -1562,10 +1562,12 @@ yet — enemy content must pick one); 抵抗 covers the control statuses of `RES
 冻结/恐惧/诱导…, the rest follow the operator kits that grant it) and caps at 0.95; tactical points prefer enemy path tiles.
 # Local Catastrophe Helm revision (2026-10-18)
 
-`content/catastrophe.js` snapshots Steel Flood SP before clearing the whole pool. The 50/100/150 thresholds keep
-their summon tiers; barriers add 1%/1%/2% Helm Max HP and cap remaining shield at 4%, independently per source.
-Armor kills use uncapped HP loss for exactly 1% Helm Max HP once. Low-HP guard, charge and cooldown remain unchanged.
-Rules and focused validation: [Helm revision](catastrophe-helm-20261018.md).
+`content/catastrophe.js` snapshots Steel Flood SP and its strictly-below-20%-HP immunity eligibility before clearing
+the whole pool. The 50/100/150 thresholds keep their summon tiers; barriers add 1%/1%/2% Helm Max HP and cap remaining
+shield at 2%, independently per source. After the 1s charge, qualifying casts grant all living armors permanent immunity;
+subsequent HP changes never alter that cast's eligibility or remove existing immunity. Completion starts a 10s cooldown.
+Armor kills still use uncapped HP loss for exactly 1% Helm Max HP once. Low-HP guard remains unchanged.
+Rules and focused validation: [Helm follow-up](catastrophe-helm-followup-20261018.md).
 
 # Local Sarkaz extension
 

@@ -3,7 +3,7 @@ import { isCatastropheHiddenBattle } from '../../../shared/difficulty.js';
 import { applyHpLoss, isHpLoss, makeDamageInfo } from '../damage.js';
 import { canCast } from './enemies/helpers.js';
 
-export const CAT = Object.freeze({ steelCost: 50, steelCap: 150, steelCharge: 1, steelCooldown: 5,
+export const CAT = Object.freeze({ steelCost: 50, steelCap: 150, steelCharge: 1, steelCooldown: 10,
   concordCost: 30, concordLowCost: 20, concordDuration: 10,
   armour: 'enemy_10027_vtsk', echo: 'enemy_9023_acdums', pipe: 'enemy_9021_acduml_2', string: 'enemy_9022_acdumm',
   helm: 'enemy_9013_acstmk_2', gun: 'enemy_9017_achunt_2', shieldKey: 'catastrophe:steelShield' });
@@ -101,7 +101,7 @@ function armourImmune(b, u, helm) {
   b.addBuff(u, { key: 'catastrophe:armourImmunity', persist: true, visible: true, flags: { noDisplace: true } });
 }
 
-function finishSteel(b, helm, tpl, summonMods, snapshot) {
+function finishSteel(b, helm, tpl, summonMods, snapshot, grantImmunity) {
   const rows = (tpl?.spawns || []).filter(s => s.key === CAT.armour);
   const n = b.players.length > 1 ? 2 : 1;
   const routes = [];
@@ -111,13 +111,13 @@ function finishSteel(b, helm, tpl, summonMods, snapshot) {
   }
   const perSide = snapshot >= 100 ? 2 : 1;
   for (const route of routes.slice(0, n)) for (let i = 0; i < perSide; i++) b.spawnEnemy(CAT.armour, { route, mods: summonMods(b) });
-  const add = helm.s.maxHp * (snapshot >= CAT.steelCap ? .02 : .01), cap = helm.s.maxHp * .04;
+  const add = helm.s.maxHp * (snapshot >= CAT.steelCap ? .02 : .01), cap = helm.s.maxHp * .02;
   for (const u of b.enemies) {
     if (!u.alive) continue;
     const old = u.findBuff(CAT.shieldKey);
     b.addBuff(u, { key: CAT.shieldKey, shield: Math.min(cap, (old?.shield || 0) + add),
       persist: true, visible: true, data: { numericShieldCapExempt: true } });
-    if (u.defId === CAT.armour) armourImmune(b, u, helm);
+    if (grantImmunity && u.defId === CAT.armour) armourImmune(b, u, helm);
   }
   b.fx('summon', { x: helm.x, y: helm.y, id: helm.id, key: CAT.armour, n: Math.min(n, routes.length) * perSide });
 }
@@ -128,6 +128,7 @@ function trySteel(b, e, tpl, summonMods) {
   // Lower than each ready authored skill, higher than an ordinary attack.
   if (e.mem.ab.list.some(a => a.fire && a.left <= b.dt + 1e-9 && (!a.cond || a.cond(b, e, a)))) return;
   const snapshot = st.sp;
+  const grantImmunity = e.hpRatio < .2;
   st.snapshot = snapshot;
   st.sp = 0;
   st.charging = true;
@@ -137,7 +138,7 @@ function trySteel(b, e, tpl, summonMods) {
   b.fx('telegraph', { x: e.x, y: e.y, id: e.id, r: 3, dur: CAT.steelCharge, kind: 'catastropheSteel' });
   b.after(CAT.steelCharge, () => {
     if (!e.alive) return;
-    finishSteel(b, e, tpl, summonMods, snapshot);
+    finishSteel(b, e, tpl, summonMods, snapshot, grantImmunity);
     st.charging = false;
     st.readyAt = b.time + CAT.steelCooldown;
     channel(b, e, false);

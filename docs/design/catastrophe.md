@@ -5,6 +5,7 @@ Full specification: [第二次确认稿](../catastrophe-second-confirmed-2026101
 the [first confirmation](../catastrophe-confirmed-20261017.md).
 Implementation and validation: [第二次实施记录](../catastrophe-second-revision-20261017.md).
 The 2026-10-18 [Helm revision](../catastrophe-helm-20261018.md) supersedes Steel Flood's SP spending, barrier amounts and armor recoil.
+Its [follow-up](../catastrophe-helm-followup-20261018.md) further revises the barrier cap, cooldown and immunity eligibility.
 
 ## 34. 天灾 — maintainer-defined difficulty
 
@@ -53,10 +54,11 @@ Below 20% HP its former 50% Physical/Arts guard is replaced by 80% Physical/Arts
 HP loss bypasses it. The difficulty Physical/Arts multiplier still applies separately.
 
 Steel Flood starts at 0 defensive SP, stores up to 150 and requires at least 50 to cast.
-Starting a cast snapshots the current SP, then clears ALL SP; enhancement uses that pre-clear snapshot.
+Starting a cast snapshots the current SP and whether Helm is strictly below 20% Max HP, then clears ALL SP.
+SP enhancement and armor-immunity eligibility both use those cast-start snapshots.
 Each independent positive HP damage instance gives 1 SP; absorbed hits,
 element gauge and HP loss do not. It has lower priority than ready original skills and higher priority than ordinary
-attacks. The 1s charge stops ordinary attacks/other skills and SP gain. A 5s cooldown starts at completion;
+attacks. The 1s charge stops ordinary attacks/other skills and SP gain. A 10s cooldown starts at completion;
 SP still accumulates during that cooldown. The next cast clears all SP again; no remainder funds further casts.
 
 | Pre-clear SP | Solo armors | Paired armors | Barrier per recipient, % Helm Max HP |
@@ -66,9 +68,12 @@ SP still accumulates during that cooldown. The next cast clears all SP again; no
 | 150 | 2 | 4, two per side | 2% |
 
 Completion uses the original armor spawn points/routes. All living enemies, including existing reinforcements and
-new armors, receive the barrier. This source caps at 4% per recipient, independently of other barrier caps/sources;
+new armors, receive the barrier. This source caps at 2% per recipient, independently of other barrier caps/sources;
 it lasts until consumed/end of battle.
-All living armors gain stun, freeze, sleep, bind, silence, fear, levitate and displacement immunity for the battle.
+Only a cast started strictly below 20% Helm Max HP grants all living armors (including its new summons) stun, freeze,
+sleep, bind, silence, fear, levitate and displacement immunity at completion, lasting for the battle. Exactly 20% does
+not qualify; dropping below the threshold during charge does not qualify for that cast. Healing during charge does
+not cancel a qualifying snapshot, and later healing/high-HP casts never remove immunity already granted.
 Cold, elemental buildup/bursts and stat debuffs still work. Every armor's true kill removes 1% of Helm's
 Max HP exactly once; leaks do not. This fixed pool share bypasses the ordinary leader hit cap, like the original
 drone-link pool loss, so the percentage remains effective on large co-op pools. Preset, summoned and not-yet-enhanced

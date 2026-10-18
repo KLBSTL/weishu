@@ -25,10 +25,15 @@ export function catastropheProbe(b, kind) {
     step(34);
     const shield = helm.findBuff('catastrophe:steelShield').shield;
     const cast1 = [st.sp, st.snapshot, st.casts, st.charging, shield];
+    const firstImmunity = b.enemies.filter(e => e.defId === ids.armour && e.alive).map(e => !!e.findBuff('catastrophe:armourImmunity'));
     b.removeBuff(helm, 'catastrophe:steelShield');
     for (let i = 0; i < 70; i++) b.dealDamage(null, helm, { type: 'true', amount: 1 });
-    step(181);
+    step(290); const cooldownCasts = st.casts;
+    b.sharedBoss.hp = b.sharedBoss.maxHp * .19; step(10);
+    b.sharedBoss.hp = b.sharedBoss.maxHp * .4; step(34);
     mechanics = { cast1, sp: st.sp, snapshot: st.snapshot, casts: st.casts,
+      cooldownCasts, firstImmunity,
+      allImmune: b.enemies.filter(e => e.defId === ids.armour && e.alive).every(e => !!e.findBuff('catastrophe:armourImmunity')),
       armours: b.enemies.filter(e => e.defId === ids.armour && e.alive).length };
   } else {
     const pipe = spawn(ids.pipe, 'boss'), string = spawn(ids.string); quiet(pipe); quiet(string);

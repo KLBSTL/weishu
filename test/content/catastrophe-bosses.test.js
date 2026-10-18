@@ -51,6 +51,7 @@ test('钢铁洪流: starts at 0; shielded hits and HP loss give no SP, 50 indepe
 test('钢铁洪流: pair routes, independent shield cap, armour status immunity and kill-only once-per-armour recoil', () => {
   const h = arena({ hp: 1e6, tpl: 'act1autochess_h08_01', players: [{ playerId: 'p1' }, { playerId: 'p2' }] });
   const e = put(h, CAT.helm, { tag: 'boss' }); quiet(e);
+  h.b.sharedBoss.hp = h.b.sharedBoss.maxHp * .19; h.run(.3);
   h.b.addBuff(e, { key: 'other', shield: 77777 });
   const reinforcement = put(h, 'enemy_1422_lrsldr', { pos: [3, 12] }); quiet(reinforcement);
   const st = e.mem.catastropheSteel;
@@ -58,17 +59,17 @@ test('钢铁洪流: pair routes, independent shield cap, armour status immunity 
     const previous = new Map(h.enemies().map(u => [u, u.findBuff(CAT.shieldKey)?.shield ?? 0]));
     st.sp = sp; h.step(); h.run(1.1);
     for (const u of h.enemies()) near(u.findBuff(CAT.shieldKey).shield,
-      Math.min(e.s.maxHp * .04, (previous.get(u) ?? 0) + e.s.maxHp * (sp === 150 ? .02 : .01)));
+      Math.min(e.s.maxHp * .02, (previous.get(u) ?? 0) + e.s.maxHp * (sp === 150 ? .02 : .01)));
     if (sp === 50) {
       h.b.dealDamage(null, reinforcement, { type: 'true', amount: 2500 });
       near(reinforcement.findBuff(CAT.shieldKey).shield, 7500);
     }
-    h.run(5);
+    h.run(10);
   }
   const army = h.enemies().filter(u => u.defId === CAT.armour);
   assert.equal(army.length, 14);
   assert.equal(new Set(army.map(u => u.route.legs.at(-1).c)).size, 2);
-  near(e.findBuff(CAT.shieldKey).shield, 40000);
+  near(e.findBuff(CAT.shieldKey).shield, 20000);
   near(e.findBuff('other').shield, 77777);
   const a = army[0];
   for (const status of ['stun', 'freeze', 'sleep', 'bind', 'silence', 'fear', 'levitate']) {
@@ -88,6 +89,30 @@ test('钢铁洪流: pair routes, independent shield cap, armour status immunity 
   h.b.kill(a); near(before - h.b.sharedBoss.hp, e.s.maxHp * .01);
   assert.equal(h.b.errors.length, 0);
 });
+
+for (const [startHp, endHp, immune] of [[.19, .19, true], [.2, .2, false], [.21, .21, false], [.21, .19, false], [.19, .4, true]]) {
+  test(`钢铁洪流: immunity snapshots HP ${startHp} -> ${endHp} during charge, and persists after recovery`, () => {
+    const h = arena({ hp: 1e6, tpl: 'act1autochess_h08_01_s' }), helm = put(h, CAT.helm, { tag: 'boss' }); quiet(helm);
+    const preset = put(h, CAT.armour, { pos: [5, 12] }); quiet(preset);
+    h.b.sharedBoss.hp = h.b.sharedBoss.maxHp * startHp; h.step();
+    const st = helm.mem.catastropheSteel; st.sp = 50; h.step();
+    assert.equal(st.charging, true);
+    h.b.sharedBoss.hp = h.b.sharedBoss.maxHp * endHp; h.run(1.1);
+    const first = h.enemies().filter(u => u.defId === CAT.armour);
+    assert.equal(first.length, 2);
+    for (const u of first) assert.equal(!!u.findBuff('catastrophe:armourImmunity'), immune);
+    assert.equal(h.b.applyStatus(preset, 'stun', { duration: .1, force: true }), !immune);
+
+    h.b.sharedBoss.hp = h.b.sharedBoss.maxHp * .5; h.run(10);
+    st.sp = 50; h.step(); h.run(1.1);
+    for (const u of first) assert.equal(!!u.findBuff('catastrophe:armourImmunity'), immune, 'old immunity survives recovery and high-HP casts');
+    const fresh = h.enemies().filter(u => u.defId === CAT.armour && !first.includes(u));
+    assert.equal(fresh.length, 1);
+    assert.equal(fresh[0].findBuff('catastrophe:armourImmunity'), null, 'high-HP summons receive no new immunity');
+    assert.equal(h.b.applyStatus(fresh[0], 'stun', { duration: .1, force: true }), true);
+    assert.deepEqual(h.b.errors, []);
+  });
+}
 
 test('skill priority: Steel waits for ready original skills; Concord prevents ready original skills', () => {
   const h = arena({ tpl: 'act1autochess_h08_01_s' }), helm = put(h, CAT.helm, { tag: 'boss' }); quiet(helm);
@@ -299,13 +324,13 @@ for (const pair of [false, true]) for (const sp of [49, 50, 99, 100, 149, 150]) 
     if (pair) for (const col of [3, 17]) assert.equal(army.filter(e => e.route.legs.at(-1).c === col).length, sp >= 100 ? 2 : 1);
     near(helm.findBuff(CAT.shieldKey).shield, helm.s.maxHp * (sp === 150 ? .02 : .01));
     const readyAt = st.readyAt;
-    assert.ok(readyAt > h.b.time + 4.8);
+    assert.ok(readyAt > h.b.time + 9.8);
     h.b.removeBuff(helm, CAT.shieldKey);
     for (let i = 0; i < 200; i++) h.b.dealDamage(null, helm, { type: 'true', amount: 1 });
-    near(st.sp, 150); h.run(4.8); assert.equal(st.casts, 1);
+    near(st.sp, 150); h.run(9.8); assert.equal(st.casts, 1);
     h.run(.3); assert.equal(st.casts, 2); assert.ok(h.b.time >= readyAt);
     near(st.sp, 0);
-    h.run(6.2); assert.equal(st.casts, 2); near(st.sp, 0);
+    h.run(11.2); assert.equal(st.casts, 2); near(st.sp, 0);
     assert.deepEqual(h.b.errors, []);
   });
 }

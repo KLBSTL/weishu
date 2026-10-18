@@ -42,6 +42,8 @@ test('Catastrophe v2: Chromium/Node storage, cooldown, half-HP queue and synchro
         assert.equal(actual.mechanics.cast1[0], 0); assert.equal(actual.mechanics.cast1[4], 20000);
         assert.equal(actual.mechanics.casts, 2); assert.equal(actual.mechanics.armours, 3);
         assert.equal(actual.mechanics.sp, 0); assert.equal(actual.mechanics.snapshot, 70);
+        assert.equal(actual.mechanics.cooldownCasts, 1); assert.deepEqual(actual.mechanics.firstImmunity, [false, false]);
+        assert.equal(actual.mechanics.allImmune, true);
       }
       else if (kind === 'concord') { assert.equal(actual.mechanics.expelledImmediately, true); assert.equal(actual.mechanics.queued, true);
         assert.equal(actual.mechanics.free, true); assert.equal(actual.mechanics.sp, 13); }
