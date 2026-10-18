@@ -4,6 +4,7 @@ Part of [DESIGN.md](../DESIGN.md). Maintainer-confirmed revision, 2026-10-17.
 Full specification: [第二次确认稿](../catastrophe-second-confirmed-20261017.md), superseding corresponding parts of
 the [first confirmation](../catastrophe-confirmed-20261017.md).
 Implementation and validation: [第二次实施记录](../catastrophe-second-revision-20261017.md).
+The 2026-10-18 [Helm revision](../catastrophe-helm-20261018.md) supersedes Steel Flood's SP spending, barrier amounts and armor recoil.
 
 ## 34. 天灾 — maintainer-defined difficulty
 
@@ -51,23 +52,24 @@ tide schedule is invented. See the [three moved golden cases](../catastrophe-sec
 Below 20% HP its former 50% Physical/Arts guard is replaced by 80% Physical/Arts/True/Elemental HP damage reduction;
 HP loss bypasses it. The difficulty Physical/Arts multiplier still applies separately.
 
-Steel Flood starts at 0 defensive SP, stores up to 150 and consumes exactly 50 per cast, retaining the remainder.
+Steel Flood starts at 0 defensive SP, stores up to 150 and requires at least 50 to cast.
+Starting a cast snapshots the current SP, then clears ALL SP; enhancement uses that pre-clear snapshot.
 Each independent positive HP damage instance gives 1 SP; absorbed hits,
 element gauge and HP loss do not. It has lower priority than ready original skills and higher priority than ordinary
 attacks. The 1s charge stops ordinary attacks/other skills and SP gain. A 5s cooldown starts at completion;
-SP still accumulates during that cooldown. The enhancement uses a snapshot taken BEFORE subtracting the cost.
+SP still accumulates during that cooldown. The next cast clears all SP again; no remainder funds further casts.
 
-| Pre-cost SP | Solo armors | Paired armors | Barrier per recipient, % Helm Max HP |
+| Pre-clear SP | Solo armors | Paired armors | Barrier per recipient, % Helm Max HP |
 |---|---:|---:|---:|
 | 50–99 | 1 | 2, one per side | 1% |
 | 100–149 | 2 | 4, two per side | 1% |
-| 150 | 2 | 4, two per side | 5% |
+| 150 | 2 | 4, two per side | 2% |
 
 Completion uses the original armor spawn points/routes. All living enemies, including existing reinforcements and
-new armors, receive the barrier. This source caps at 10% per recipient, independently of other barrier caps/sources;
+new armors, receive the barrier. This source caps at 4% per recipient, independently of other barrier caps/sources;
 it lasts until consumed/end of battle.
 All living armors gain stun, freeze, sleep, bind, silence, fear, levitate and displacement immunity for the battle.
-Cold, elemental buildup/bursts and stat debuffs still work. Every armor's true kill removes 0.5% of Helm's
+Cold, elemental buildup/bursts and stat debuffs still work. Every armor's true kill removes 1% of Helm's
 Max HP exactly once; leaks do not. This fixed pool share bypasses the ordinary leader hit cap, like the original
 drone-link pool loss, so the percentage remains effective on large co-op pools. Preset, summoned and not-yet-enhanced
 armors all count.

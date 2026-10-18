@@ -38,7 +38,11 @@ test('Catastrophe v2: Chromium/Node storage, cooldown, half-HP queue and synchro
         return probe(S.createBattleFromSpec(spec, ds, { quiet: true }), kind);
       }, spec, catastropheProbe.toString(), kind);
       assert.deepEqual(actual, expected, kind);
-      if (kind === 'steel') { assert.equal(actual.mechanics.casts, 2); assert.equal(actual.mechanics.armours, 4); }
+      if (kind === 'steel') {
+        assert.equal(actual.mechanics.cast1[0], 0); assert.equal(actual.mechanics.cast1[4], 20000);
+        assert.equal(actual.mechanics.casts, 2); assert.equal(actual.mechanics.armours, 3);
+        assert.equal(actual.mechanics.sp, 0); assert.equal(actual.mechanics.snapshot, 70);
+      }
       else if (kind === 'concord') { assert.equal(actual.mechanics.expelledImmediately, true); assert.equal(actual.mechanics.queued, true);
         assert.equal(actual.mechanics.free, true); assert.equal(actual.mechanics.sp, 13); }
       else { assert.equal(actual.mechanics.walls, 0); assert.ok(actual.mechanics.wetFrames > 0); }

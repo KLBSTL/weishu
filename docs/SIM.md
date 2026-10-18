@@ -1560,6 +1560,13 @@ window — `push` / `pull`; a wall-shortened slide keeps its row time, a wall at
 platforms/mounds are ground obstacles that elevate operators; the generic kit maps 凋亡 to `apoptosis` (侵蚀 has no element key
 yet — enemy content must pick one); 抵抗 covers the control statuses of `RESIST_STATUSES` (the official term lists 晕眩/寒冷/
 冻结/恐惧/诱导…, the rest follow the operator kits that grant it) and caps at 0.95; tactical points prefer enemy path tiles.
+# Local Catastrophe Helm revision (2026-10-18)
+
+`content/catastrophe.js` snapshots Steel Flood SP before clearing the whole pool. The 50/100/150 thresholds keep
+their summon tiers; barriers add 1%/1%/2% Helm Max HP and cap remaining shield at 4%, independently per source.
+Armor kills use uncapped HP loss for exactly 1% Helm Max HP once. Low-HP guard, charge and cooldown remain unchanged.
+Rules and focused validation: [Helm revision](catastrophe-helm-20261018.md).
+
 # Local Sarkaz extension
 
 2026-10-17: `content/enemies/ultimate.js` implements the added Firepower/Breakthrough/Summon enemies;

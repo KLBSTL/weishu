@@ -1,4 +1,4 @@
-// The maintainer's confirmed 2026-10-17 Hidden Core abilities. Pure, deterministic, shared by both runners.
+// The maintainer's confirmed Hidden Core abilities (Helm revised 2026-10-18). Shared by both runners.
 import { isCatastropheHiddenBattle } from '../../../shared/difficulty.js';
 import { applyHpLoss, isHpLoss, makeDamageInfo } from '../damage.js';
 import { canCast } from './enemies/helpers.js';
@@ -111,7 +111,7 @@ function finishSteel(b, helm, tpl, summonMods, snapshot) {
   }
   const perSide = snapshot >= 100 ? 2 : 1;
   for (const route of routes.slice(0, n)) for (let i = 0; i < perSide; i++) b.spawnEnemy(CAT.armour, { route, mods: summonMods(b) });
-  const add = helm.s.maxHp * (snapshot >= CAT.steelCap ? .05 : .01), cap = helm.s.maxHp * .1;
+  const add = helm.s.maxHp * (snapshot >= CAT.steelCap ? .02 : .01), cap = helm.s.maxHp * .04;
   for (const u of b.enemies) {
     if (!u.alive) continue;
     const old = u.findBuff(CAT.shieldKey);
@@ -129,7 +129,7 @@ function trySteel(b, e, tpl, summonMods) {
   if (e.mem.ab.list.some(a => a.fire && a.left <= b.dt + 1e-9 && (!a.cond || a.cond(b, e, a)))) return;
   const snapshot = st.sp;
   st.snapshot = snapshot;
-  st.sp -= CAT.steelCost;
+  st.sp = 0;
   st.charging = true;
   st.casts++;
   channel(b, e, true);
@@ -208,7 +208,7 @@ export function installCatastropheBosses(b) {
     if (helm && c.reason === 'killed' && !u.mem.catastropheArmourPaid) {
       u.mem.catastropheArmourPaid = true;
       // Like the existing drone-link pool share, a fixed pool percentage must not be cancelled at large co-op HP.
-      b.loseHp(helm, helm.s.maxHp * .005, { source: c.killer, noHitLimit: true, tags: ['catastropheSteel'] });
+      b.loseHp(helm, helm.s.maxHp * .01, { source: c.killer, noHitLimit: true, tags: ['catastropheSteel'] });
     }
     const st = stateOf(b);
     if (u.defId === CAT.echo && c.reason === 'killed' && st.charging) {
