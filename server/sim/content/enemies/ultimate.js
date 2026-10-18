@@ -6,12 +6,12 @@ import { hypot } from '../../detmath.js';
 
 const mortar = () => [splashAttack({ unblocked: false, tiles: 1, noAir: true })];
 const rpg = ab => [{
-  before(c,b,e,a) { e.profile.atkScale = a.fired ? (T(ab,'Combat.attack@atk_scale') ?? 2) : 1; },
+  before(c,b,e,a) { e.profile.atkScale = a.fired ? 1 : (T(ab,'Combat.attack@atk_scale') ?? 2); },
   hitOut(c,b,e,a) {
     if (a.fired || !c.dmg.isAttack) return;
     a.fired = true;
     for (const u of areaAlliesInTiles(b,e,c.target.tileR,c.target.tileC,'box',1)) {
-      if (u !== c.target && !u.isFlying) hurt(b,e,u,e.s.atk,'phys');
+      if (u !== c.target && !u.isFlying) hurt(b,e,u,e.s.atk*(T(ab,'Combat.attack@atk_scale') ?? 2),'phys');
     }
     e.profile.attack = 'melee'; e.profile.rangeRadius = 0; e.base.rangeRadius = 0;
     b.addBuff(e,{key:'ab:rpg:run',mods:{moveMul:1+(T(ab,'MoveSpeedUp.move_speed') ?? 2)},persist:true});

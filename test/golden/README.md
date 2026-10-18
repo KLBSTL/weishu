@@ -97,3 +97,7 @@ lists moved scenarios and new Clement coverage. Paused local AI changes are excl
 Catastrophe R12 advanced bounties (2026-10-17): 294 scenarios verified with published AI; 51 roster and 11 stand-in
 scenarios move because nine new enemies enter the sorted mixed-enemy allocation. Other families are unchanged.
 Every moved case is listed in [the audit](../../docs/r12-bounty-golden-audit.md).
+
+Anti-Armor Infantry damage fix (2026-10-18): enumerate all 294 cases and recompute the 11 cases that contain RPG
+enemies or may draw them in Ultimate matches. Seven digests move; four stay unchanged. The other 283 are retained
+without rerunning. [Scenario audit](../../docs/rpg-damage-golden-20261018.md) lists every moved id and reason.
