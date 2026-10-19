@@ -11,6 +11,7 @@ import { unitInfo } from '../snapshot.js';
 import { normalizeRoute, normalizeEnemy } from '../simdata.js';
 import { fin } from './util.js';
 import { catastropheHpMul, catastropheSpeedMul } from '../../../shared/difficulty.js';
+import { ultimateBalance } from '../../../shared/ultimateBalance.js';
 
 const FALLBACK_ENEMY = Object.freeze({
   type: 'enemy', id: 'enemy_unknown', key: 'enemy_unknown', name: '未知敌人', rank: 'NORMAL', maxHp: 2000, atk: 200, def: 100, res: 0,
@@ -113,6 +114,9 @@ export class BattleSpawns {
     const mm = (v, pos = false) => { const n = fin(v, 1); return n < 0 || (pos && n <= 0) ? 1 : n; };
     const m0 = opts.mods || {};
     const m = { hpMul: mm(m0.hpMul, true), atkMul: mm(m0.atkMul), defMul: mm(m0.defMul), resMul: mm(m0.resMul), speedMul: mm(m0.speedMul) };
+    const balance = ultimateBalance(this, enemyKey, m0);
+    m.hpMul *= balance.hp;
+    m.atkMul *= balance.atk;
     // Keep e.mods unscaled: split children and boss summons inherit them and apply this rule once on their own spawn.
     m.hpMul *= catastropheHpMul(this);
     m.speedMul *= catastropheSpeedMul(this);
@@ -130,6 +134,7 @@ export class BattleSpawns {
     e.blockWeight = def.blockCnt ?? 1;
     e.hitArea = def.hitArea ?? null;   // 巨型单位 hit rectangle (body.js); null = a point
     e.lpr = def.lpr;
+    if (balance.freeLeak) e.lpr = 0;
     if (m0.bountyLpr === 1) e.lpr = 1;
     e.mods = opts.mods ?? null;
     e.tag = opts.tag ?? null;

@@ -101,3 +101,6 @@ Every moved case is listed in [the audit](../../docs/r12-bounty-golden-audit.md)
 Anti-Armor Infantry damage fix (2026-10-18): enumerate all 294 cases and recompute the 11 cases that contain RPG
 enemies or may draw them in Ultimate matches. Seven digests move; four stay unchanged. The other 283 are retained
 without rerunning. [Scenario audit](../../docs/rpg-damage-golden-20261018.md) lists every moved id and reason.
+
+Ultimate three-type balance (2026-10-19): recompute/verify 38 relevant Ultimate battles/matches; 9 move and 29 stay
+unchanged. Other 256 scenarios are retained without rerunning. [Full moved-id audit](../../docs/ultimate-balance-golden-20261019.md).

@@ -10,6 +10,7 @@ import { FieldRunner, timelineAt, uniteBillBounds } from '../fields.js';
 import { uniteLeft } from '../../sim/spec.js';
 import { FLOW_TICKER_PRIORITY, DELAYS } from './common.js';
 import { msg } from '../../../shared/i18n.js';
+import { chargeableLeak } from '../../../shared/ultimateBalance.js';
 
 export class MatchUnite {
   startUnite(plan) {
@@ -119,10 +120,10 @@ export class MatchUnite {
     else if (f && f.battle && f.battle.finished) { try { res = f.battle.result(); } catch { res = null; } }
     if (res && res.synthetic) {
       const own = this.lastResults.get(pid);
-      return own && Array.isArray(own.leaked) ? own.leaked.filter((l) => l && l.counted !== false).length : 0;
+      return own && Array.isArray(own.leaked) ? own.leaked.filter(chargeableLeak).length : 0;
     }
     if (res) return uniteSurvivors(plan, res).get(pid) || 0;
-    const sent = plan.leaked.filter((l) => l.sourcePlayerId === pid).length;
+    const sent = plan.leaked.filter((l) => l.sourcePlayerId === pid && chargeableLeak(l)).length;
     let live = null;
     if (f && f.cc) {
       if (f.mode === 'server' && f.timeline) {

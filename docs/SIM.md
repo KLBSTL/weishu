@@ -1,5 +1,11 @@
 # SIM.md — battle simulation engine reference (server/sim)
 
+2026-10-19: `shared/ultimateBalance.js` applies source-scoped Firepower ATK×0.9 and Breakthrough ghost HP×0.8 at spawn.
+`mods.ultimateType` / `mods.ultimateRound` retain original round multipliers through summons/unite, avoiding double scaling.
+Scoped fireballs have zero LP cost, including normal settlement, live pending-LP, co-op survivors and unspawned re-entries;
+leak/perfect and kill statistics retain their original meanings. Client validation restores trusted provenance.
+Rules and necessary checks: [three-type balance](ultimate-balance-20261019.md).
+
 R12 advanced leaders use `content/enemies/advanced-bounty.js`; their KO/phase changes reuse `reborn()` and do not award kills.
 `mods.bountyLpr: 1` overrides objective loss only for the selected target; children strip that override and the bounty.
 `mem.nonPrimary` enemies do not hold auto-clear open (the delayed weeping thorn); their delayed spawn is not a pending objective.

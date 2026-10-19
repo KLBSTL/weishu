@@ -314,7 +314,7 @@ test('bosses, factions, tokens and choices resolve', () => {
   assert.equal(Object.values(bosses).filter((b) => b.hidden).length, 3);
 
   assert.equal(Object.values(factions.entries).filter(e=>!e.entryId).length, 67);
-  assert.equal(Object.keys(factions.entries).length, 101);
+  assert.equal(Object.keys(factions.entries).length, 103);
   for (const e of Object.values(factions.entries)) {
     assert.equal(typeof e.fly, 'boolean', `faction ${e.key}: fly`);
     assert.ok(!('kS' in e), `faction ${e.key}: no k copies (research 08 §7-1)`);

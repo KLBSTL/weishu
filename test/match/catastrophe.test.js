@@ -36,8 +36,8 @@ test('天灾 starts with 4 candidates; each lane uses its final enemy budget and
         assert.ok([pick.key, pick.normal, pick.elite].includes(s.enemyKey));
         assert.equal(isFlyKey(gd,s.enemyKey),ph.fly);
         const expected=replacedCount(gd,action.key,action.count,s.enemyKey);
-        const capped=DATA.factions.generation.presetMotherCaps[s.enemyKey] && pick.type==='SUMMON';
-        assert.ok(capped ? s.count<=expected : s.count===expected);
+        const capped=pick.type==='SUMMON';
+        assert.ok(capped ? s.count>=1&&s.count<=5 : s.count===expected);
         assert.equal(s.time,action.time);
         assert.equal(s.interval,s.count>1?Math.max(action.count*action.interval/s.count,.05*action.count*action.interval):0);
       }

@@ -22,10 +22,10 @@ const GROUPS = {
   ],
   BREAKTHROUGH: [
     ['1',1,4,'ghost','shell','shell',10], ['2',2,4,'shell','ghost','shell',10],
-    ['3',4,7,'shell','ursus','bully',10], ['4',6,7,'shell','ursus','boar',8],
+    ['3a',4,5,'shell','ursus','shell',10], ['3b',6,7,'shell','ursus','bully',10], ['4',6,7,'shell','ursus','boar',8],
     ['5',6,7,'witch','witch','witch',8], ['6',7,7,'shell','wood','bully',6],
     ['7a',8,10,'ghost2','shell','wood',10], ['7b',11,13,'shell','ursus2','wood',10],
-    ['8',8,13,'shell','ursus2','bully2',10], ['9a',8,9,'ghost2','ursus2','boar',8],
+    ['8a',8,9,'shell','ursus2','bully',10], ['8b',10,13,'shell','ursus2','bully2',10], ['9a',8,9,'ghost2','ursus2','boar',8],
     ['9b',10,10,'ghost2','ursus2','boar2',8], ['9c',11,13,'shell','ursus2','boar2',8],
     ['10a',8,10,'ghost2','ghost2','witch2',8], ['10b',11,13,'witch','witch','witch2',8],
   ],
@@ -67,12 +67,15 @@ export function finishUltimateEnemies(files) {
     factions.generation.typeSlots[type] = 3;
   }
   factions.generation.presetMotherCaps = {
-    enemy_1133_harchn: [[6,7,1],[8,10,2],[11,13,3]],
-    enemy_1133_harchn_2: [[6,7,1],[8,10,2],[11,13,3]],
-    enemy_10049_pcaptn: [[6,7,1],[8,10,2],[11,13,3]],
-    enemy_10049_pcaptn_2: [[6,7,1],[8,10,2],[11,13,3]],
-    enemy_1321_wdarft: [[8,11,1],[12,13,2]], enemy_1321_wdarft_2: [[8,11,1],[12,13,2]],
+    enemy_1133_harchn: [[6,7,2],[8,10,3],[11,13,4]],
+    enemy_1133_harchn_2: [[6,7,2],[8,10,3],[11,13,4]],
+    enemy_10049_pcaptn: [[6,7,2],[8,10,3],[11,13,4]],
+    enemy_10049_pcaptn_2: [[6,7,2],[8,10,3],[11,13,4]],
+    enemy_1321_wdarft: [[8,11,2],[12,13,3]], enemy_1321_wdarft_2: [[8,11,2],[12,13,3]],
   };
+  factions.generation.summonBudget = { motherBatchMul: 2, childPowerMul: .75,
+    mothers: [K.puppet,K.spider,K.spider2,K.giant,K.giant2,K.captain,K.captain2,K.apostle,K.apostle2],
+    families: { [K.giant2]: K.giant, [K.captain2]: K.captain, [K.apostle2]: K.apostle } };
   for (const id of ['char_4132_ascln','char_4231_clemnt']) backups.diy.operators[id].bonds = ['emptyShip'];
   backups.diy.operators.char_4037_demetr.bonds = ['siracusaShip'];
 }

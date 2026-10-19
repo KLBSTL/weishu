@@ -6,6 +6,7 @@
 import { FORCED_EXIT, MAX_BATTLE_TIME } from '../constants.js';
 import { extensionStats } from '../../../shared/combatStats.js';
 import { typhonUsage } from '../../../shared/typhonUsage.js';
+import { freeFireball } from '../../../shared/ultimateBalance.js';
 import { updateAlly, updateEnemy } from '../ai.js';
 
 export class BattleLifecycle {
@@ -174,7 +175,8 @@ export class BattleLifecycle {
         const pp = this._pp(p.ownerPlayerId ?? this._ownerForTile(p.pos ?? this._routeFor(p.routeIndex, p.route)?.start));
         if (pp) pp.total--;
       }
-      this.unspawned.push({ enemyKey: p.enemyKey, time: p.time, tag: p.tag ?? null, sourcePlayerId: p.sourcePlayerId ?? null });
+      this.unspawned.push({ enemyKey: p.enemyKey, time: p.time, tag: p.tag ?? null, sourcePlayerId: p.sourcePlayerId ?? null,
+        ...(freeFireball(p.enemyKey,p.mods) ? { mods: p.mods } : {}) });
     }
     this._pending = [];
     this._finish('timeout');

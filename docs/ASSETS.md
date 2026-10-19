@@ -1,5 +1,11 @@
 # Assets: sources, layout, manifest, credits
 
+2026-10-19 supplied icons: power armor and force-field equipment use the user's original 1254px RGBA PNGs;
+Ferdinand uses the supplied holographic JPG. Ordinary/elite items share the appropriate icon. New dated URLs avoid
+stale caches. `tools/assets/custom-icons.mjs` is the canonical three-entry map used by the full asset plan; running
+`node tools/assets/custom-icons.mjs` refreshes those manifest entries/hash offline without changing other assets.
+Original credits remain. Sources, alpha checks and validation: [implementation record](ultimate-balance-20261019.md).
+
 Local Sarkaz extension: `tools/assets/plan.mjs` maps the original covenant SVG to `/icons/sarkaz.svg`, includes the new formal operators from the chess data and uses Wisadel's `token_10035_wisdel_wward_game_9` animation variant. All downloaded art remains in ignored `public/assets`; optional unrelated token gaps are reported in `.cache/assets-report.json`.
 
 Owner: `tools/fetch-assets.mjs` and `tools/assets/*`. Research background: `docs/research/07-assets.md`.

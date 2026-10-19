@@ -37,6 +37,7 @@ import { typhonUsage } from '../../shared/typhonUsage.js';
 import { layerGainRoom } from '../../shared/constants.js';
 import { uniteLeft } from '../sim/spec.js';
 import { diyTokenOwner } from '../../shared/diy.js';
+import { freeFireball } from '../../shared/ultimateBalance.js';
 
 export const MAX_TICKS_PER_INTERVAL = 8;
 export const INTERVAL_MS = 1000 / 30;
@@ -832,7 +833,7 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
           // split / summon, than the enemies that leaker sent in can leave behind
           if (!takeSource(key, sourcePlayerId) && !takeDerived(key, sourcePlayerId)) return bad('leak source');
         } else if (sourcePlayerId !== pid && !B.players.has(sourcePlayerId)) sourcePlayerId = pid;
-        const lpr = finiteIn(l.lpr, 0, 1000) ? l.lpr : 1;
+        const lpr = freeFireball(key,mods) ? 0 : finiteIn(l.lpr, 0, 1000) ? l.lpr : 1;
         const e = { enemyKey: key, mods, lpr, sourcePlayerId, tag: src ? (src.tag ?? null) : (typeof l.tag === 'string' ? l.tag : null), counted, spawned: true };
         if (l.boss) e.boss = true;
         leaked.push(e);
@@ -918,7 +919,9 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         if (!u || typeof u.enemyKey !== 'string' || !B.keyCounts.has(u.enemyKey)) return bad('unspawned');
         const src = typeof u.sourcePlayerId === 'string' && B.sources.has(u.sourcePlayerId) ? u.sourcePlayerId : null;
         if (!takeSource(u.enemyKey, src)) return bad('unspawned source');
-        unspawned.push({ enemyKey: u.enemyKey, sourcePlayerId: src, tag: typeof u.tag === 'string' ? u.tag : null, time: Number(u.time) || 0 });
+        const origin = (spec.spawns || []).find(s => s.enemyKey === u.enemyKey && s.sourcePlayerId === src && sameMods(s.mods,u.mods));
+        unspawned.push({ enemyKey: u.enemyKey, sourcePlayerId: src, tag: typeof u.tag === 'string' ? u.tag : null, time: Number(u.time) || 0,
+          ...(origin && freeFireball(origin.enemyKey,origin.mods) ? { mods: { ...origin.mods } } : {}) });
       }
       if (unspawned.length > B.spawnCount) return bad('unspawned');
       if (unspawned.length) result.unspawned = unspawned;

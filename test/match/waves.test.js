@@ -118,8 +118,10 @@ test('normal waves: one pick per round, per-action counts 1–5, the other movem
         for (const [i, a] of tpl.spawns.entries()) {
           if (a.action || !PLACEHOLDERS.has(a.key)) continue;
           const sameClass = DATA.factions.generation.placeholders[a.key].fly === pick.fly;
-          assert.equal(w.spawns.some((s) => s.actionIndex === i), sameClass, `R${r} action ${i} (${a.slot})`);
-          assert.equal(w.actions.find((x) => x.index === i).valid, sameClass);
+          const action = w.actions.find((x) => x.index === i);
+          const expected = sameClass && (pick.type !== 'SUMMON' || action.count > 0);
+          assert.equal(w.spawns.some((s) => s.actionIndex === i), expected, `R${r} action ${i} (${a.slot})`);
+          assert.equal(action.valid, expected);
         }
         assert.equal(w.entries[pick.fly ? 'fly' : 'ground'].key, pick.key);
         assert.equal(w.entries[pick.fly ? 'ground' : 'fly'], null);

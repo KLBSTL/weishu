@@ -25,6 +25,7 @@ import { RAW, joinUrl, safeName, urlBase, urlDir } from './sources.mjs';
 import { kindOf } from './formats.mjs';
 import { pickUnitSfx, UI_SFX, BATTLE_SFX, resolveSpec, indexVoice, VOICE_DIRS, VOICE_BATTLE_SLOTS } from './audio.mjs';
 import { literal } from './manifest.mjs';
+import { CUSTOM_ICONS } from './custom-icons.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 
 /**
@@ -524,13 +525,12 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     bonds[bondId] = leaf(alt(`bond/${bondId}.png`, b.icon?.url, b.icon?.bytes), b.fallbackCampLogo ? alt(`bond/${bondId}.png`, b.fallbackCampLogo) : null);
   }
   const items = {};
-  items['columbia-power-armor'] = literal('/assets/extensions/columbia-equipment/power-armor.png');
-  items['columbia-force-field'] = literal('/assets/extensions/columbia-equipment/force-field.png');
+  for (const [id,url] of Object.entries(CUSTOM_ICONS.items)) items[id] = literal(url);
   items['sarkaz_binding-bone'] = literal('/assets/extensions/sarkaz-equipment/binding-bone.png');
   items['sarkaz_revenant-remains'] = literal('/assets/extensions/sarkaz-equipment/revenant-remains.png');
   for (const [trapId, it] of Object.entries(assets07?.items || {})) items[trapId] = leaf(alt(`item/${trapId}.png`, it.icon?.url, it.icon?.bytes));
   const bands = {};
-  bands.band_ferdinand = literal('/icons/columbia.svg');
+  for (const [id,url] of Object.entries(CUSTOM_ICONS.bands)) bands[id] = literal(url);
   for (const [bandId, b] of Object.entries(assets07?.bands || {})) bands[bandId] = leaf(alt(`band/${bandId}.png`, b.icon?.url, b.icon?.bytes));
 
   // --- professions ----------------------------------------------------------

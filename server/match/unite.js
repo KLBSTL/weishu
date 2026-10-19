@@ -34,6 +34,7 @@
 // re-enter) — the same 10 cap as a normal round.
 
 import { buildUniteWave } from './waves.js';
+import { chargeableLeak, freeFireball } from '../../shared/ultimateBalance.js';
 import { layerGainRoom } from '../../shared/constants.js';
 
 /**
@@ -165,12 +166,12 @@ export function uniteSurvivors(plan, uniteResult) {
   const perPlayer = (uniteResult && uniteResult.perPlayer) || {};
   for (const pp of Object.values(perPlayer)) {
     for (const l of (pp && pp.leaked) || []) {
-      if (!l || l.counted === false || !l.sourcePlayerId) continue;
+      if (!chargeableLeak(l) || !l.sourcePlayerId) continue;
       out.set(l.sourcePlayerId, (out.get(l.sourcePlayerId) || 0) + 1);
     }
   }
   for (const u of (uniteResult && uniteResult.unspawned) || []) {
-    if (!u || !u.sourcePlayerId) continue;
+    if (!u || !u.sourcePlayerId || freeFireball(u.enemyKey,u.mods)) continue;
     out.set(u.sourcePlayerId, (out.get(u.sourcePlayerId) || 0) + 1);
   }
   return out;

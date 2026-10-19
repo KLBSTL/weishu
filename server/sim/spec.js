@@ -37,6 +37,7 @@ import { typhonUsage } from '../../shared/typhonUsage.js';
 import { toDataSource, withUnitLoadouts } from './simdata.js';
 import { isPotential, isCultivate } from '../../shared/potential.js';
 import { BOSS_POOL_MIN_HP } from './constants.js';
+import { chargeableLeak, freeFireball } from '../../shared/ultimateBalance.js';
 
 export const SPEC_VERSION = 1;
 
@@ -262,14 +263,14 @@ export function uniteLeft(battle) {
   if (battle.finished && typeof battle.result === 'function') {
     const r = battle.result();
     if (!r || !r.perPlayer) return null;
-    for (const pp of Object.values(r.perPlayer)) for (const l of (pp && pp.leaked) || []) if (l && l.counted !== false) add(l.sourcePlayerId);
-    for (const u of r.unspawned || []) if (u) add(u.sourcePlayerId);
+    for (const pp of Object.values(r.perPlayer)) for (const l of (pp && pp.leaked) || []) if (chargeableLeak(l)) add(l.sourcePlayerId);
+    for (const u of r.unspawned || []) if (u && !freeFireball(u.enemyKey,u.mods)) add(u.sourcePlayerId);
     return out;
   }
   if (!battle._perPlayer || !Array.isArray(battle._pending) || !Array.isArray(battle.enemies)) return null;
-  for (const p of battle._pending) if (p) add(p.sourcePlayerId);
-  for (const e of battle.enemies) if (e && e.alive && e.counted) add(e.sourcePlayerId ?? e.ownerId);
-  for (const pp of Object.values(battle._perPlayer)) for (const l of (pp && pp.leaked) || []) if (l && l.counted !== false) add(l.sourcePlayerId);
+  for (const p of battle._pending) if (p && !freeFireball(p.enemyKey,p.mods)) add(p.sourcePlayerId);
+  for (const e of battle.enemies) if (e && e.alive && e.counted && !freeFireball(e.defId,e.mods)) add(e.sourcePlayerId ?? e.ownerId);
+  for (const pp of Object.values(battle._perPlayer)) for (const l of (pp && pp.leaked) || []) if (chargeableLeak(l)) add(l.sourcePlayerId);
   return out;
 }
 
@@ -285,7 +286,7 @@ export function battleProgress(battle) {
   const r = battle && typeof battle.result === 'function' && battle.finished ? battle.result() : null;
   let leaks = 0;
   const pp = battle && battle._perPlayer ? battle._perPlayer : (r && r.perPlayer) || {};
-  for (const k of Object.keys(pp)) for (const l of pp[k].leaked || []) if (l && l.counted !== false) leaks++;
+  for (const k of Object.keys(pp)) for (const l of pp[k].leaked || []) if (chargeableLeak(l)) leaks++;
   const pool = battle && battle.sharedBoss;
   const gt = Number(battle && battle.time) || 0;
   const total = Math.max(0, Math.trunc(Number(battle && battle.total) || 0));
@@ -434,6 +435,7 @@ export function compactResult(res) {
     out.unspawned = cap(r.unspawned, 400).filter((u) => u && isKey(u.enemyKey)).map((u) => ({
       enemyKey: u.enemyKey, sourcePlayerId: keyOr(u.sourcePlayerId), tag: typeof u.tag === 'string' && u.tag.length <= 16 ? u.tag : null,
       time: Math.max(0, Math.min(1e6, fnum(u.time))),
+      ...(freeFireball(u.enemyKey,u.mods) ? { mods: compactMods(u.mods) } : {}),
     }));
   }
   return out;
@@ -456,7 +458,9 @@ export function fitResult(result, { bossLike = false, budget = RESULT_FRAME_BUDG
   const r = { ...result, perPlayer: {} };
   for (const [pid, p] of Object.entries(result.perPlayer || {})) r.perPlayer[pid] = { ...p, unitStats: [] };
   if (size(r) <= budget) return r;
-  for (const p of Object.values(r.perPlayer)) p.leaked = (p.leaked || []).map((l) => ({ ...l, mods: null }));
+  // Free-fireball provenance affects LP and must survive frame compaction, including mixed bounty/caster fields.
+  for (const p of Object.values(r.perPlayer)) p.leaked = (p.leaked || []).map((l) => ({ ...l,
+    mods: freeFireball(l.enemyKey,l.mods) ? l.mods : null }));
   if (size(r) <= budget || !bossLike) return r;
   for (const p of Object.values(r.perPlayer)) p.leaked = [];
   if (Array.isArray(r.unspawned)) r.unspawned = [];

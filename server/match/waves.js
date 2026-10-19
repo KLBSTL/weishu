@@ -37,6 +37,7 @@
 
 import { createRng, deriveSeed } from '../sim/rng.js';
 import { isCatastropheMode } from '../../shared/difficulty.js';
+import { ultimateRound } from '../../shared/ultimateBalance.js';
 
 const ACLOON = 'enemy_9012_acloon';
 const DEFAULT_PLACEHOLDERS = Object.freeze({
@@ -326,7 +327,6 @@ function templateSpawns(gd, tpl, round, pick, lanePicks = null) {
   const leader = isLeaderTemplate(tpl);
   const spawns = [];
   const actions = [];
-  const selectedByAction = new Map();
   const list = Array.isArray(tpl.spawns) ? tpl.spawns : [];
   for (let i = 0; i < list.length; i++) {
     const s = list[i];
@@ -346,7 +346,6 @@ function templateSpawns(gd, tpl, round, pick, lanePicks = null) {
     let step = interval;
     const p = !isBoss && !isPart ? ph[key0] : null;
     const selected = lanePicks?.[gateOf(routes[routeIndex]?.start, false)] ?? pick;
-    selectedByAction.set(i, selected);
     if (p && selected) {
       const newKey = p.cls === 'special' ? selected.key : p.cls === 'elite' ? selected.elite : selected.normal;
       if (typeof newKey === 'string' && gd.enemy(newKey)) {
@@ -372,7 +371,9 @@ function templateSpawns(gd, tpl, round, pick, lanePicks = null) {
       // enemy_exclude = enemy_9012_acloon): leader parts take them all; the leader takes ATK / speed but not HP — its HP
       // is the server pool, "领袖单位于服务器的生命值加成不受上述加成影响" (PRTS 下半). `supplyHpMul` (roundMods) rides along for
       // the 器物 hit-count units, which 补给线 / 补给线II leave out (archetypes.js `times`; also a 频次 enemy's death spawn)
-      mods: isBoss ? { atkMul: scale.atkMul, speedMul: scale.speedMul, slot } : { ...roundMods(scale), slot },
+      mods: isBoss ? { atkMul: scale.atkMul, speedMul: scale.speedMul, slot } : { ...roundMods(scale), slot,
+        ...(p && selected?.entryId && !leader && ultimateRound(round) && ['ABYSS','CATASTROPHE'].includes(gd.mode.difficulty)
+          ? { ultimateType: selected.type, ultimateRound: round } : {}) },
       actionIndex: i,
       preview: previewInfo(gd, key, routes[routeIndex], isBoss, leader),
     };
@@ -383,28 +384,50 @@ function templateSpawns(gd, tpl, round, pick, lanePicks = null) {
     // bounty is inserted into (the others spawn locally on their own timing)
     actions.push({ index: i, key, tplKey: key0, slot: s.slot ?? null, time, count, tplCount: n, window, routeIndex, valid: true, server: !isBoss && !s.group });
   }
-  // A per-field preset limit, in actual spawn order. Runtime children are deliberately not counted here.
-  const used = new Map();
-  for (const s of spawns.slice().sort((a,b) => a.time - b.time || a.actionIndex - b.actionIndex)) {
-    const selected = selectedByAction.get(s.actionIndex);
-    if (!selected?.entryId || selected.type !== 'SUMMON') continue;
-    const rule = gen(gd).presetMotherCaps?.[s.enemyKey]?.find(([lo,hi]) => round >= lo && round <= hi);
-    if (!rule) continue;
+  if (!leader && ultimateRound(round)) allocateSummonBudget(gd, spawns, actions, round);
+  return { spawns: spawns.filter(s => s.count > 0), actions };
+}
+
+// Each valid original action contributes once to its route/group pool. Mothers share family caps across the field.
+function allocateSummonBudget(gd, spawns, actions, round) {
+  const cfg = gen(gd).summonBudget;
+  if (!cfg) return;
+  const mothers = new Set(cfg.mothers), pools = new Map(), used = new Map();
+  const power = key => Math.fround(attrPower(gd,key) / beFactor(gd,key));
+  const ordered = [];
+  for (const s of spawns) {
+    if (s.mods?.ultimateType !== 'SUMMON') continue;
     const action = actions.find(a => a.index === s.actionIndex);
-    const remaining = rule[2] - (used.get(s.enemyKey) || 0);
-    if (remaining > 0) {
-      s.count = Math.min(s.count, remaining);
-      used.set(s.enemyKey, (used.get(s.enemyKey) || 0) + s.count);
-    } else {
-      s.enemyKey = selected.normal;
-      s.count = replacedCount(gd, action.tplKey, action.tplCount, s.enemyKey);
-      s.preview = previewInfo(gd, s.enemyKey, routes[s.routeIndex], false, leader);
-    }
-    s.interval = s.count > 1 ? Math.max(action.window / s.count, MIN_ACTION_INTERVAL_RATIO * action.window) : 0;
-    action.key = s.enemyKey;
-    action.count = s.count;
+    const budget = Math.fround(Math.fround(action.tplCount * attrPower(gd,action.tplKey)) / beFactor(gd,action.tplKey));
+    const id = s.routeIndex;
+    let pool = pools.get(id);
+    if (!pool) { pool = { remaining: 0, children: [] }; pools.set(id,pool); }
+    pool.remaining += budget;
+    const row = { s, action, pool, budget };
+    if (mothers.has(s.enemyKey)) ordered.push(row); else pool.children.push(row);
   }
-  return { spawns, actions };
+  for (const {s,pool} of ordered.sort((a,b) => a.s.time - b.s.time || a.s.actionIndex - b.s.actionIndex)) {
+    const key = s.enemyKey, price = power(key);
+    const rule = gen(gd).presetMotherCaps?.[key]?.find(([lo,hi]) => round >= lo && round <= hi);
+    const family = cfg.families?.[key] ?? key, left = rule ? Math.max(0,rule[2] - (used.get(family) || 0)) : Infinity;
+    s.count = Math.min(5, s.count * (rule ? cfg.motherBatchMul : 1), left, price > 0 ? Math.floor(pool.remaining / price) : 0);
+    pool.remaining -= s.count * price;
+    used.set(family,(used.get(family) || 0) + s.count);
+  }
+  for (const pool of pools.values()) {
+    const weight = pool.children.reduce((sum,row) => sum + row.budget,0), remaining = pool.remaining;
+    for (const row of pool.children) {
+      const price = Math.fround(power(row.s.enemyKey) * cfg.childPowerMul);
+      const share = weight > 0 ? remaining * row.budget / weight : 0;
+      row.s.count = price > 0 ? Math.min(5,Math.floor(share / price),Math.floor(pool.remaining / price)) : 0;
+      pool.remaining -= row.s.count * price;
+    }
+  }
+  for (const s of spawns) if (s.mods?.ultimateType === 'SUMMON') {
+    const a = actions.find(x => x.index === s.actionIndex);
+    s.interval = s.count > 1 ? Math.max(a.window / s.count,MIN_ACTION_INTERVAL_RATIO * a.window) : 0;
+    a.count = s.count; a.valid = s.count > 0; if (!a.valid) a.server = false;
+  }
 }
 
 function entriesView(gd, pick) {
