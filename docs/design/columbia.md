@@ -1,6 +1,6 @@
 # DESIGN §29 — 哥伦比亚与招募池调整（本地分支）
 
-Part of [DESIGN.md](../DESIGN.md). 当前规则来自用户2026-10-13提供的《哥伦比亚 (1).docx》，替代此前经济与装备方案。实施前草案、源文档摘要及解释见[第二版方案](../columbia-docx-v2-update.md)，[前一版记录](../columbia-docx-update.md)保留为历史。生成入口 `tools/columbia-data.mjs`，作战入口 `server/sim/content/bonds/columbia.js`。
+Part of [DESIGN.md](../DESIGN.md). 当前规则来自用户2026-10-13提供的《哥伦比亚 (1).docx》，替代此前经济与装备方案。实施前草案、源文档摘要及解释见[第二版方案](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/columbia-docx-v2-update.md)，[前一版记录](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/columbia-docx-update.md)保留为历史。生成入口 `tools/columbia-data.mjs`，作战入口 `server/sim/content/bonds/columbia.js`。
 
 ## 29. 哥伦比亚与招募池调整
 

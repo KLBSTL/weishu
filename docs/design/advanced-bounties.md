@@ -2,7 +2,7 @@
 
 Part of [DESIGN.md](../DESIGN.md).
 
-2026-10-17，用户确认稿及等概率补充。实施与验证见[草案](../catastrophe-r12-bounty-draft.md)。
+2026-10-17，用户确认稿及等概率补充。实施与验证见[草案](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-r12-bounty-draft.md)。
 
 ## 36. 天灾第12回合高级首领悬赏
 

@@ -14,9 +14,9 @@ Versions: the first public release was **0.1.0** (2026-10-02, the state of §0�
 
 Local selectable map: [Relay lab and map selection](design/relay-map.md) (§31), compact two-lane terrain with healing runes and active originium, including paired boss fields.
 
-Local visual migration: [implementation history](history/weishu-visual-migration.md), [sources, draft and validation](visual-restoration-migration-draft.md); the current 3D scene contract is in [client rules](design/client.md).
-Follow-up scene surfaces: [normal, metallic/smoothness and emission implementation](material-restoration-draft.md).
-Formal operator appearances: [skin/action expansion and roster](remaining-skins-draft.md), restricted to the current non-DIY chess roster; Base models are preview-only.
+Local visual migration: [implementation history](history/weishu-visual-migration.md), [sources, draft and validation](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/visual-restoration-migration-draft.md); the current 3D scene contract is in [client rules](design/client.md).
+Follow-up scene surfaces: [normal, metallic/smoothness and emission implementation](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/material-restoration-draft.md).
+Formal operator appearances: [skin/action expansion and roster](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/remaining-skins-draft.md), restricted to the current non-DIY chess roster; Base models are preview-only.
 
 Local fan expansion: [Sarkaz rules](design/sarkaz.md) defines the user-approved nine-operator roster, 3/6-member covenant, per-round traits and combat statistics. These explicit deviations apply to this working copy.
 

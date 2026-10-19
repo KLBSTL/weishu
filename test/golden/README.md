@@ -1,23 +1,23 @@
 # Golden results
 
 Catastrophe second confirmation (2026-10-17): publication keeps the already-published AI and rebuilds all
-293 golden scenarios. The [publication audit](../../docs/catastrophe-second-release-golden.md) lists every moved case;
-the [local implementation audit](../../docs/catastrophe-second-golden.md) is separately labeled against the paused local AI.
+293 golden scenarios. The [publication audit](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-second-release-golden.md) lists every moved case;
+the [local implementation audit](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-second-golden.md) is separately labeled against the paused local AI.
 Dedicated boundary tests and Chromium/Node parity cover the new Catastrophe mechanics.
 
 Catastrophe confirmation / Victoria restoration (2026-10-17): the published corpus has 293 scenarios
 (51 roster, 50 bonds, 25 fields, 18 matches, 11 stand-ins, 138 DIY). Compared with the prior GitHub main,
 141 existing scenarios intentionally change, three roster groups are added, none removed; all DIY results stay unchanged.
-[Publication scenario audit](../../docs/catastrophe-release-golden.md) names every change. Golden JSON is rebuilt
+[Publication scenario audit](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-release-golden.md) names every change. Golden JSON is rebuilt
 with the already-published AI; paused local layer/Boss AI optimizations are excluded. Dedicated tests cover the
 new Catastrophe mechanics, since the original corpus contains no Catastrophe scenarios. All 293 rechecked.
 
 Visual migration (2026-10-15): roster-042 and standin-04 intentionally change for half-to-even hit tiles;
-[scenario audit](../../docs/visual-migration-golden.md). The previously published AI and match digests are preserved.
+[scenario audit](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/visual-migration-golden.md). The previously published AI and match digests are preserved.
 
 Current weishu corpus (2026-10-13): 48 roster, 50 bonds, 25 fields, 18 matches, 11 stand-ins and 138 DIY scenarios,
 290 total. The Columbia second DOCX and AI update recomputed all six families: 40 changed, no additions/removals,
-all stand-in and DIY digests unchanged. [Full current audit](../../docs/columbia-v2-ai-golden.md) names every changed case and its reason;
+all stand-in and DIY digests unchanged. [Full current audit](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/columbia-v2-ai-golden.md) names every changed case and its reason;
 the older counts and release notes below are retained as history.
 
 The simulation is deterministic: the same seed and inputs give the same battle and the same match, bit for bit. These
@@ -56,17 +56,17 @@ battles of the normal records, the first 自选 battle of the operator kits and 
 
 ## Workflow
 
-Columbia transaction revision: [scenario audit](../../docs/columbia-trade-golden.md) lists the five changed complete-match scenarios; all other 285 scenarios stay unchanged relative to the relay-map baseline.
+Columbia transaction revision: [scenario audit](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/columbia-trade-golden.md) lists the five changed complete-match scenarios; all other 285 scenarios stay unchanged relative to the relay-map baseline.
 
 Relay map extension: the four dedicated `relay-*` scenarios cover normal, solo/paired boss and unite fields.
 Manual-only maps are excluded from the original stage rotation so existing baselines remain comparable.
 Rules and scenario names: [relay map](../../docs/design/relay-map.md).
 
-Latest Typhon allowance and bond-tag update: [scenario audit](../../docs/typhon-independent-golden.md), compared with 04cc838.
+Latest Typhon allowance and bond-tag update: [scenario audit](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/typhon-independent-golden.md), compared with 04cc838.
 
-Latest numeric-only Columbia update: [scenario audit](../../docs/columbia-numeric-golden.md), compared with fa3c798.
+Latest numeric-only Columbia update: [scenario audit](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/columbia-numeric-golden.md), compared with fa3c798.
 
-Local Sarkaz and Columbia expansion: the corpus currently has 47 roster, 50 bond, 22 field, 18 match, 11 stand-in and 138 DIY scenarios (286 total). Revised traits, equipment and shop priority intentionally change combat and recruitment outcomes. All 138 DIY baselines remain unchanged. The extra stand-in case carries full SP to exercise reserve guard S2 independently of its survival in regrouped teams; the stand-in match marks all NORMAL entries unowned. [Equipment and covenant audit](../../docs/sarkaz-equipment-golden.md) lists every baseline move and its reason; [Columbia scenario audit](../../docs/columbia-golden.md) and [earlier Sarkaz audit](../../docs/sarkaz-golden.md) are retained as history.
+Local Sarkaz and Columbia expansion: the corpus currently has 47 roster, 50 bond, 22 field, 18 match, 11 stand-in and 138 DIY scenarios (286 total). Revised traits, equipment and shop priority intentionally change combat and recruitment outcomes. All 138 DIY baselines remain unchanged. The extra stand-in case carries full SP to exercise reserve guard S2 independently of its survival in regrouped teams; the stand-in match marks all NORMAL entries unowned. [Equipment and covenant audit](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/sarkaz-equipment-golden.md) lists every baseline move and its reason; [Columbia scenario audit](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/columbia-golden.md) and [earlier Sarkaz audit](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/sarkaz-golden.md) are retained as history.
 
 ```sh
 GOLDEN_FULL=1 node --test test/golden.test.js   # the whole corpus (≈ 20 s with 4 worker threads)
@@ -91,16 +91,16 @@ node tools/golden.mjs --twice                   # determinism: the corpus twice 
   hook list is frozen in the tool and the corpus is regenerated only on `golden:update` — but new data records do join
   the corpus there (the roster family enumerates `data/chess.json`).
 
-Ultimate groups/DIY (2026-10-17): regenerate with the published AI; the [audit](../../docs/ultimate-three-release-golden.md)
+Ultimate groups/DIY (2026-10-17): regenerate with the published AI; the [audit](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/ultimate-three-release-golden.md)
 lists moved scenarios and new Clement coverage. Paused local AI changes are excluded.
 
 Catastrophe R12 advanced bounties (2026-10-17): 294 scenarios verified with published AI; 51 roster and 11 stand-in
 scenarios move because nine new enemies enter the sorted mixed-enemy allocation. Other families are unchanged.
-Every moved case is listed in [the audit](../../docs/r12-bounty-golden-audit.md).
+Every moved case is listed in [the audit](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/r12-bounty-golden-audit.md).
 
 Anti-Armor Infantry damage fix (2026-10-18): enumerate all 294 cases and recompute the 11 cases that contain RPG
 enemies or may draw them in Ultimate matches. Seven digests move; four stay unchanged. The other 283 are retained
-without rerunning. [Scenario audit](../../docs/rpg-damage-golden-20261018.md) lists every moved id and reason.
+without rerunning. [Scenario audit](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/rpg-damage-golden-20261018.md) lists every moved id and reason.
 
 Ultimate three-type balance (2026-10-19): recompute/verify 38 relevant Ultimate battles/matches; 9 move and 29 stay
-unchanged. Other 256 scenarios are retained without rerunning. [Full moved-id audit](../../docs/ultimate-balance-golden-20261019.md).
+unchanged. Other 256 scenarios are retained without rerunning. [Full moved-id audit](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/ultimate-balance-golden-20261019.md).

@@ -29,12 +29,14 @@ Copyright (C) 2026 Stronghold-Protocol contributors
 
 《明日方舟》及「卫戍协议」相关的全部**名称、角色、美术、Spine 模型、界面图、音乐音效、文本与游戏数据**，版权归上海鹰角网络科技有限公司及其授权方（Yostar 等）所有。具体包括：
 
-- 本分支仓库及Release完整包中的 `public/assets/**` 和 `public/fonts/**`（字体归各自作者）；从官方客户端本地提取的3D棋盘模型与贴图 `public/assets/local/**` 也适用同样声明，本分支仓库未附带这部分可选素材；
+- Release 完整包中的 `public/assets/**`（含皮肤、动作、棋盘场景及贴图）和 `public/fonts/**`（字体归各自作者）；可选客户端提取 `public/assets/local/**` 也适用同样声明。当前源码树不附这些素材，旧提交可能保留曾附带的版本；
 - 由官方数据表生成的 `data/*.json` 与 `data/i18n/*.json`（官方英文服文本），以及含有或派生自游戏数据的 `docs/research/*.json`、`test/fixtures/official-waves.json`、`public/dev/recordings/*.json`；
-- `docs/img/` 中的游戏截图；
+- 旧提交及文档中引用的游戏截图；
 - `docs/` 中引用的 PRTS、BWIKI、NGA、巴哈姆特等社区页面的文字（仍按其来源的许可，维基文本为 CC BY-NC-SA）。
 
 这些内容**不在 GPL-3.0 授权范围内**，本项目也无权就它们向任何人授予任何权利。
+
+维护者提供的扩展装备、分队等图片亦保留原有权利，不因存放于本项目而自动获得 GPL 许可。公开镜像与下载工具不构成权利人的授权。
 
 ## 3. 仅限非商业用途
 

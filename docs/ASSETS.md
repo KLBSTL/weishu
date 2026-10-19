@@ -4,7 +4,7 @@
 Ferdinand uses the supplied holographic JPG. Ordinary/elite items share the appropriate icon. New dated URLs avoid
 stale caches. `tools/assets/custom-icons.mjs` is the canonical three-entry map used by the full asset plan; running
 `node tools/assets/custom-icons.mjs` refreshes those manifest entries/hash offline without changing other assets.
-Original credits remain. Sources, alpha checks and validation: [implementation record](ultimate-balance-20261019.md).
+Original credits remain. Sources, alpha checks and validation: [implementation record](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/ultimate-balance-20261019.md).
 
 Local Sarkaz extension: `tools/assets/plan.mjs` maps the original covenant SVG to `/icons/sarkaz.svg`, includes the new formal operators from the chess data and uses Wisadel's `token_10035_wisdel_wward_game_9` animation variant. All downloaded art remains in ignored `public/assets`; optional unrelated token gaps are reported in `.cache/assets-report.json`.
 
@@ -27,7 +27,7 @@ pruning. Current full board art: 156 files, 56,000,708 bytes (up 6,680,233 bytes
 The fixed Android scene normals are RGB (ETC2_RGB / ASTC_6x6); N/M use linear sampling and emission uses sRGB.
 Data maps never pass through a lossy colour codec. Optional scene extraction also exports these maps losslessly;
 an unknown normal encoding is skipped with a diagnostic until an explicit decoder is supplied. Details, shader
-sources, assumptions and verification: [scene materials](material-restoration-draft.md).
+sources, assumptions and verification: [scene materials](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/material-restoration-draft.md).
 
 ## Selectable skins and actions in weishu
 
@@ -35,7 +35,7 @@ The current batch contains 194 additional battle skins for 126 formal operators 
 
 `tools/build-skins.mjs` validates PNG headers, atlas regions, skeleton parsing and animation lists, normalizes PMA and page sizes, generates the catalogue and updates the asset hash/counts. Validation failures and attempts to include non-formal characters leave the usable catalogue and manifest intact. A clone rebuilds with no arguments from the committed catalogue; maintainers may supply a downloaded report, cached official skin table and validation-report destination as arguments 1–3. `tools/fetch-assets.mjs` incorporates this catalogue and protects these files from orphan pruning. `chars[charId].skins` stores battle models and optional costume Base; `chars[charId].base` stores the default Base model (`catalogue.defaults`). A character whose default has no Back may use a single-direction costume through the existing Front fallback. `skinSource` records the pinned source, catalogue `scope` records the formal roster and `skinStats` counts all appearances, including default Base.
 
-Operator details and loadouts save skin selection and the action toggle locally by charId, shared by normal/elite forms. Front/Back models are used in battle, Base models only in the action preview. Default costumes now expose available Base actions too; the preview prefers an animated Idle/Relax over the zero-duration Default pose. Animation timestamps used by the simulation still come from the default model; skin choice does not change damage, hit timing or deterministic RNG. The out-of-game bond library opens the same current rules and member details without creating a match. [Initial batch](appearance-and-bond-library.md), [formal roster, draft and verification](remaining-skins-draft.md).
+Operator details and loadouts save skin selection and the action toggle locally by charId, shared by normal/elite forms. Front/Back models are used in battle, Base models only in the action preview. Default costumes now expose available Base actions too; the preview prefers an animated Idle/Relax over the zero-duration Default pose. Animation timestamps used by the simulation still come from the default model; skin choice does not change damage, hit timing or deterministic RNG. The out-of-game bond library opens the same current rules and member details without creating a match. [Initial batch](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/appearance-and-bond-library.md), [formal roster, draft and verification](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/remaining-skins-draft.md).
 
 ## Running
 

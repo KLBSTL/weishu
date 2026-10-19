@@ -1,11 +1,11 @@
 # DESIGN §34 — 天灾 difficulty
 
 Part of [DESIGN.md](../DESIGN.md). Maintainer-confirmed revision, 2026-10-17.
-Full specification: [第二次确认稿](../catastrophe-second-confirmed-20261017.md), superseding corresponding parts of
-the [first confirmation](../catastrophe-confirmed-20261017.md).
-Implementation and validation: [第二次实施记录](../catastrophe-second-revision-20261017.md).
-The 2026-10-18 [Helm revision](../catastrophe-helm-20261018.md) supersedes Steel Flood's SP spending, barrier amounts and armor recoil.
-Its [follow-up](../catastrophe-helm-followup-20261018.md) further revises the barrier cap, cooldown and immunity eligibility.
+Full specification: [第二次确认稿](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-second-confirmed-20261017.md), superseding corresponding parts of
+the [first confirmation](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-confirmed-20261017.md).
+Implementation and validation: [第二次实施记录](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-second-revision-20261017.md).
+The 2026-10-18 [Helm revision](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-helm-20261018.md) supersedes Steel Flood's SP spending, barrier amounts and armor recoil.
+Its [follow-up](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-helm-followup-20261018.md) further revises the barrier cap, cooldown and immunity eligibility.
 
 ## 34. 天灾 — maintainer-defined difficulty
 
@@ -46,7 +46,7 @@ The shared ground-path repair also prevents wall landings by ground children dro
 and makes the springs' 5s pursuit follow legal ground waypoints. `[ASSUMED]` an invalid child landing uses the nearest
 reachable ground centre, row-major ties. This path repair applies to every difficulty; Catastrophe ability changes
 remain Hidden Core-only. Existing fixed deep-water tiles keep their slowdown/damage and flight exemption; no periodic
-tide schedule is invented. See the [three moved golden cases](../catastrophe-second-golden.md).
+tide schedule is invented. See the [three moved golden cases](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-second-golden.md).
 
 ### 34.2 Hidden Helm — 钢铁洪流
 

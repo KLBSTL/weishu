@@ -60,7 +60,7 @@ SIM_E2E=1 node --test 'test/sim/*.browser.test.js'               # 浏览器里�
   “the owner's decision of YYYY-MM-DD”。有意和官方不同的规则只能由维护者决定，并写进设计文档（[docs/DESIGN.md](docs/DESIGN.md)
   是索引：现行规则在 `docs/design/`，各版本的修订与依据在 `docs/history/`）。
 - **版权**：不要把技能描述、剧情等受版权保护的文本大段复制进代码、文档或 PR，引一小句并注明出处即可。不要提交任何游戏
-  无关素材文件；本分支按维护者要求附带运行素材与生产依赖，范围见 [本分支说明](docs/LOCAL-EXPANSION.md)。
+  无关素材文件；本分支源码不跟踪运行素材或依赖，完整 Release 附带素材与生产依赖，范围见 [本分支说明](docs/LOCAL-EXPANSION.md)。
 - **数据**：不要手改 `data/*.json`。改 `tools/build-data.mjs`，用 `node tools/build-data.mjs --offline` 重新生成，再比较
   JSON，确认只变了想改的部分。
 
@@ -76,9 +76,9 @@ SIM_E2E=1 node --test 'test/sim/*.browser.test.js'               # 浏览器里�
   修订记录、docs/SIM.md、docs/META.md、docs/DATA.md 等。
   `test/docs-consistency.test.js` 固定了文档里的一些句子，改文档后跑一下。
 - 代码和注释用英文；玩家文档（README、PLAYING、DEPLOY）用简体中文，技术文档用英文。界面上的文字写中文并用 `t('…')`
-  包起来，英文放进 `public/i18n/en.json`（[docs/I18N.md](docs/I18N.md)）。
+  包起来，英文放进 `public/i18n/en.json`（[docs/I18N.md](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/I18N.md)）。
 - 翻译成新的语言：一个语言就是 `public/i18n/` 里的一个文件，不用改代码。`node tools/i18n.mjs template <语言代码>` 生成骨架，
-  翻译后用 `node tools/i18n.mjs check <语言代码>` 检查，步骤见 [docs/I18N.md](docs/I18N.md)「Adding a language」；语言包是
+  翻译后用 `node tools/i18n.mjs check <语言代码>` 检查，步骤见 [docs/I18N.md](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/I18N.md)「Adding a language」；语言包是
   内容包的第一种，格式见 [docs/PACKS.md](docs/PACKS.md)。
 - 提交的代码以 GPL-3.0-or-later 发布。本项目坚持非商业，请不要加入广告、付费、打赏等任何变现功能。
 

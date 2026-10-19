@@ -1,11 +1,13 @@
 # --- dependencies & generated client libs -------------------------------------------------------
-# Production packages are tracked deliberately in this fork; keep new development packages ignored.
+# Install from the lockfile; full Releases carry production dependencies.
 node_modules/
 # a local npm cache (npm_config_cache=./.npm-cache, npm ci --cache .npm-cache — GitHub #258)
 .npm-cache/
-# public/vendor is committed for clone-ready startup (refresh with npm run vendor).
+public/vendor/
 
-# --- this fork distributes downloaded game assets and fonts; preserve NOTICE.md -----------------
+# --- game assets ship in the full Release, not the source tree; preserve NOTICE.md --------------
+public/assets/
+public/fonts/
 # tools/local-extract/extract.py → public/assets/local/** and this per-machine manifest
 # (optional: the client and the tests work without it; docs/DEPLOY.md §6 lists what falls back)
 data/local-assets.json

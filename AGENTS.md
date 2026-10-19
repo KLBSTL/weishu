@@ -19,7 +19,7 @@ requirements, suggestions, verified evidence, unimplemented work and pending che
 authorization: research/draft-only requests stop at the draft; already-authorized implementation continues without
 repeated formal confirmation. Before publishing existing changes, check their draft, implementation record and tests.
 In the ark workspace also follow the parent `../AGENTS.md`. The current published draft and validation record is
-[the Columbia document update](docs/columbia-docx-update.md); keep future drafts accessible inside this repository.
+[the core release cleanup](docs/core-release-20261019.md); keep future drafts accessible inside this repository.
 
 1. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — the code map: where things live, data flow, golden results,
    import boundaries, where common changes start.
@@ -27,7 +27,7 @@ In the ark workspace also follow the parent `../AGENTS.md`. The current publishe
    revisions and their evidence in `docs/history/`.
 3. The reference for the part you touch: [docs/SIM.md](docs/SIM.md) (battle engine API, hooks, test harness),
    [docs/META.md](docs/META.md) (match flow, shop, protocol), [docs/DATA.md](docs/DATA.md) (generated data),
-   [docs/I18N.md](docs/I18N.md) (interface strings), `server/sim/content/kits/README.md` (operator kits).
+   [docs/I18N.md](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/I18N.md) (interface strings), `server/sim/content/kits/README.md` (operator kits).
 
 ## Hard rules
 
@@ -41,9 +41,9 @@ In the ark workspace also follow the parent `../AGENTS.md`. The current publishe
   `npm run golden:update` in the same commit, and the commit / PR names every moved scenario and why
   ([test/golden/README.md](test/golden/README.md)).
 - **Generated data.** Never hand-edit `data/*.json`: change `tools/build-data.mjs` and regenerate.
-- **Distribution in this fork.** The maintainer explicitly requested a clone-ready weishu repository: downloaded art,
-  fonts, browser vendors and production npm packages are committed. Preserve their licences; exclude development
-  dependencies, caches, machine settings and optional local-client extraction. See [docs/LOCAL-EXPANSION.md](docs/LOCAL-EXPANSION.md).
+- **Distribution in this fork.** As confirmed on 2026-10-19, the source tree excludes downloaded art, fonts,
+  browser vendors and npm packages. Full Releases carry current art and production packages with their licences.
+  Exclude development dependencies, caches and machine settings. See [docs/LOCAL-EXPANSION.md](docs/LOCAL-EXPANSION.md).
 - **Interface strings** go through `t('…')`, with entries in every pack under `public/i18n/`
   (`node tools/i18n.mjs check --all --strict`).
 - **Docs follow the code.** A rule change updates `docs/design/`, the current `docs/history/` file and the reference

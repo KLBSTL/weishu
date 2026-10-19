@@ -4,7 +4,7 @@
 `mods.ultimateType` / `mods.ultimateRound` retain original round multipliers through summons/unite, avoiding double scaling.
 Scoped fireballs have zero LP cost, including normal settlement, live pending-LP, co-op survivors and unspawned re-entries;
 leak/perfect and kill statistics retain their original meanings. Client validation restores trusted provenance.
-Rules and necessary checks: [three-type balance](ultimate-balance-20261019.md).
+Rules and necessary checks: [three-type balance](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/ultimate-balance-20261019.md).
 
 R12 advanced leaders use `content/enemies/advanced-bounty.js`; their KO/phase changes reuse `reborn()` and do not award kills.
 `mods.bountyLpr: 1` overrides objective loss only for the selected target; children strip that override and the bounty.
@@ -1573,7 +1573,7 @@ the whole pool. The 50/100/150 thresholds keep their summon tiers; barriers add 
 shield at 2%, independently per source. After the 1s charge, qualifying casts grant all living armors permanent immunity;
 subsequent HP changes never alter that cast's eligibility or remove existing immunity. Completion starts a 10s cooldown.
 Armor kills still use uncapped HP loss for exactly 1% Helm Max HP once. Low-HP guard remains unchanged.
-Rules and focused validation: [Helm follow-up](catastrophe-helm-followup-20261018.md).
+Rules and focused validation: [Helm follow-up](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-helm-followup-20261018.md).
 
 # Local Sarkaz extension
 

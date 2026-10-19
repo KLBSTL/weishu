@@ -1,6 +1,6 @@
 # DESIGN §35 — 终极三类敌人与场外自选
 
-Part of [DESIGN.md](../DESIGN.md). 2026-10-17 用户确认；[草案与验证记录](../ultimate-three-enemies-draft.md)。
+Part of [DESIGN.md](../DESIGN.md). 2026-10-17 用户确认；[草案与验证记录](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/ultimate-three-enemies-draft.md)。
 
 ## 35. Ultimate groups and field selection
 
@@ -61,7 +61,7 @@ Part of [DESIGN.md](../DESIGN.md). 2026-10-17 用户确认；[草案与验证记
 反装甲步兵与组长首发榴弹主目标、溅射均造成 200% 攻击力的物理伤害；后续近战为 100%。
 基础攻击力分别为 500、750，因此未计防御和回合倍率时，榴弹分别为 1,000、1,500，近战分别为 500、750。
 修正旧实现倍率颠倒和溅射少算的问题，保留已有移速增加 200% 与攻击切换流程。
-来源及验证：[修复记录](../rpg-damage-fix-20261018.md)。
+来源及验证：[修复记录](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/rpg-damage-fix-20261018.md)。
 
 ### 35.6 2026-10-19平衡调整
 
@@ -69,4 +69,4 @@ Part of [DESIGN.md](../DESIGN.md). 2026-10-17 用户确认；[草案与验证记
 本体仍正常扣血。伤害/灼燃机制与既有击杀、漏怪及完美统计口径保留。突破幽灵与幽灵组长初始/最大生命乘0.8。
 上述削弱不改计数战力，不影响其他类别、首领或悬赏中的同名敌人；来源标记经子体和联防保留。
 欺凌者最早R6（原突3在R4—5改染污躯壳），倾轧者最早R10（原突8在R8—9改欺凌者），N/E与权重不变。
-召唤预算与上限见§35.3。完整确认与验证：[实施记录](../ultimate-balance-20261019.md)。
+召唤预算与上限见§35.3。完整确认与验证：[实施记录](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/ultimate-balance-20261019.md)。
