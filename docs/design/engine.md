@@ -2,6 +2,8 @@
 
 Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 
+Spring counter correction (2026-10-21): the arts-shield spring counters only physical ordinary attacks, with sourceless physical additional damage retaining credit and counter tags. Erosion follows only successful damage. This prevents reciprocal reflection recursion; see [AI publication validation](../ai-stable-publication-20261021.md).
+
 ## 5. Simulation (server/sim) — engine contract
 
 ### 5.1 Battle API (implemented by the sim-core owner; consumed by match & content)

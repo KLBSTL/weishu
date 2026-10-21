@@ -2747,10 +2747,41 @@ test('“碎铳之簧” 法术护盾 (9018): barrier absorbs arts, physical ×0
   h.b.dealDamage(g, sp, { amount: 1000, type: 'arts' });
   assert.equal(sp.hp, sp.s.maxHp, 'absorbed by the barrier');
   const pool0 = h.b.sharedBoss.hp;
-  const dealt = h.b.dealDamage(g, sp, { amount: 10000, type: 'phys' });
+  const dealt = h.b.dealDamage(g, sp, { amount: 10000, type: 'phys', isAttack: true });
   approx(dealt, (10000 - sp.s.def) * tb('enemy_9018_actrpa', '1.damage_scale'));
   approx(pool0 - h.b.sharedBoss.hp, dealt * PART_TRANSFER);
   assert.ok(g.stats.taken > 0 && g.elem[EROSION] > 0, 'counter');
+});
+
+test('spring ordinary-physical shield returns sourceless damage with credit, never reflects skill additions or absorbed hits', () => {
+  const h=bossArena({units:[{chessId:'t_wall',row:12,col:3}],captureNoisy:true});h.step();
+  const u=h.unit('t_wall'),sp=put(h,'enemy_9018_actrpa',[3,10],{tag:'part'});sp.profile.noAttack=true;
+  const initial=u.stats.taken;
+  approx(h.b.dealDamage(u,sp,{amount:10000,type:'phys',isSkill:true}),10000-sp.s.def);
+  assert.equal(u.stats.taken,initial,'skill addition is not an ordinary attack');
+  h.b.addBuff(u,{key:'test:flight',flags:{liftoff:true}});
+  h.b.dealDamage(u,sp,{amount:1000,type:'phys',isAttack:true});
+  const hit=h.hooksOf('damaged').find(c=>c.target===u&&c.dmg.tags.includes('springCounter'));
+  assert.ok(hit);assert.equal(hit.source,null);assert.equal(hit.credit,sp);assert.equal(hit.dmg.sourceless,true);
+  assert.ok(u.elem[EROSION]>0);assert.ok(sp.stats.damage>0||u.stats.taken>initial);
+  const gauge=u.elem[EROSION];h.b.addBuff(u,{key:'test:absorb',shield:1e7});
+  h.b.dealDamage(u,sp,{amount:1000,type:'phys',isAttack:true});
+  assert.equal(u.elem[EROSION],gauge,'no erosion when returned damage does not land');
+  assert.equal(h.b.errors.length,0);
+});
+
+test('real elite Bubble and an arts-shield spring cannot recurse through their counters',()=>{
+  const h=makeBattle({kind:'hidden',sharedBoss:pool(1e6),autoFinish:false,captureNoisy:true,
+    units:[{chessId:'chess_char_2_08_b',row:10,col:5,carryState:{sp:999}}]});h.step();
+  const u=h.unit('chess_char_2_08_b'),sp=put(h,'enemy_9018_actrpa',[10,5],{tag:'part'});sp.profile.noAttack=true;
+  h.run(5);u.skill.activate('test',{free:true});assert.ok(u.skill.active);
+  const taken=u.stats.taken,spTaken=sp.stats.taken;
+  h.b.dealDamage(sp,u,{amount:1000,type:'phys',isAttack:true,canDodge:false});
+  assert.ok(u.stats.taken>taken);assert.ok(sp.stats.taken>spTaken,'Bubble still counters an actual enemy hit');
+  const returns=h.hooksOf('damaged').filter(c=>c.dmg.type==='phys'&&c.dmg.tags.includes('springCounter'));
+  h.b.dealDamage(u,sp,{amount:1000,type:'phys',isAttack:true});
+  assert.equal(h.hooksOf('damaged').filter(c=>c.dmg.type==='phys'&&c.dmg.tags.includes('springCounter')).length,returns.length+1);
+  assert.equal(h.b.errors.length,0);checkInvariants(h.b);
 });
 
 test('“碎铳之簧” 元素护盾 (9019): phys/arts ×0.1 until its own element burst breaks the shield; every (spCost+1)-th attack adds a bouncing erosion shot', () => {

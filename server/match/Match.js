@@ -177,6 +177,9 @@ import { Battle } from '../sim/Battle.js';
 import { DataSource } from '../sim/simdata.js';
 import { createRng, deriveSeed } from '../sim/rng.js';
 import { GameData } from './gamedata.js';
+import { validatePrepModel } from './botValueModel.js';
+import {validateTeamModel} from './botTeamModel.js';
+import {STABLE_BOT_PROFILE} from './botPolicy.js';
 import { RealScheduler } from './scheduler.js';
 import { SharedPool, drawDisabledBonds } from './pool.js';
 import { PlayerState } from './PlayerState.js';
@@ -202,7 +205,7 @@ import { MatchSettle } from './match/settle.js';
 
 export { FLOW_TICKER_PRIORITY, DELAYS, BAND_TURN_SECONDS } from './match/common.js';
 
-const BOT_REHEARSAL_DEFAULT = 3;
+const BOT_REHEARSAL_DEFAULT = STABLE_BOT_PROFILE.rehearsal;
 /** Wall-clock ms of bot layout rehearsal per scheduler callback (real time; virtual time runs it in one go). */
 const BOT_SLICE_MS = 8;
 const env = (k) => (typeof process !== 'undefined' && process.env ? process.env[k] : undefined);
@@ -256,6 +259,19 @@ export class Match {
     this.gameSpeed = Number.isFinite(opts.combatSpeed) && opts.combatSpeed > 0 ? Math.min(opts.combatSpeed, 200) : GAME_SPEED;
     /** layouts a bot rehearses per prep with the real simulation (bot.js; 0 = heuristic placement only) */
     this.botRehearsal = Number.isInteger(opts.botRehearsal) && opts.botRehearsal >= 0 ? Math.min(opts.botRehearsal, 8) : BOT_REHEARSAL_DEFAULT;
+    /** Experimental multi-step PREP planner; the tested heuristic remains the default. */
+    this.botPlanner = ['beam','team'].includes(opts.botPlanner) ? opts.botPlanner : STABLE_BOT_PROFILE.planner;
+    this.botProfile = this.botPlanner === STABLE_BOT_PROFILE.planner ? STABLE_BOT_PROFILE.id : `experimental-${this.botPlanner}`;
+    if(this.botPlanner==='team') {
+      const error=validateTeamModel(opts.botTeamModel,this.gd);
+      if(error)throw new TypeError(error);
+      this.botTeamModel=structuredClone(opts.botTeamModel);
+    }
+    if (opts.botPlannerModel) {
+      const error = validatePrepModel(opts.botPlannerModel, this.gd);
+      if (error) throw new TypeError(error);
+      this.botPlannerWeights = [...opts.botPlannerModel.weights];
+    }
     /** wall-clock budget of one rehearsal slice (scheduleBotPrep) */
     this.botSliceMs = Number.isFinite(opts.botSliceMs) && opts.botSliceMs > 0 ? opts.botSliceMs : this.sched.virtual ? Infinity : BOT_SLICE_MS;
     this.ds = dataSourceFor(this.data);

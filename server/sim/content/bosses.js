@@ -691,12 +691,18 @@ function kitSpring(ab, e) {
           if (ty === 'arts') {
             P.barrier -= absorbArts(c, P.barrier);
             if (P.barrier <= 1e-6) { P.barrier = 0; drop(b); }
-          } else if (ty === 'phys') {
+          } else if (ty === 'phys' && c.dmg.isAttack) {
             c.dmg.mul *= scale;
             // the counter "对来源造成…无来源物理附加伤害" picks its attacker directly — no selection, so an airborne 起飞
             // attacker takes it too (PRTS 异常效果 无法选择: "'直接选中'的能力…不受这些仅在选择时生效的异常效果制约")
-            const s = c.source, o = { ignoreSelect: true, tags: ['springCounter'] };
-            if (s && s.side === 'ally' && s.alive) { hurt(b, e2, s, e2.s.atk * (T(ab, '1.atk_scale') ?? 0), 'phys', o); elem(b, e2, s, 'erosion', e2.s.atk * (T(ab, '1.ep_damage_ratio') ?? 0), o); }
+            const s = c.source, o = { ignoreSelect: true, tags: ['springCounter', 'counter'] };
+            // PRTS 未竟的祷祝: physical ordinary damage only; the return is sourceless additional damage,
+            // with erosion only after successfully dealing damage. Credit is retained without a reflectable source.
+            if (s && s.side === 'ally' && s.alive) {
+              const dealt = b.dealDamage(e2, s, { amount: e2.s.atk * (T(ab, '1.atk_scale') ?? 0), type: 'phys',
+                canDodge: false, isSkill: true, sourceless: true, ...o });
+              if (dealt > 0) elem(b, e2, s, 'erosion', e2.s.atk * (T(ab, '1.ep_damage_ratio') ?? 0), o);
+            }
           }
         } else if (kind === 'element') {                 // 元素护盾: phys/arts heavily reduced
           if (ty === 'phys' || ty === 'arts') c.dmg.mul *= scale;

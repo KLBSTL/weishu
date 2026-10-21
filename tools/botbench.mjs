@@ -34,6 +34,7 @@ import { Match } from '../server/match/Match.js';
 import * as bot from '../server/match/bot.js';
 import { VirtualScheduler } from '../server/match/scheduler.js';
 import { getData } from '../server/data.js';
+import {observeBotBoard} from './botbench-positioning.mjs';
 
 const argv = isMainThread ? process.argv.slice(2) : workerData.argv;
 const opt = {};
@@ -59,6 +60,9 @@ if (opt.compare) {
 }
 
 const data = getData({ log: { warn() {}, error() {}, info() {} } });
+if (opt.planner && !['off','beam','team'].includes(opt.planner)) throw new Error('--planner must be off, beam or team');
+const plannerModel = opt['planner-model'] ? JSON.parse(readFileSync(String(opt['planner-model']), 'utf8')) : undefined;
+const teamModel = opt['team-model'] ? JSON.parse(readFileSync(String(opt['team-model']), 'utf8')) : undefined;
 const configs = String(opt.configs || 'solo:FUNNY,solo:HARD,coop4:FUNNY,coop4:HARD').split(',').map((s) => {
   const [m, d] = s.split(':');
   const solo = m === 'solo';
@@ -77,21 +81,74 @@ function runOne(cfg, seed) {
   const log = { info() {}, debug() {}, warn() {}, error: (...a) => errors.push(a.map(String).join(' ')) };
   const m = new Match({
     roomCode: 'BENCH', mode: cfg.mode, difficulty: cfg.difficulty, seats, seed, data, log, scheduler: sched, botRehearsal: rehearsal,
+    botPlanner: opt.planner, botPlannerModel: plannerModel,botTeamModel:teamModel,
     send: () => true, broadcast: () => {}, onEnd: (s) => { summary = s; },
   });
   // --band: the only strategy on offer (botPickBand draws from gd.bandIds()) — also one built around a bond the mode
   // switches off, which botPickBand would otherwise skip for the default band (DESIGN §21.26)
   if (opt.band && cfg.mode === 'solo') { m.gd.bandIds = () => [String(opt.band)]; m.gd.bandBondIds = () => []; }
   const rec = { config: cfg.name, seed, stageId: m.stageId, bossId: m.bossId, preps: [], picks: [], rounds: [], bounties: [] };
+  rec.layerGains = {};
+  rec.layerCreditSources = {};
+  rec.battleLayerSources = {};
+  rec.bossFights = [];
+  const dispatch = m.dispatch.bind(m);
+  m.dispatch = (ps, hook, ev, ...rest) => {
+    if (hook === 'onLayers' && ps?.playerId && ev?.to > ev?.from) {
+      const gains = rec.layerGains[ps.playerId] ||= {};
+      gains[ev.bondId] = (gains[ev.bondId] || 0) + ev.to - ev.from;
+      const key = `${m.round}|${ps.playerId}|${ev.bondId}|${ev.reason || 'unspecified'}`;
+      rec.layerCreditSources[key] = (rec.layerCreditSources[key] || 0) + ev.to - ev.from;
+    }
+    return dispatch(ps, hook, ev, ...rest);
+  };
   // rehearsal stepping time (Battle.step of the rehearsal fields)
   let rehMs = 0;
+  const bossObserved = new WeakMap();
+  const layerObserved = new WeakSet();
+  const observeBoss = (b, o) => {
+    if (o && !String(o.fieldId).startsWith('r:') && typeof b.addLayers === 'function' && !layerObserved.has(b)) {
+      layerObserved.add(b);
+      const add = b.addLayers.bind(b);
+      b.addLayers = (pid, bond, n, reason, opts = {}) => {
+        const actual = add(pid, bond, n, reason, opts);
+        if (actual > 0) {
+          const key = `${o.round}|${o.kind}|${o.fieldId}|${pid}|${bond}|${reason}|${opts.source?.uid ?? 'none'}`;
+          rec.battleLayerSources[key] = (rec.battleLayerSources[key] || 0) + actual;
+        }
+        return actual;
+      };
+    }
+    if (!o || !['boss', 'hidden'].includes(o.kind) || typeof b.fx !== 'function') return b;
+    const observation = { hitCaps: 0, skillLpLoss: 0, teamLpAtStart: m.teamLp };
+    bossObserved.set(b, observation);
+    const fx = b.fx.bind(b);
+    b.fx = (kind, obj) => { if (kind === 'hitCap') observation.hitCaps++; return fx(kind, obj); };
+    b.on('lpLoss', c => { observation.skillLpLoss += Math.max(0, Number(c.amount) || 0); });
+    return b;
+  };
+  const finishFinal = m._finishFinal.bind(m);
+  m._finishFinal = (hidden, resultOf) => finishFinal(hidden, f => {
+    const result = resultOf(f);
+    const observation = bossObserved.get(f.battle) || {};
+    rec.bossFights.push({ round: m.round, kind: hidden ? 'hidden' : 'boss', fieldId: f.fieldId,
+      bossId: hidden ? m.hiddenBossId : m.bossId, time: result.time ?? null, reason: result.reason,
+      poolMaxHp: m.bossPool?.maxHp, poolHpAtEnd: m.bossPool?.hp, ...observation, teamLpAtEnd: m.teamLp,
+      players: Object.fromEntries(Object.entries(result.perPlayer || {}).map(([pid, pp]) => [pid, {
+        bossDamage: pp.bossDamage, damageDealt: pp.damageDealt, leaks: (pp.leaked || []).filter(l => l.counted !== false).length,
+        survivors: (pp.unitsEnd || []).filter(u => u.alive).length, unitStats: pp.unitStats,
+      }])) });
+    return result;
+  });
+  const specBattle = m._specBattle.bind(m);
+  m._specBattle = (spec, options) => observeBoss(specBattle(spec, options), spec);
   const newBattle = m.newBattle.bind(m);
   m.newBattle = (o) => {
     const b = newBattle(o);
     if (o && typeof o.fieldId === 'string' && o.fieldId.startsWith('r:') && typeof b.step === 'function') {
       const step = b.step.bind(b);
       b.step = () => { const t0 = performance.now(); try { return step(); } finally { rehMs += performance.now() - t0; } };
-    }
+    } else observeBoss(b, o);
     return b;
   };
   // every scheduler callback timed; a callback during which a bot became ready in PREP was that bot's prep
@@ -135,9 +192,22 @@ function runOne(cfg, seed) {
   };
   // funds a player still holds when the prep ends (lost unless its band keeps them)
   const lost = {};
+  const positioning = {};
+  const policy = {};
   for (const ps of m.players.values()) {
     const endPrep = ps.endPrep.bind(ps);
-    ps.endPrep = () => { (lost[m.round] ||= {})[ps.playerId] = m.gd.leftoverKeptBands.includes(ps.bandId) ? 0 : ps.funds; return endPrep(); };
+    ps.endPrep = () => {
+      (policy[m.round] ||= {})[ps.playerId] = {
+        main: ps._botFocus?.focus ?? null, subBonds: ps._botFocus?.subBonds ?? [], reason: ps._botFocus?.reason ?? null,
+        ...(['beam','team'].includes(opt.planner) ? { planner: ps._botPlannerTrace || [] } : {}),
+        funds: ps.funds, spent: ps.round.spent, refreshes: ps.round.refreshes, gainedChess: ps.round.gainedChess,
+        board: [...ps.board].filter(([,p])=>p.kind==='chess').map(([at,p])=>({at,uid:p.uid,id:p.id,dir:p.dir,items:p.items?.map(i=>i.id)})),
+      };
+      (lost[m.round] ||= {})[ps.playerId] = m.gd.leftoverKeptBands.includes(ps.bandId) ? 0 : ps.funds;
+      const result=endPrep();
+      (positioning[m.round] ||= {})[ps.playerId]=observeBotBoard(m,ps);
+      return result;
+    };
   }
   let last = '';
   const t0 = performance.now();
@@ -162,11 +232,21 @@ function runOne(cfg, seed) {
           const leaked = r ? (r.leaked || []).filter((l) => l.counted !== false) : [];
           row.players[ps.playerId] = {
             lp: ps.lp, alive: ps.alive, level: ps.shop.level, units: ps.deployCount, bonds: active.length,
+            positioning: positioning[m.round]?.[ps.playerId] ?? null,
+            policy: policy[m.round]?.[ps.playerId] ?? null,
             tiers: active.reduce((s, b) => s + (b.tier || 0), 0), layers: ps.activatedLayers(), value, elites,
+            layersByBond: { ...ps.layers }, activeBondIds: Object.keys(ps.bonds).filter(id => ps.bonds[id].active),
+            growthUnits: [...ps.board.values()].filter(p => p.kind === 'chess' && (m.gd.chess(p.id)?.garrisonIds || []).some(id => {
+              const g = m.gd.garrison(id);
+              return /BOND|LAYER|FRONT_SAME|useskill|COLUMBIA_(ASTESI|SILENT|APHRIS|F12YIN)/.test(g?.effectKey || '');
+            })).length,
             items: [...ps.board.values()].reduce((s, p) => s + (p.kind === 'chess' ? (p.items || []).length : 0), 0),
             lost: lost[m.round] ? lost[m.round][ps.playerId] ?? null : null,
             killed: r ? r.killed : null, total: r ? r.total : null,
-            damageDealt: r?.damageDealt ?? null, bossDamage: r?.bossDamage ?? null, battleSeconds: r?.time ?? null,
+            damageDealt: r?.damageDealt ?? null, bossDamage: r?.bossDamage ?? null,
+            ...(opt['unit-details'] ? { unitStats: r?.unitStats || [], unitsEnd: r?.unitsEnd || [],
+              leakedDetails: r?.leaked || [], healingDone:r?.healingDone ?? 0 } : {}),
+            battleSeconds: rec.bossFights.find(f => f.round === m.round && f.players[ps.playerId])?.time ?? null,
             leaks: leaked.length, bountyLeaks: leaked.filter((l) => l.tag === 'bounty').length,
             bountyKeys: leaked.filter((l) => l.tag === 'bounty').map((l) => l.enemyKey),
           };

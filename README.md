@@ -1,5 +1,9 @@
 # 卫戍协议：盟约 · Stronghold Protocol: Alliance
 
+默认 AI 已采用盟约成长、特色分队、安全站位和 Boss 输出规划，并用最多三个候选进行真实战斗试打。额外实验搜索和学习模型默认关闭，详见 [AI 更新记录](docs/ai-stable-publication-20261021.md)。
+
+这次 AI 更新随 main 源码提供，原 v0.2.3 完整包尚未重新打包；可使用 main 代码配合该完整包的素材。
+
 ![version](https://img.shields.io/badge/version-0.2.3-32c9aa)
 
 《明日方舟》「卫戍协议：盟约」的非官方同人网页游戏，支持独立模拟和 1–4 人合作，可加入 AI 队友。本分支基于 [sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol) 的 0.2.2，维护独立扩展；当前版本 **0.2.3（weishu）**。
