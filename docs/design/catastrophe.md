@@ -105,11 +105,12 @@ There is no charge: it immediately performs for 10s. Both bosses stop attacks/ot
 A keyed performance ring ends immediately on interruption or completion.
 
 At seconds 1–10 it applies 100 Necrosis to every deployed living ally, including summons and hidden/camouflaged units.
-Device summons are exempt. At start, units already in Necrosis burst are expelled; throughout the performance, new
-burst entrants are expelled synchronously by `elementBurstApplied`, without waiting for the next pulse. Units are forcibly
-removed without fatal/kill/death dispatch, immortality/revive or operator redeploy. Nested removal callbacks also suppress
-friendly-death triggers. Tactical crabs, wolf points and Manifolds retain only their original recovery mechanisms;
-other later re-summoning is permitted.
+Device summons are exempt. At start, units already in Necrosis burst are forcibly knocked down; throughout the performance,
+new burst entrants are knocked down synchronously by `elementBurstApplied`, without waiting for the next pulse. Operators
+keep their body tile and normal redeploy timer, and automatically redeploy when the timer and DP conditions are met.
+Fatal/kill/death dispatch remains suppressed so immortality/revive cannot intercept the knock-down. Nested removal callbacks
+also suppress friendly-death triggers. Tactical crabs, wolf points and Manifolds retain their original recovery mechanisms;
+other later re-summoning is permitted. See [the correction and verification](../pipe-string-knockdown-fix-20261021.md).
 
 On Pipe's first HP ratio strictly below 50%, ordinary cost/cap permanently becomes 20 and one free performance is
 queued. It waits for any running skill/performance to finish and then starts as a separate 10s performance. It spends

@@ -42,17 +42,17 @@ function device(u) {
     || u.defId === 'token_10041_cathy_catsld' || u.defId.startsWith('trap_');
 }
 
-function expelBurst(b, st, u) {
+function knockDownBurst(b, st, u) {
   if (!u?.alive || !u.deployed || u.side !== 'ally' || device(u)) return;
   const burst = u.findBuff('apoptosisBurst');
   if (!burst || st.expelled.has(burst)) return;
   st.expelled.add(burst);
   if (u.mem.catastropheForceExit?.()) return;
-  // No fatal / kill / death dispatch: immortality, revive and other-death growth cannot intercept this exit.
+  // Force a knock-down without fatal / kill / death dispatch; keep the operator's normal body and redeploy timer.
   u.hp = 0;
   const depth = b._suppressDeathEvents || 0;
   b._suppressDeathEvents = depth + 1;
-  try { b.retreat(u, { reason: 'catastrophe-expelled', permanent: true, suppressDeath: true }); }
+  try { b.retreat(u, { reason: 'killed', suppressDeath: true }); }
   finally { b._suppressDeathEvents = depth; }
   // A tactical point's own recovery is explicitly allowed, without notifying global death listeners.
   if (u.ownerUnit?.mem.catastropheTokenExit) u.ownerUnit.mem.catastropheTokenExit(u);
@@ -80,7 +80,7 @@ function tryConcord(b, st) {
   for (const u of [st.pipe, st.string]) { channel(b, u, true); u.skillAnimUntil = b.time + CAT.concordDuration; }
   b.fx('telegraph', { x: st.pipe.x, y: st.pipe.y, id: st.pipe.id, r: 3, dur: CAT.concordDuration,
     key: `catastrophe:concord:${st.pipe.id}`, kind: 'catastropheConcord' });
-  for (const u of b.allyUnits) expelBurst(b, st, u);
+  for (const u of b.allyUnits) knockDownBurst(b, st, u);
   for (let second = 1; second <= CAT.concordDuration; second++) st.tasks.push(b.after(second, () => {
     if (!st.charging || st.epoch !== epoch) return;
     if (!st.pipe.alive || !st.string.alive) { stopConcord(b, st); return; }
@@ -183,7 +183,7 @@ export function installCatastropheBosses(b) {
   });
   b.on('elementBurstApplied', c => {
     const st = stateOf(b);
-    if (st.charging && c.element === 'apoptosis') expelBurst(b, st, c.target);
+    if (st.charging && c.element === 'apoptosis') knockDownBurst(b, st, c.target);
   }, { priority: -1000 });
   b.on('beforeStatus', c => {
     if (c.target?.mem.catastropheArmourBoss && ARMOUR_STATUSES.has(c.status)) c.cancel = true;

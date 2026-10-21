@@ -235,7 +235,7 @@ test('管弦和鸣: an echo death during performance cancels remaining ticks and
   assert.equal(h.b.errors.length, 0);
 });
 
-test('管弦和鸣: immediate old burst exit; 10 × 100 global ticks, no fatal/kill/death/redeploy; device exemption', () => {
+test('管弦和鸣: immediate old burst knock-down; 10 × 100 global ticks, no fatal/kill/death; device exemption', () => {
   const h = arena(), { st } = duet(h);
   const [safe, seeded, bursting, hidden] = [0, 1, 2, 3].map(i => h.unit(`probe${i}`));
   seeded.elem.apoptosis = 900;
@@ -253,7 +253,10 @@ test('管弦和鸣: immediate old burst exit; 10 × 100 global ticks, no fatal/k
   h.run(9); assert.equal(safe.alive, false);
   assert.equal(ticks.length, 10); assert.ok(ticks.every(t => t[1] === 100));
   ticks.slice(1).forEach((t, i) => near(t[0] - ticks[i][0], 1));
-  for (const u of [seeded, bursting, hidden]) { assert.equal(u.alive, false); assert.equal(u.removed, true); assert.equal(u.respawnAt, Infinity); }
+  for (const u of [seeded, bursting, hidden]) {
+    assert.equal(u.alive, false); assert.equal(u.removed, false); assert.equal(h.b.isDown(u), true);
+    assert.ok(Number.isFinite(u.respawnAt)); assert.deepEqual(u.body, [u.homeR, u.homeC]);
+  }
   assert.equal(device.alive, true); assert.deepEqual([fatal, killed, deaths], [0, 0, 0]);
   near(st.sp, 0); assert.equal(st.charging, false); assert.equal(h.b.errors.length, 0);
 });
@@ -335,13 +338,34 @@ for (const pair of [false, true]) for (const sp of [49, 50, 99, 100, 149, 150]) 
   });
 }
 
-test('管弦和鸣: another attack causing a burst expels immediately between performance ticks', () => {
+test('管弦和鸣: another attack causing a burst knocks down immediately between performance ticks', () => {
   const h = arena(), { pipe, st } = duet(h), u = h.unit('probe0');
   let deaths = 0; h.b.on('death', () => deaths++);
   arm(h, st); h.run(.4); u.elem.apoptosis = 999;
   h.b.dealDamage(pipe, u, { type: 'element', element: 'apoptosis', amount: 1 });
-  assert.equal(u.alive, false); assert.equal(u.removed, true); assert.equal(deaths, 0);
+  assert.equal(u.alive, false); assert.equal(u.removed, false); assert.equal(h.b.isDown(u), true); assert.equal(deaths, 0);
   assert.ok(st.charging);
+});
+
+test('管弦和鸣: forced knock-down reserves its tile and automatically redeploys after timer and DP, then can fall again', () => {
+  const h = arena(), { st } = duet(h), u = h.unit('probe0');
+  const ps = h.b.getPlayer(u.ownerId), seq = u.deploySeq;
+  h.b.flags.dpPerSec = 0; ps.dp = 0;
+  h.b.addBuff(u, { key: 'apoptosisBurst', duration: 30, flags: { burstLock: true } });
+  let intercepted = 0;
+  for (const event of ['fatal', 'kill', 'death']) h.b.on(event, () => { intercepted++; u.hp = u.s.maxHp; });
+  arm(h, st);
+  assert.equal(u.hp, 0); assert.equal(u.removeReason, 'killed'); assert.equal(h.b.downOn(u.homeR, u.homeC), u);
+  near(u.respawnAt - u.deathAt, u.base.respawnTime * u.persist.redeployMul * u.s.redeployMul);
+  h.run(u.base.respawnTime - .2); assert.equal(u.alive, false);
+  h.run(.4); assert.equal(u.alive, false, 'finished timer still requires DP');
+  ps.dp = u.base.cost; h.step();
+  assert.equal(u.alive, true); assert.equal(u.removed, false); assert.equal(u.body, null);
+  assert.ok(u.deploySeq > seq); assert.deepEqual([u.tileR, u.tileC], [u.homeR, u.homeC]);
+  near(ps.dp, 0); assert.equal(u.findBuff('apoptosisBurst'), null);
+  h.b.addBuff(u, { key: 'apoptosisBurst', duration: 30, flags: { burstLock: true } });
+  arm(h, st); assert.equal(h.b.isDown(u), true); assert.equal(u.hp, 0);
+  assert.equal(intercepted, 0); assert.deepEqual(h.b.errors, []);
 });
 
 test('管 half HP: strict threshold, once only, permanent cost 20, free preserves stored SP at natural end', () => {
