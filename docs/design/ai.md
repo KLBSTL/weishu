@@ -4,6 +4,10 @@ Part of [DESIGN.md](../DESIGN.md).
 
 ## 32. AI成长、经济与Boss决策
 
+2026-10-22 发布复核将稳定配置集中固定为 planner off、tactics legacy、playbook off、selector legacy、三次布局试打。
+保留合法多标签核心的分队可达性修正；最新双 AI 独立对照中固定打法没有超过稳定策略，不升级默认。
+本地应用、发布范围与验证见[当前稳定 AI 发布记录](../ai-best-publication-20261022.md)。
+
 2026-10-21 正式默认采用 `stable-growth-boss-20261021`：已验证的成长／经济／站位／Boss 启发式和三候选真实试打。
 `botPlanner: off` 只关闭额外实验规划，不关闭 AI。学习模型未默认加载；发布选择与实际验收见[稳定 AI 记录](../ai-stable-publication-20261021.md)。
 

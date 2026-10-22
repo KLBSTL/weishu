@@ -5,7 +5,7 @@ import {SAFE_TEAM_KIND,safeRuleHashFromLegacy,validateSafeTeamShape,safeMeanScor
 import {CONTEXT_TEAM_KIND,CONTEXT_TEAM_WORLD,CONTEXT_TEAM_SCOPE,contextTeamRuleHash,validateContextTeamShape,contextMeanScore} from './botTeamContextModel.js';
 
 export const TEAM_MODEL_VERSION=1;
-export const TEAM_WORLD='normal-team-v2-spring-ordinary-sourceless';
+export const TEAM_WORLD='normal-team-v3-deployment-aligned';
 export const TEAM_SCOPE=Object.freeze({mode:'coop',difficulty:'ABYSS',players:3,seat:0,rounds:[6,8]});
 export const TEAM_FEATURES=Object.freeze([...PREP_FEATURES.map(k=>`delta_${k}`),'recurringIncome','nextIncome','combatItem','bondItem',
   'buy','reward','level','refresh','sell','tier','pressureStrength','pressureDamage','pressureSurvival','pressureGrowth','pressureLevel','growthHorizon']);

@@ -74,6 +74,11 @@ export function makeMatch(o = {}) {
     // bot layout rehearsal (extra simulated battles per bot prep) is off unless a test asks for it: it multiplies the
     // simulation work of full-match suites; test/match/bot.test.js covers it
     botRehearsal: o.botRehearsal ?? 0,
+    botPlanner: o.botPlanner,
+    botTactics: o.botTactics,
+    botPlaybook: o.botPlaybook,
+    botPlaybookSelector: o.botPlaybookSelector,
+    botPlannerModel: o.botPlannerModel,
     botSliceMs: o.botSliceMs,
     clientCombat: o.clientCombat ?? false,
     verify: o.verify ?? 'off',

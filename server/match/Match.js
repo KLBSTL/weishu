@@ -261,6 +261,15 @@ export class Match {
     this.botRehearsal = Number.isInteger(opts.botRehearsal) && opts.botRehearsal >= 0 ? Math.min(opts.botRehearsal, 8) : BOT_REHEARSAL_DEFAULT;
     /** Experimental multi-step PREP planner; the tested heuristic remains the default. */
     this.botPlanner = ['beam','team'].includes(opts.botPlanner) ? opts.botPlanner : STABLE_BOT_PROFILE.planner;
+    /** Independent ordinary-battle ablations; never enables experimental economic/model planning. */
+    this.botTactics = opts.botTactics ?? STABLE_BOT_PROFILE.tactics;
+    if (!['legacy','risk','roster','combined'].includes(this.botTactics)) throw new TypeError('BOT_TACTICS');
+    this.botPlaybook = opts.botPlaybook ?? STABLE_BOT_PROFILE.playbook;
+    if (!['off', 'auto', 'siracusa', 'yan', 'kjerag'].includes(this.botPlaybook)) throw new TypeError('BOT_PLAYBOOK');
+    this.botPlaybookSelector = opts.botPlaybookSelector ?? STABLE_BOT_PROFILE.playbookSelector;
+    if (!['legacy','recipe'].includes(this.botPlaybookSelector)) throw new TypeError('BOT_PLAYBOOK_SELECTOR');
+    // Two independent macro controllers must not undo each other's level/spending commitments.
+    if (this.botPlaybook !== 'off' && this.botPlanner !== 'off') throw new TypeError('BOT_PLAYBOOK_PLANNER');
     this.botProfile = this.botPlanner === STABLE_BOT_PROFILE.planner ? STABLE_BOT_PROFILE.id : `experimental-${this.botPlanner}`;
     if(this.botPlanner==='team') {
       const error=validateTeamModel(opts.botTeamModel,this.gd);

@@ -9,6 +9,9 @@ test('new games actually use the published growth/Boss policy and three layout r
     seats:[0,1,2].map(seat=>({seat,playerId:'ai_'+seat,name:'AI '+seat,isBot:true,connected:true})),send:()=>true,broadcast(){},onEnd(){},
     log:{info(){},warn(){},error(){},debug(){}}});
   assert.equal(m.botProfile,STABLE_BOT_PROFILE.id);assert.equal(m.botPlanner,'off');assert.equal(m.botRehearsal,3);
+  assert.equal(m.botTactics,'legacy');assert.equal(m.botPlaybook,'off');assert.equal(m.botPlaybookSelector,'legacy');
+  assert.equal(m.botTactics,STABLE_BOT_PROFILE.tactics);assert.equal(m.botPlaybook,STABLE_BOT_PROFILE.playbook);
+  assert.equal(m.botPlaybookSelector,STABLE_BOT_PROFILE.playbookSelector);
   assert.equal(m.botTeamModel,undefined);assert.equal(m.botPlannerWeights,undefined);
   m.start();m.sched.runUntil(()=>m.phase==='PREP',{maxSteps:100000});
   assert.equal(m.phase,'PREP');const ps=m.alivePlayers()[0],funds=ps.funds;

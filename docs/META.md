@@ -1,5 +1,15 @@
 # META.md — match & meta engine (server/match)
 
+Stable publication review (2026-10-22): `STABLE_BOT_PROFILE` explicitly pins planner `off`, tactics `legacy`,
+playbook `off`, selector `legacy` and three real layout rehearsals. Normal shopping, growth, upgrades and placement
+remain active. New games use this configuration without loading a model; see [selection and checks](ai-best-publication-20261022.md).
+
+Opt-in controls: `botTactics` accepts `legacy`, `risk`, `roster`, `combined`; the latter modes add ordinary-battle
+survival scoring and/or at most two existing-roster candidates. `botPlaybook` accepts `off`, `auto`, `siracusa`,
+`yan`, `kjerag`; its finite recipes constrain purchases, retention, deployment, modules and level timing through
+validated intents. `botPlaybookSelector` accepts `legacy` or experimental `recipe`. An enabled playbook cannot
+run together with a beam/team planner. None is exposed as a new game rule or enabled by default.
+
 天灾 (`CATASTROPHE`) inherits ABYSS mode data, draft schedules and hidden-core qualification. Stock uses original
 caps in every mode. Four regular factions plus SPECIAL supply distinct upper/lower picks each R1–13, preserving
 the original lane counts/times/routes. Its R14/R15 shared leader pool uses ABYSS blood points × alive-player share
