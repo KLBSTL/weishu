@@ -25,37 +25,37 @@ function setup(L = 0, gs = {}, count = 6) {
     if (!tags.length) h.b.emit('attack', { attacker: ops[0], targets: [target], isSkill: false });
   } };
 }
-test('Columbia has ten identities without Ifrit; 114 regular recruits with Victoria restored', () => {
+test('Columbia has ten identities without Ifrit; 123 regular recruits with Aegir restored', () => {
   const visible = Object.values(ds.raw.chess).filter(c => !c.isGolden && c.visible);
-  assert.equal(visible.length, 114);
+  assert.equal(visible.length, 123);
   assert.equal(visible.filter(c => c.bonds.includes('columbiaShip')).length, 10);
-  for (const c of visible.filter(c => c.bonds.includes('egirShip'))) assert.ok(RETAINED_CHARACTERS.includes(c.charId), c.name);
+  assert.equal(visible.filter(c => c.bonds.includes('egirShip')).length, 9);
   assert.equal(visible.filter(c => c.bonds.includes('victoriaShip')).length, 10);
   for (const id of RETAINED_CHARACTERS) assert.ok(visible.some(c => c.charId === id), id);
   for (const [, charId, tier, , addon, skill] of COLUMBIA_ROSTER) {
     const c = visible.find(c => c.charId === charId);
-    assert.equal(c.tier, tier); assert.deepEqual(c.bonds, ['columbiaShip', addon].filter(Boolean));
+    assert.equal(c.tier, tier); assert.deepEqual(c.bonds, c.name === '锡人' ? ['swiftShip','columbiaShip','investShip'] : ['columbiaShip', charId === 'char_4229_aphris' ? null : addon].filter(Boolean));
     assert.equal(ds.getChess(c.chessId).loadout.skillIndex, skill);
     for (const id of [c.chessId, c.goldenId]) for (const sk of ds.rawChess(id).skills) {
       assert.ok(['kit', 'skills'].includes(skillSpecSource(ds.getChess(id, { skillIndex: sk.index }))), `${id}/${sk.skillId}`);
     }
   }
 });
-test('Ifrit has Sarkaz/Farsight and 30/60 percent ATK and HP, no Columbia or damage multiplier', () => {
+test('Ifrit has only Sarkaz and unchanged 30/60 percent ATK and HP, no Columbia or damage multiplier', () => {
   for (const form of ['a', 'b']) {
     const id = `chess_char_4_sarkaz_ifrit_${form}`;
-    assert.deepEqual(ds.rawChess(id).bonds, ['sarkazShip', 'visiShip']);
+    assert.deepEqual(ds.rawChess(id).bonds, ['sarkazShip']);
     const h = makeBattle({ units: [{ chessId: id, row: 10, col: 4 }], defs: { enemies: { dummy } },
       bonds: { sarkazShip: { count: 6, tier: 2, active: true, layers: 0 },
         columbiaShip: { count: 6, tier: 2, active: true, layers: 0 } }, autoFinish: false });
     h.step(); const u = h.unit(id), e = h.spawn('dummy', { pos: [7, 9] });
-    close(u.s.dmgDealtMul, 1); close(u.s.atk, u.base.atk * (form === 'a' ? 1.5 : 1.8));
+    close(u.s.dmgDealtMul, 1); close(u.s.atk, u.base.atk * (form === 'a' ? 1.3 : 1.6));
     close(u.s.maxHp, u.base.maxHp * (form === 'a' ? 1.3 : 1.6));
     const shield = u.s.maxHp * .25;
     h.b.addBuff(u, { key: 'test:barrier', shield, duration: 20 });
     const hp = e.hp;
     h.b.dealDamage(u, e, { amount: 100, type: 'true', isAttack: true });
-    close(hp - e.hp, 100 + shield * .3);
+    close(hp - e.hp, 100 + shield * .15);
     close(e.elem.apoptosis ?? 0, 0);
     assert.deepEqual(h.b.errors, []);
   }
@@ -88,7 +88,7 @@ test('Columbia blast snapshots field ATK without Burn, ticks five times and shar
   h.b.on('damaged', c => { if (c.dmg.tags?.some(t => t.startsWith('bond:columbia:'))) seen.push(c); });
   const total = ops.reduce((n, u) => n + u.s.atk, 0);
   hit(); h.step();
-  close(seen.find(c => c.dmg.tags.includes('bond:columbia:burst')).amount, total * 1.5);
+  close(seen.find(c => c.dmg.tags.includes('bond:columbia:burst')).amount, total * 2);
   assert.equal(e.elem.burn || 0, 0); assert.ok(!e.findBuff('burnBurst'));
   h.b.emit('attack', { attacker: ops[1], targets: [e] }); h.step();
   assert.equal(seen.filter(c => c.dmg.tags.includes('bond:columbia:burst')).length, 1);
@@ -115,7 +115,7 @@ test('Columbia radius 2.5 and cooldown floor 1s; own damage cannot recursively t
 });
 
 test('Columbia shared cooldown changes only at complete 10-layer boundaries', () => {
-  for (const [layers, seconds] of [[0, 10], [9, 10], [10, 9.9], [99, 9.1], [100, 9], [899, 1.1], [900, 1], [999, 1]]) {
+  for (const [layers, seconds] of [[0, 8], [9, 8], [10, 7.9], [99, 7.1], [100, 7], [600, 2], [699, 1.1], [700, 1], [999, 1]]) {
     const { h, ops, e, hit } = setup(layers);
     let blasts = 0;
     h.b.on('damaged', c => { if (c.dmg.tags?.includes('bond:columbia:burst')) blasts++; });
@@ -148,7 +148,7 @@ test('Tin Man DOCX: fixed HP/ATK and stepped Columbia SP recovery update with st
   }
 });
 
-test('Columbia fixed fire region: leaving stops damage, entering takes it, refresh preserves cadence and latest snapshot', () => {
+test('Columbia fixed fire regions: entering/leaving and old/new snapshots retain independent five-tick lifetimes', () => {
   const { h, ops, e, hit } = setup(800);
   for (const u of ops) h.b.addBuff(u, { key: 'manual-only', flags: { disarm: true }, duration: 30 });
   const late = h.spawn('dummy', { pos: [7, 12] }); late.x = e.x + 10; late.y = e.y;
@@ -157,12 +157,14 @@ test('Columbia fixed fire region: leaving stops damage, entering takes it, refre
   h.run(2.1); assert.equal(damage.length, 2); assert.ok(damage.every(c => c.target === late));
   const old = damage[0].amount; h.b.addBuff(ops[1], { key: 'latest', mods: { atkFlat: 10000 } });
   const latest = ops.reduce((n, u) => n + u.s.atk, 0) * .3;
-  hit([], 1, late); h.step(); h.run(5.1); assert.equal(damage.length, 7);
-  for (const c of damage.slice(2)) { assert.equal(c.target, late); close(c.amount, latest); }
-  assert.ok(latest > old); h.run(1); assert.equal(damage.length, 7); assert.equal(late.elem.burn || 0, 0);
+  hit([], 1, late); h.step(); h.run(5.1); assert.equal(damage.length, 10);
+  assert.ok(damage.every(c=>c.target===late));
+  assert.equal(damage.filter(c=>Math.abs(c.amount-old)<1e-6).length,5);
+  assert.equal(damage.filter(c=>Math.abs(c.amount-latest)<1e-6).length,5);
+  assert.ok(latest > old); h.run(1); assert.equal(damage.length, 10); assert.equal(late.elem.burn || 0, 0);
 });
 
-test('Columbia regions refresh every second without starving burn; overlapping regions do not stack on one enemy', () => {
+test('Columbia overlapping regions stack independently without suppressing other clocks', () => {
   const { h, ops, e, hit } = setup(999);
   for (const u of ops) h.b.addBuff(u, { key: 'manual-only', flags: { disarm: true }, duration: 30 });
   const late = h.spawn('dummy', { pos: [7, 10] }); const ticks = [];
@@ -170,10 +172,11 @@ test('Columbia regions refresh every second without starving burn; overlapping r
   hit(); h.step();
   for (let i = 0; i < 4; i++) { h.run(1.05); hit([], 1, i % 2 ? e : late); h.step(); }
   assert.ok(ticks.length >= 8, 'refreshing never cancels all burning ticks');
+  h.run(5.1);
   for (const target of [e, late]) {
     const times = ticks.filter(c => c.target === target).map(c => c.t);
-    assert.ok(times.length <= 5);
-    for (let i = 1; i < times.length; i++) assert.ok(times[i] - times[i - 1] >= 1 - 1e-6);
+    assert.equal(times.length, 25, 'five independent regions each deliver five ticks');
+    assert.ok(times.some((t,i)=>i>0&&t-times[i-1]<1-1e-6), 'overlapping clocks may damage within the same second');
   }
   assert.deepEqual(h.b.errors, []);
 });

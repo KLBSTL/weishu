@@ -1,5 +1,12 @@
 # DATA.md — generated game data (`data/*.json`)
 
+Current 2026-10-22 balance data: `tools/balance-update-20261022-data.mjs` runs after expansion preparation and after
+their final records, respectively. Aegir regulars are restored: 123 visible identities with tier counts 18/19/21/24/19/22,
+18 hidden bases, 4 DIY slots. Recorder keeps `chess_char_5_23_*` as its compatible sole regular four-tier ID;
+the old `4_15` alias stays hidden. New Hoshiguma/Rosmontis garrison IDs isolate shared old traits. All four overlays
+are regenerated; new authored English strings use `tools/i18n/balance-update-20261022.mjs`, and untranslated custom
+strings in other languages follow the existing Chinese fallback. [Source specification](balance-update-20261022-spec.md).
+
 Local 天灾 modes (`mode_single_catastrophe`, `mode_multi_catastrophe`) are generated last by
 `tools/catastrophe-data.mjs`: ABYSS rounds, stages, drafts, boss templates and result factors are inherited.
 Eight legacy in-scope modes remain in the data, plus these two local modes. `baseDifficulty: ABYSS` chooses

@@ -633,7 +633,12 @@ function kitGun(ab, e, b) {
       iv: 0.25,
       tick(b2, e2) { // 【未尽的告解】 physical / arts damage taken ×4.damage_scale while the 碎铳之簧 it came with remain
         const springs = b2.enemies.some((o) => o.alive && isSpring(o));
-        if (springs) { const m = T(ab, '4.damage_scale') ?? 1; b2.addBuff(e2, { key: 'boss:confession', duration: 0.35, refresh: 'replace', mods: { physTakenMul: m, artsTakenMul: m } }); }
+        if (springs) {
+          const m = T(ab, '4.damage_scale') ?? 1;
+          const mods = { physTakenMul: m, artsTakenMul: m };
+          if (isCatastropheHiddenBattle(b2)) Object.assign(mods, { trueTakenMul: m, elementalTakenMul: m });
+          b2.addBuff(e2, { key: 'boss:confession', duration: 0.35, refresh: 'replace', mods });
+        }
       },
     });
     if (s3) list.push({

@@ -2,6 +2,12 @@
 
 Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 
+Maintainer balance revision (2026-10-22): [confirmed formulas and event boundaries](../balance-update-20261022-spec.md)
+replace the listed old traits and four Alliance effects. Numeric Sarkaz barriers have an independent source budget
+and absorb physical/Arts only; their rider reads all remaining numeric barriers. Columbia regions are independent
+five-tick snapshots. Layer-driven damage multipliers are separate from ATK/HP, and shared old traits of Jian/Harold
+remain unchanged. Elite preparation copiers handle both fixed front tiles in order. See [implementation and checks](../balance-update-20261022.md).
+
 Spring counter correction (2026-10-21): the arts-shield spring counters only physical ordinary attacks, with sourceless physical additional damage retaining credit and counter tags. Erosion follows only successful damage. This prevents reciprocal reflection recursion; see [AI publication validation](../ai-stable-publication-20261021.md).
 
 ## 5. Simulation (server/sim) — engine contract

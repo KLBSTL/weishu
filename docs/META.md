@@ -1,5 +1,11 @@
 # META.md — match & meta engine (server/match)
 
+2026-10-22: preparation traits and identities follow [the confirmed update](balance-update-20261022-spec.md).
+Elite Ptilopsis/Saria copy both fixed front tiles in order, preserving target quality and sequential funds; elite Yu
+executes two native recruitment draws. Aphris needs Columbia only and pays once per invocation from current funds:
+ordinary min(6,floor(F/4)) at 6 stacks per payment; elite floor(F/4) at 12. Recorder retains its stable ID as the sole
+regular tier-four identity (buy 3 / sell 1 / pool 16). Aegir regulars return; Clemens remains traitless DIY with Aegir.
+
 Stable publication review (2026-10-22): `STABLE_BOT_PROFILE` explicitly pins planner `off`, tactics `legacy`,
 playbook `off`, selector `legacy` and three real layout rehearsals. Normal shopping, growth, upgrades and placement
 remain active. New games use this configuration without loading a model; see [selection and checks](ai-best-publication-20261022.md).

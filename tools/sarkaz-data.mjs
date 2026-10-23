@@ -4,7 +4,7 @@ export const SARKAZ_ROSTER = Object.freeze([
   ['hbisc2', 'char_1024_hbisc2', 2, null, 'arcaneShip', 1],
   ['meteo', 'char_219_meteo', 2, null, 'swiftShip', 1],
   ['mudrok', 'char_311_mudrok', 3, 'chess_char_4_18_a', 'steadShip', 1],
-  ['ifrit', 'char_134_ifrit', 4, null, 'visiShip', 1],
+  ['ifrit', 'char_134_ifrit', 4, null, null, 1],
   ['shining', 'char_147_shining', 4, null, 'deputShip', 2],
   ['typhon', 'char_2012_typhon', 5, null, 'skillfulShip', 1],
   ['nymph', 'char_4146_nymph', 5, 'chess_char_5_22_a', 'swiftShip', 1],

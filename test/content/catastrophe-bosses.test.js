@@ -162,9 +162,33 @@ function gunArena() {
   return { h, gun, springs, src: h.unit('probe0') };
 }
 
+test('confession replaces only Catastrophe hidden damage guards; live shieldless springs still sustain it', () => {
+  for(const modeId of ['mode_single_catastrophe','mode_single_abyss']) {
+    const h=arena({modeId,sharedBoss:null}),gun=put(h,CAT.gun,{tag:'boss'});quiet(gun);
+    const spring=put(h,'enemy_9019_actrpb',{pos:[1,14]});quiet(spring);
+    h.run(.4);spring.mem.ab.springShield.up=false;
+    const guard=gun.findBuff('boss:confession');assert.ok(guard);
+    near(guard.mods.physTakenMul,.2);near(guard.mods.artsTakenMul,.2);
+    assert.equal(guard.mods.trueTakenMul,modeId.includes('catastrophe')?.2:undefined);
+    assert.equal(guard.mods.elementalTakenMul,modeId.includes('catastrophe')?.2:undefined);
+    near(gun.s.taunt,modeId.includes('catastrophe')?1:0);
+    gun.base.def=0;gun.base.res=0;gun.markDirty();
+    for(const type of ['phys','arts','true','elemental']) {
+      const hp=gun.hp;const dealt=h.b.dealDamage(null,gun,{amount:1000,type,defIgnorePct:1,resIgnorePct:1});
+      // Existing Catastrophe hidden physical/Arts reduction (50%) remains independent of confession.
+      const physArts=['phys','arts'].includes(type),cat=modeId.includes('catastrophe');
+      const expected=cat?(physArts?100:200):(physArts?200:1000);
+      assert.ok(Math.abs(hp-gun.hp-expected)<1e-5,JSON.stringify({modeId,type,loss:hp-gun.hp,dealt,expected}));
+    }
+    const hp=gun.hp;h.b.loseHp(gun,1000);near(hp-gun.hp,1000);
+    h.b.dealDamage(null,gun,{amount:100,type:'element',element:'burn'});near(gun.elem.burn,100);
+    h.b.kill(spring,h.unit('probe0'));h.run(.5);assert.equal(gun.findBuff('boss:confession'),null);
+  }
+});
+
 test('代赎之罚: actual shield state gates all three independent punishments, even when the gun barrier absorbs the hit', () => {
   const { h, gun, src } = gunArena();
-  near(gun.s.taunt, -1);
+  near(gun.s.taunt, 1);
   h.b.addBuff(gun, { key: 'barrier', shield: 1e6 });
   h.b.addBuff(src, { key: 'fast', mods: { aspd: 1000 } }); near(src.s.aspd, 600);
   const hp = gun.hp;

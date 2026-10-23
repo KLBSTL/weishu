@@ -32,42 +32,29 @@ export function install(battle) {
     });
     if (!S.bondActive(battle, pid, BOND, 2)) continue;
     let readyAt = 0;
-    const zones = new Map(), lastBurnAt = new WeakMap();
     battle.on('damaged', ({ source, target, amount, type, dmg }) => {
       if (!member(source) || !S.onField(source) || target?.side !== 'enemy' || !(amount > 0) || type === 'element'
         || dmg?.tags?.some(tag => tag.startsWith('bond:columbia:')) || battle.time + 1e-9 < readyAt) return;
       const layers = L();
-      readyAt = battle.time + Math.max(1, 10 - Math.floor(layers / 10) * .1);
+      readyAt = battle.time + Math.max(1, 8 - Math.floor(layers / 10) * .1);
       // Reserve a shared cooldown before extra damage; snapshot living, deployed operators only.
       const atk = ops.filter(u => member(u) && S.onField(u)).reduce((sum, u) => sum + u.s.atk, 0);
       const x = target.x, y = target.y;
       battle.after(0, () => {
         battle.fx('aoe', { x, y, radius: BLAST_RADIUS, id: source.id, skill: 'columbia:blast' });
         for (const e of battle.foesInRadius(x, y, BLAST_RADIUS, true)) {
-          battle.dealDamage(source, e, { amount: atk * 1.5, type: 'arts', canDodge: false, tags: ['bond:columbia:burst'] });
+          battle.dealDamage(source, e, { amount: atk * 2, type: 'arts', canDodge: false, tags: ['bond:columbia:burst'] });
         }
-        const key = `${Math.round(x)}:${Math.round(y)}`, previous = zones.get(key);
         battle.fx('aoe', { x, y, radius: BLAST_RADIUS, duration: 5, id: source.id, skill: 'columbia:burn' });
-        if (previous && previous.until + 1e-9 >= battle.time) {
-          Object.assign(previous, { x, y, atk, source, until: battle.time + 5 });
-          return; // Refresh expiry and snapshot without postponing the next tick indefinitely.
-        }
-        const zone = { x, y, atk, source, until: battle.time + 5 };
-        zones.set(key, zone);
+        // Each closure owns one snapshot and exactly five ticks, including coincident centres.
+        const zone = { x, y, atk, source, ticks: 0 };
         const burn = () => {
-          if (zones.get(key) !== zone) return;
-          if (battle.time > zone.until + 1e-9) { zones.delete(key); return; }
           for (const e of battle.foesInRadius(zone.x, zone.y, BLAST_RADIUS)) {
-            if (!hasHp(e) || battle.time - (lastBurnAt.get(e) ?? -Infinity) < 1 - 1e-9) continue;
-            // Independent regions may coexist; their overlap still gives an enemy only one burn per second.
-            let strongest = zone;
-            for (const other of zones.values()) if (other.until + 1e-9 >= battle.time && other.atk > strongest.atk
-              && battle.foesInRadius(other.x, other.y, BLAST_RADIUS).includes(e)) strongest = other;
-            lastBurnAt.set(e, battle.time);
-            battle.dealDamage(strongest.source, e, { amount: strongest.atk * .3, type: 'arts', canDodge: false,
+            if (!hasHp(e)) continue;
+            battle.dealDamage(zone.source, e, { amount: zone.atk * .3, type: 'arts', canDodge: false,
               tags: ['dot', 'bond:columbia:dot'] });
           }
-          battle.after(1, burn);
+          if (++zone.ticks < 5) battle.after(1, burn);
         };
         battle.after(1, burn);
       });
@@ -116,12 +103,12 @@ export function registerMeta(registry) {
   });
   registry.garrison('COLUMBIA_APHRIS', {
     run(ctx) {
-      if (!ctx.bondActive(BOND) || !ctx.bondActive('preciShip')) return;
+      if (!ctx.bondActive(BOND)) return;
       const { count, funds_per_trigger, max_triggers } = ctx.source.bb;
-      const triggers = Math.min(max_triggers, Math.floor(ctx.funds() / funds_per_trigger));
+      const triggers = Math.min(max_triggers ?? Infinity, Math.floor(ctx.funds() / funds_per_trigger));
       if (triggers <= 0 || !ctx.spendFunds(triggers)) return;
       const n = triggers * count;
-      for (const id of [BOND, 'preciShip']) ctx.addLayers(id, n, { requireActive: true });
+      ctx.addLayers(BOND, n, { requireActive: true });
     },
   });
   registry.garrison('COLUMBIA_CTRAIL', {

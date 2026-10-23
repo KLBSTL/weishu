@@ -157,7 +157,7 @@ export function bindCatastropheBoss(b, e, tpl, summonMods) {
     e.mem.catastropheConcord = st;
     e.mem.catastropheBeforeAction = () => tryConcord(b, st);
   } else if (e.defId === CAT.gun) {
-    b.addBuff(e, { key: 'catastrophe:gunTaunt', persist: true, mods: { taunt: -1 } });
+    b.addBuff(e, { key: 'catastrophe:gunTaunt', persist: true, mods: { taunt: 1 } });
   }
 }
 

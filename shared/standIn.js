@@ -28,7 +28,7 @@ export function statusKey(status) {
  * tools/build-data.mjs fails the build when a chess field is neither one of these nor set by composeUnitRecord.
  */
 export const IDENTITY_FIELDS = Object.freeze([
-  'chessId', 'baseId', 'goldenId', 'isGolden', 'tier', 'identifier', 'isHidden', 'isDiy', 'visible', 'chessType', 'backup',
+  'chessId', 'baseId', 'bondIdentityId', 'goldenId', 'isGolden', 'tier', 'identifier', 'isHidden', 'isDiy', 'visible', 'chessType', 'backup',
   'shopSortId', 'bonds', 'garrisonIds', 'price', 'sellPrice', 'upgradeNum', 'upgradeChessId', 'status', 'diyRequirement',
 ]);
 

@@ -63,7 +63,7 @@ function membership(gd, ps) {
   const inHand = new Map();
   const add = (m, bond, key) => { let s = m.get(bond); if (!s) m.set(bond, (s = new Set())); s.add(key); };
   for (const p of boardChess) {
-    const base = gd.baseIdOf(p.id);
+    const base = gd.chess(p.id)?.bondIdentityId ?? gd.baseIdOf(p.id);
     const golden = gd.isGolden(p.id);
     for (const b of pieceBonds(gd, p)) {
       // Sarkaz uses character identity (including alternate forms), not legacy tier variants.
@@ -73,7 +73,7 @@ function membership(gd, ps) {
     }
   }
   for (const p of handChess) {
-    const base = gd.baseIdOf(p.id);
+    const base = gd.chess(p.id)?.bondIdentityId ?? gd.baseIdOf(p.id);
     for (const b of pieceBonds(gd, p)) add(inHand, b, base);
   }
   return { onBoard, onBoardVariant, inHand, goldenOnBoard: boardChess.filter((p) => gd.isGolden(p.id)).length };

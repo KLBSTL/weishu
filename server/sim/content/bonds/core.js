@@ -44,6 +44,7 @@ import { kjeragColdWind } from '../devices.js';
 import * as items from '../items.js';
 import { FORCED_EXIT } from '../../constants.js';
 import { msg } from '../../../../shared/i18n.js';
+import { primaryHit } from './attack-riders.js';
 
 const num = S.num;
 
@@ -204,7 +205,16 @@ function installYan(battle, pid, bb, members) {
       atkMul: ex ? num(bb.atk, 1) : 1,
       dmgTakenMul: ex ? Math.max(0, 1 - num(bb.damage_resistance, 0)) : 1,
     });
-    for (const y of out) y.mem.bondYan = true;
+    for (const y of out) {
+      y.mem.bondYan = true;
+      if (ex) {
+        battle.addBuff(y, { key: 'bond:yan:stealth', persist: true, flags: { stealth: true } });
+        battle.on('damaged', ({ source, target, dmg }) => {
+          if (source !== y || target?.side !== 'enemy' || !dmg?.isAttack || dmg.isSkill || !primaryHit(dmg)) return;
+          battle.dealDamage(y, target, { amount: y.s.atk, type: 'elemental', canDodge: false, tags: ['bond:yan:element'] });
+        });
+      }
+    }
   }, { once: true });
 }
 
@@ -319,13 +329,13 @@ function installLaterano(battle, pid, bb, members) {
     if (Number.isFinite(n) && n > skill.ammoLeft) skill.ammoLeft = n;
   }, { priority: -10 });
   if (!reached(battle, pid, 'lateranoShip', bb.power_bond_char_cnt)) return;
-  const per = num(bb.atk_per_consume, 0), cap = num(bb.max_atk_for_consume, Infinity);
+  const per = .03, cap = () => .90 + .01 * S.bondLayers(battle, pid, 'lateranoShip');
   if (!(per > 0)) return;
   const st = { used: 0, bonus: 0 };
-  battle.on('ammoUsed', ({ unit }) => {
-    if (!memberSet.has(unit) || st.bonus >= cap) return;
-    st.used++;
-    st.bonus = Math.min(cap, st.used * per);
+  battle.on('ammoUsed', ({ unit, count = 1 }) => {
+    if (!memberSet.has(unit) || !(count > 0) || st.bonus >= cap()) return;
+    st.used += count;
+    st.bonus = Math.min(cap(), st.used * per);
     for (const m of members) S.passiveBuff(battle, m, 'bond:laterano:ammo', S.directMods({ atk: st.bonus }));
   });
 }

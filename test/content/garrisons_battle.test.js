@@ -80,7 +80,7 @@ test('useskill (莎草 42 / 菲莱 43 / 百炼嘉维尔 128 / 塑心 90 / 纯烬
     skill(h, h.unit('op'));
     expectAll(h, sc.targets, Math.min(per, capOf(gid)), gid);
     for (let i = 0; i < 29; i++) skill(h, h.unit('op'));
-    expectAll(h, sc.targets, Math.min(30 * per, capOf(gid)), `${gid} ×30`);
+    expectAll(h, sc.targets, Math.min((g.bb.first_skill_only ? 1 : 30) * per, capOf(gid)), `${gid} ×30`);
     cover(gid);
   }
   // literal numbers (normal / elite)
@@ -89,8 +89,8 @@ test('useskill (莎草 42 / 菲莱 43 / 百炼嘉维尔 128 / 塑心 90 / 纯烬
     for (let i = 0; i < n; i++) skill(h, h.unit('op'));
     return gains(h);
   };
-  assert.deepEqual(one('garrison_43_a', 2, { sargonShip: B(0) }), { sargonShip: 12 }, '菲莱 +6 per skill');
-  assert.deepEqual(one('garrison_43_b', 1, { sargonShip: B(0) }), { sargonShip: 12 }, '菲莱 精锐 +12');
+  assert.deepEqual(one('garrison_43_a', 2, { sargonShip: B(0) }), { sargonShip: 5 }, '菲莱 +5 only on the first skill');
+  assert.deepEqual(one('garrison_43_b', 1, { sargonShip: B(0) }), { sargonShip: 10 }, '菲莱 精锐 +10');
   assert.deepEqual(one('garrison_42_a', 3, { sargonShip: B(0) }), { sargonShip: 5 }, '莎草: first skill only');
   assert.deepEqual(one('garrison_42_b', 3, { sargonShip: B(0) }), { sargonShip: 10 });
   assert.deepEqual(one('garrison_128_a', 1, { sargonShip: B(0) }), { sargonShip: 9 });
@@ -204,7 +204,7 @@ test('consume_ammo (莫斯提马 22 x-5 / 圣约送葬人 23+55 / 蕾缪安 24 r
     for (let i = 0; i < 10; i++) h.b.emit('ammoUsed', { unit: h.unit('rem') });
     return gains(h);
   };
-  assert.deepEqual(rem('garrison_24_a', 2), {}, '蕾缪安: 2 in the row');
+  assert.deepEqual(rem('garrison_24_a', 2), { lateranoShip: 2, preciShip: 2 }, '蕾缪安 no longer needs three in the row');
   assert.deepEqual(rem('garrison_24_a', 3), { lateranoShip: 2, preciShip: 2 });
   assert.deepEqual(rem('garrison_24_b', 3), { lateranoShip: 4, preciShip: 4 });
   const most = (gid) => {
@@ -506,9 +506,9 @@ test('魔王 59: +1 / +2 on trait gains of the operator in front (not counted to
     skill(h, h.unit('front'));
     assert.equal(gains(h).sargonShip, 5 + extra, 'first skill only (cap 5 not eaten by the extra)');
     skill(h, h.unit('side'));
-    assert.equal(gains(h).sargonShip, 11 + extra, 'side operator: no extra');
+    assert.equal(gains(h).sargonShip, 10 + extra, 'side operator: first cast +5, no extra');
     h.b.addLayers('p1', 'sargonShip', 3, 'bond', { source: h.unit('front') });
-    assert.equal(gains(h).sargonShip, 14 + extra, 'non-garrison gain: no extra');
+    assert.equal(gains(h).sargonShip, 13 + extra, 'non-garrison gain: no extra');
     cover(gid);
   }
 });
@@ -727,7 +727,7 @@ test('Sarkaz custom traits exercise each normal and elite data id', () => {
     const u = h.unit('op');
     if (code === 'ifrit') {
       approx(u.s.dmgDealtMul, 1);
-      approx(u.s.atk, form === 'b' ? 1250 : 1100); // 500 × (1 + 0.2 + 100 × 0.007 + trait)
+      approx(u.s.atk, form === 'b' ? 800 : 650); // Fixed trait only; Sarkaz no longer grants opening ATK.
       approx(u.s.maxHp, form === 'b' ? 3200 : 2600);
     }
     if (code === 'wisdel') approx(u.s.dmgDealtMul, form === 'b' ? 3 : 2);
@@ -780,6 +780,27 @@ test('Tin Man trait with new Columbia field equipment: independent flat stats an
     h.b.players[0].bonds.columbiaShip.layers = 20;
     h.b.emit('layerGain', { playerId: u.ownerId, bondId: 'columbiaShip' }); h.step();
     approx(u.s.spRecovery, 1 + .1 * n); assert.deepEqual(h.b.errors, []); cover(gid);
+  }
+});
+
+test('Philae first cast survives a real redeployment and grows each active bond independently', () => {
+  const h=battle({units:[{id:'op',g:['garrison_43_b'],row:10,col:4}],bonds:{sargonShip:B(0),steadShip:B(0)}}),u=h.unit('op');
+  skill(h,u);assert.deepEqual(gains(h),{sargonShip:10,steadShip:10});
+  h.b.kill(u);h.step();assert.equal(h.b._deploy(u),true);skill(h,u);
+  assert.deepEqual(gains(h),{sargonShip:10,steadShip:10});assert.deepEqual(h.b.errors,[]);
+});
+
+test('Passenger and Rosmontis read summed active layers and multiply damage without changing ATK', () => {
+  for(const form of ['a','b']) for(const code of ['100','balance_rosmontis']) {
+    const gid=`garrison_${code}_${form}`,n=form==='a'?1:2;
+    const h=battle({units:[{id:'op',g:[gid],row:10,col:4}],bonds:{
+      sargonShip:B(2),swiftShip:B(2),preciShip:B(2),sarkazShip:B(300),columbiaShip:B(300),yanShip:B(999,false),
+    }}),u=h.unit('op'),e=h.spawn('e_dummy',{pos:[7,9]});
+    const multiplier=code==='100'?1+.02*n:1+2*n;
+    approx(u.s.atk,u.base.atk);approx(u.s.dmgDealtMul,multiplier);
+    approx(h.b.dealDamage(u,e,{amount:100,type:'true'}),100*multiplier);
+    approx(h.b.dealDamage(u,e,{amount:100,type:'true',sourceless:true}),100);
+    assert.deepEqual(h.b.errors,[]);cover(gid);
   }
 });
 

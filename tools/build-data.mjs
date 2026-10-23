@@ -47,6 +47,7 @@ import { finishRecruitment } from './recruitment-data.mjs';
 import { finishCatastrophe } from './catastrophe-data.mjs';
 import { prepareUltimateEnemies, finishUltimateEnemies } from './ultimate-enemies-data.mjs';
 import { prepareAdvancedBounties, finishAdvancedBounties } from './catastrophe-bounty-data.mjs';
+import { prepareBalanceUpdate, finishBalanceUpdate, finishBalanceChess } from './balance-update-20261022-data.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -3880,7 +3881,7 @@ function validateAll(f) {
   const visible = Object.values(chess).filter((c) => !c.isGolden && c.visible);
   if (Object.keys(bonds).length !== 25) err(`expected 25 bonds with Sarkaz and Columbia, got ${Object.keys(bonds).length}`);
   if (Object.keys(bands).length !== 43) err(`expected 43 bands, got ${Object.keys(bands).length}`);
-  if (visible.length !== 114) err(`expected 114 visible non-DIY chess after restoring Victoria, got ${visible.length}`);
+  if (visible.length !== 123) err(`expected 123 visible non-DIY chess after restoring Aegir, got ${visible.length}`);
   for (const c of Object.values(chess)) {
     if (!chess[c.baseId]) err(`chess ${c.chessId}: baseId missing`);
     if (c.goldenId && !chess[c.goldenId]) err(`chess ${c.chessId}: goldenId missing`);
@@ -4069,6 +4070,7 @@ async function main() {
   const ctx = await loadContext();
   prepareSarkaz(ctx);
   prepareColumbia(ctx);
+  prepareBalanceUpdate(ctx);
   prepareUltimateEnemies(ctx);
   prepareAdvancedBounties(ctx);
   log('building…');
@@ -4078,6 +4080,7 @@ async function main() {
   for (let r = 0; r <= FULL_RANK; r++) {
     const pctx = { ...ctx, potRank: r };
     const built = buildChess(pctx);
+    finishBalanceChess(built.chess);
     passes.push({ ctx: pctx, chess: built.chess, tokenOwners: built.tokenOwners, backups: buildBackups(pctx, built.chess) });
   }
   const { chess, backups } = passes[FULL_RANK];
@@ -4106,6 +4109,7 @@ async function main() {
   finishCatastrophe(files);
   finishUltimateEnemies(files);
   finishAdvancedBounties(files);
+  finishBalanceUpdate(files);
 
   // the unit forms rebuild every PRESET chess at every rank (before the annotation: each pass as built)
   const errors = [...validateAll(files), ...passes.flatMap((p) => checkUnitFormParity(p.ctx, p.chess).map((e) => `${e} (potential rank ${p.ctx.potRank})`))];

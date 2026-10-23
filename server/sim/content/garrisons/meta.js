@@ -297,15 +297,17 @@ H.SERVER_POOL_CHAR = {
 H.SERVER_MOST_BOND = {
   run(ctx) {
     if (!rowCondition(ctx, selfView(ctx))) return;
-    let best = [], bc = 0;
-    for (const id of bondOrder(ctx)) {
-      const c = ctx.bondCount(id);
-      if (c > bc) { bc = c; best = [id]; } else if (c === bc && c > 0) best.push(id);
-    }
-    const order = best.length > 1 ? ctx.rng.shuffle(best.slice()) : best;
-    for (const bond of order) {
-      const id = ctx.rollChess({ bond, maxTier: 6 });
-      if (id && ctx.grantChess(id)) return;
+    for (let draw = 0; draw < num(ctx.source.bb.count, 1); draw++) {
+      let best = [], bc = 0;
+      for (const id of bondOrder(ctx)) {
+        const c = ctx.bondCount(id);
+        if (c > bc) { bc = c; best = [id]; } else if (c === bc && c > 0) best.push(id);
+      }
+      const order = best.length > 1 ? ctx.rng.shuffle(best.slice()) : best;
+      for (const bond of order) {
+        const id = ctx.rollChess({ bond, maxTier: 6 });
+        if (id && ctx.grantChess(id)) break;
+      }
     }
   },
 };
@@ -408,27 +410,28 @@ function copyFront(ctx, eventType, selfKey, distance = 1) {
   if (!onBoard(self)) return;
   let r = self.row, c = self.col;
   for (let i = 0; i < distance; i++) [r, c] = frontOf(r, c, self.dir);
-  let target = ctx.pieceAt(r, c);
-  for (let i = 0; i < 8 && target && target.kind === 'chess'; i++) {
+  const visit = (target, seen, depth) => {
+    if (!target || target.kind !== 'chess' || target.uid === self.uid || seen.has(target.uid) || depth >= 8) return;
+    const next = new Set(seen); next.add(target.uid);
     const gs = garrisonsOfPiece(ctx, target).filter((g) => g.eventType === eventType);
     if (!gs.length) return;
-    if (!gs.every((g) => g.effectKey === selfKey)) break;
-    target = frontPiece(ctx, target);
-  }
-  if (!target || target.kind !== 'chess' || target.uid === self.uid) return;
-  runGarrisonsOf(ctx, target, eventType, { asPiece: self });
+    if (gs.every((g) => g.effectKey === selfKey)) {
+      for (const g of gs) for (let k = 1; k <= num(g.bb?.copy_distance, 1); k++) visit(frontPiece(ctx, target, k), next, depth + 1);
+    } else runGarrisonsOf(ctx, target, eventType, { asPiece: self });
+  };
+  visit(ctx.pieceAt(r, c), new Set(), 0);
 }
 
 H.SERVER_FRONT_SAME_EFFECT_PREP_FIN = {
-  run(ctx) { copyFront(ctx, 'SERVER_PREP_FIN', 'SERVER_FRONT_SAME_EFFECT_PREP_FIN'); },
+  run(ctx) { for (let k = 1; k <= num(ctx.source.bb.copy_distance, 1); k++) copyFront(ctx, 'SERVER_PREP_FIN', 'SERVER_FRONT_SAME_EFFECT_PREP_FIN', k); },
 };
 H.COLUMBIA_DEMKNI = {
   run(ctx) {
-    copyFront(ctx, 'SERVER_PREP_FIN', 'COLUMBIA_DEMKNI');
+    for (let k = 1; k <= num(ctx.source.bb.copy_distance, 1); k++) copyFront(ctx, 'SERVER_PREP_FIN', 'COLUMBIA_DEMKNI', k);
   },
 };
 H.SERVER_FRONT_SAME_EFFECT_PREP_START = {
-  run(ctx) { copyFront(ctx, 'SERVER_PREP_START', 'SERVER_FRONT_SAME_EFFECT_PREP_START'); },
+  run(ctx) { for (let k = 1; k <= num(ctx.source.bb.copy_distance, 1); k++) copyFront(ctx, 'SERVER_PREP_START', 'SERVER_FRONT_SAME_EFFECT_PREP_START', k); },
 };
 
 

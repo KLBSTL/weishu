@@ -483,7 +483,7 @@ const BY_ITEM = {
       for (const a of [u, front].filter(Boolean)) {
         targets.add(a);
         a.trait.sarkazBoneShields = (a.trait.sarkazBoneShields ?? 0) + 1;
-        const room = Math.max(0, .5 * a.s.maxHp - numericShieldTotal(a));
+        const room = Math.max(0, .5 * a.s.maxHp - numericShieldTotal(a, 'bond:sarkaz:barrier'));
         const shield = Math.min(room, rec.params.shield_ratio * a.s.maxHp);
         if (shield > 0) S.buff(a, { key, shield });
         fxOn(battle, 'shield', a, u.id, key);
@@ -526,7 +526,7 @@ const BY_ITEM = {
         S.stat('resist', {}, { status: combo ? 'resist' : null, value: .5 });
       }
       const shield = u.findBuff(key);
-      if (shield) shield.shield = Math.min(shield.shield, Math.max(0, cap() - (numericShieldTotal(u) - shield.shield)));
+      if (shield) shield.shield = Math.min(shield.shield, Math.max(0, cap() - (numericShieldTotal(u, 'bond:sarkaz:barrier') - shield.shield)));
       S.stat('columbia-stats', memberOf(battle, u, 'columbiaShip') ? { atkFlat: p.atk, aspd: p.aspd } : {});
     };
     refresh();
@@ -538,7 +538,7 @@ const BY_ITEM = {
       const seq = ++activation;
       const tick = () => {
         if (seq !== activation || !onField(u) || !u.skill?.active) return;
-        const gain = Math.min(p.shield, Math.max(0, cap() - numericShieldTotal(u)));
+        const gain = Math.min(p.shield, Math.max(0, cap() - numericShieldTotal(u, 'bond:sarkaz:barrier')));
         if (gain > 0) {
           S.buff(u, { key, shield: (u.findBuff(key)?.shield ?? 0) + gain });
           fxOn(battle, 'shield', u, u.id, key);

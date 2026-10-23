@@ -245,7 +245,11 @@ const INSTALLERS = {
     const m = byUnit(list);
     battle.on('skillStart', ({ unit }) => {
       const arr = m.get(unit);
-      if (arr) for (const it of arr) fireGain(battle, it);
+      if (arr) for (const it of arr) {
+        if (it.bb.first_skill_only && it.firstSkillUsed) continue;
+        if (it.bb.first_skill_only) it.firstSkillUsed = true;
+        fireGain(battle, it);
+      }
     });
   },
 
@@ -286,13 +290,14 @@ const INSTALLERS = {
   },
 
   act1autochess_gar_event_consume_ammo(battle, list) {
-    battle.on('ammoUsed', ({ unit }) => {
+    battle.on('ammoUsed', ({ unit, count = 1 }) => {
       if (!unit) return;
       for (let i = 0; i < list.length; i++) {
         const it = list[i];
         if (!ammoScope(it, unit)) continue;
-        it.cnt++;
-        if (it.cnt % Math.max(1, S.num(it.bb.consume_count, 1)) === 0) fireGain(battle, it);
+        const step = Math.max(1, S.num(it.bb.consume_count, 1)), before = Math.floor(it.cnt / step);
+        it.cnt += Math.max(0, Math.floor(count));
+        for (let n = before; n < Math.floor(it.cnt / step); n++) fireGain(battle, it);
       }
     });
   },
@@ -369,13 +374,15 @@ const INSTALLERS = {
 const READERS = new Set([
   'act1autochess_gar_eff_attrByBond', 'act1autochess_gar_eff_respawnTimeByBond',
   'act2autochess_gar_eff_attrByBond_add_onstart', 'act2autochess_gar_eff_ab_damageScaleByBond',
+  'LOCAL_DAMAGE_BY_BOND',
 ]);
 
 /** floor(Σ layers of the listed active bonds / divide_num). */
 export function stepsOf(battle, it) {
   const div = Math.max(1, S.num(it.bb.divide_num, 1));
   let sum = 0;
-  for (const b of it.bonds ?? (it.bonds = ids(it.bbStr.bond_id))) if (S.bondActive(battle, it.unit.ownerId, b)) sum += S.bondLayers(battle, it.unit.ownerId, b);
+  const bonds = it.bb.core_only ? S.coreBondIds() : it.bonds ?? (it.bonds = ids(it.bbStr.bond_id));
+  for (const b of bonds) if (S.bondActive(battle, it.unit.ownerId, b)) sum += S.bondLayers(battle, it.unit.ownerId, b);
   return Math.floor(sum / div);
 }
 
@@ -395,6 +402,9 @@ function applyReader(battle, it) {
   const u = it.unit;
   const key = `gar:${it.gid}`;
   switch (it.key) {
+    case 'LOCAL_DAMAGE_BY_BOND':
+      S.passiveBuff(battle, u, key, { dmgDealtMul: 1 + S.num(it.bb.damage_scale_per_stack, 0) * k });
+      break;
     case 'act1autochess_gar_eff_attrByBond':
       if (k > 0) S.passiveBuff(battle, u, key, attrMods(it.bb, k));
       else battle.removeBuff(u, key);

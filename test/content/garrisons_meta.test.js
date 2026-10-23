@@ -99,8 +99,7 @@ test('获得时 自身所属盟约 +N without activation (角峰 / 艾丝黛尔 
   s.acquire('chess_char_4_17_b');
   const want = {};
   for (const b of CH('chess_char_1_02_a').bonds) want[b] = (want[b] || 0) + 2;
-  for (const b of CH('chess_char_4_17_b').bonds) want[b] = (want[b] || 0) + 16;
-  onlyGains(s, want, '角峰 +2, 星熊 精锐 +16');
+  onlyGains(s, want, '角峰 +2; 星熊 no longer has an acquisition trait');
 });
 
 test('投资人: 获得时 traits run ×2 while active, ×3 at ≥ 100 layers (dispatcher; handlers add once per call)', () => {
@@ -137,7 +136,7 @@ test('SERVER_ADD_BOND 获得时: 烛煌 35 炎/维多利亚 +5 / +10; 录武官 
   onlyGains(s, { yanShip: 15, victoriaShip: 15 });
 });
 
-test('SERVER_ADD_MULTIPLE_BOND 录武官 156: 炎 +6 / 奇迹 +3 (精锐 12 / 6), no activation needed', () => {
+test('录武官 156: only 炎 +8/+16 without activation; no legacy 奇迹 gain', () => {
   for (const { gid, g, owners } of idsOf('SERVER_GAIN', 'SERVER_ADD_MULTIPLE_BOND')) {
     for (const owner of owners.filter((o) => CH(o).visible)) {
       const s = setup();
@@ -149,7 +148,7 @@ test('SERVER_ADD_MULTIPLE_BOND 录武官 156: 炎 +6 / 奇迹 +3 (精锐 12 / 6)
   }
   const s = setup();
   s.acquire('chess_char_5_23_b');
-  onlyGains(s, { yanShip: 12, miraShip: 6 });
+  onlyGains(s, { yanShip: 16 });
 });
 
 test('SERVER_ADD_BOND_METHOD shoplv (惊蛰 30): 调度中心等级 × multi, no activation needed', () => {
@@ -345,9 +344,9 @@ test('SERVER_ADD_BOND_METHOD hand_count (妮芙 56) and same_row (蛇屠箱 70)'
         give(s.m, s.ps, fill[1], 'board', [10, 8]);
         give(s.m, s.ps, fill[2], 'board', [11, 6]);                    // other row
       }
-      s.activate(g.bbStr.bond);
+      s.activate(...ids(g.bbStr.bond));
       s.prepEnd();
-      assert.equal(s.G(g.bbStr.bond), 3 * g.bb.multi, `${gid} ${owner}: 3 × ${g.bb.multi}`);
+      for (const bond of ids(g.bbStr.bond)) assert.equal(s.G(bond), 3 * g.bb.multi, `${gid} ${owner}: 3 × ${g.bb.multi}`);
     }
     cover(gid);
   }
@@ -734,7 +733,7 @@ test('余 37: a chess of the bond with the most members (normal: 3 in the row; �
       s.ps.recompute();
       s.roundStart();
       const rowRule = g.bbStr.conditionkey === 'character_same_row';
-      assert.equal(handChess(s.ps).length, rowRule ? 0 : 1, `${gid}: alone in the row`);
+      assert.equal(handChess(s.ps).length, rowRule ? 0 : (g.bb.count ?? 1), `${gid}: alone in the row`);
       if (rowRule) {
         const row = plain((c) => !c.bonds.includes('yanShip')).slice(0, 2);
         give(s.m, s.ps, row[0], 'board', [10, 6]);
@@ -742,8 +741,8 @@ test('余 37: a chess of the bond with the most members (normal: 3 in the row; �
         s.roundStart();
       }
       const got = handChess(s.ps);
-      assert.equal(got.length, 1, gid);
-      assert.ok(CH(got[0]).bonds.includes('yanShip'), `${gid} ${got[0]}`);
+      assert.equal(got.length, g.bb.count ?? 1, gid);
+      assert.ok(got.every(id=>CH(id).bonds.includes('yanShip')), `${gid} ${got}`);
     }
     cover(gid);
   }
@@ -950,7 +949,7 @@ test('Columbia DOCX v2: Astesia pays up to five, refunds actual payment next pre
   }
 });
 
-test('Columbia DOCX: Mountain splits held funds and spent funds; elite Saria copies only one front trait', () => {
+test('Columbia DOCX: Mountain splits held/spent funds; elite Saria copies both fixed front tiles in sequence', () => {
   for (const [form, n] of [['a', 1], ['b', 2]]) for (const active of [[], ['columbiaShip'], ['investShip'], ['columbiaShip', 'investShip']]) {
     const s = setup(); give(s.m, s.ps, 'chess_char_5_17_' + form, 'board', [10, 5]); s.activate(...active);
     s.ps.spend(8); s.ps.funds = 7; const before = s.ps.round.spent;
@@ -965,7 +964,7 @@ test('Columbia DOCX: Mountain splits held funds and spent funds; elite Saria cop
   give(s.m, s.ps, 'chess_char_5_17_a', 'board', [10, 5]); s.activate('columbiaShip', 'arcaneShip', 'investShip');
   s.ps.funds = 7; s.ps.round.spent = 0; s.prepEnd();
   assert.equal(s.G('arcaneShip'), 14); assert.equal(s.G('columbiaShip'), 14);
-  assert.equal(s.G('investShip'), 2, 'Mountain is not the second copied front tile');
+  assert.equal(s.G('investShip'), 3, 'copied Mountain observes the first copied payment before the real Mountain runs');
   assert.equal(s.ps.funds, 0); assert.equal(s.ps.pendingFunds, 7); cover('garrison_columbia_demkni_b'); s.m.dispose();
 });
 
@@ -1046,8 +1045,8 @@ test('Hibiscus: prep end grants own bonds 2/4 even inactive; gain does not grant
   }
 });
 
-test('Aphris: board only, both bonds required, every 4 held funds costs 1 for 4/8 layers', () => {
-  for (const [form, n] of [['a', 4], ['b', 8]]) {
+test('Aphris: board only, Columbia alone suffices, 6/12 layers per payment with an ordinary-only limit', () => {
+  for (const [form, n] of [['a', 6], ['b', 12]]) {
     const s = setup();
     give(s.m, s.ps, `chess_char_6_columbia_aphris_${form}`, 'hand');
     s.ps.funds = 8;
@@ -1056,7 +1055,7 @@ test('Aphris: board only, both bonds required, every 4 held funds costs 1 for 4/
     s.roundStart(); assert.deepEqual(s.gainsNow(), {}, 'hand does not trigger');
     assert.equal(s.ps.funds, 8); assert.equal(s.ps.round.spent, spent);
     s.m.dispose();
-    for (const bonds of [[], ['columbiaShip'], ['preciShip']]) {
+    for (const bonds of [[], ['preciShip']]) {
       const t = setup();
       give(t.m, t.ps, `chess_char_6_columbia_aphris_${form}`, 'board', [10, 5]);
       t.activate(...bonds); t.ps.funds = 8;
@@ -1065,16 +1064,19 @@ test('Aphris: board only, both bonds required, every 4 held funds costs 1 for 4/
       assert.equal(t.ps.funds, 8); assert.equal(t.ps.round.spent, before);
       t.m.dispose();
     }
-    for (const [funds, triggers] of [[0, 0], [1, 0], [2, 0], [3, 0], [4, 1], [7, 1], [8, 2], [15, 3], [24, 6], [25, 6], [100, 6]]) {
+    for (const funds of [0,1,2,3,4,7,8,15,24,25,40,100]) {
+      const triggers=Math.min(form==='a'?6:Infinity,Math.floor(funds/4));
       const t = setup();
       give(t.m, t.ps, `chess_char_6_columbia_aphris_${form}`, 'board', [10, 5]);
-      t.activate('columbiaShip', 'preciShip'); t.ps.funds = funds;
+      t.activate('columbiaShip'); t.ps.funds = funds;
       const before = t.ps.round.spent, rng = t.m.rngMeta.state();
       t.roundStart();
-      onlyGains(t, { columbiaShip: triggers * n, preciShip: triggers * n }, `${form}: ${funds} funds`);
+      onlyGains(t, { columbiaShip: triggers * n }, `${form}: ${funds} funds`);
       assert.equal(t.ps.funds, funds - triggers); assert.equal(t.ps.round.spent, before + triggers);
       assert.equal(t.m.rngMeta.state(), rng);
-      assert.equal(itemUnits(t.ps, 'chess_item_4_columbia_doll_e_a'), Math.floor(triggers * n / 10));
+      const dolls=Math.floor(triggers*n/10);
+      assert.equal(t.ps.counters['columbia:earnedLayers'] ?? 0,triggers*n);
+      assert.equal(itemUnits(t.ps, 'chess_item_4_columbia_doll_e_a'), form==='b'&&funds===100?28:dolls, '100 funds fills storage: the existing merge/overflow path keeps 14 elite dolls');
       const layers = t.gainsNow(); t.prepEnd(); assert.deepEqual(t.gainsNow(), layers);
       assert.equal(t.ps.funds, funds - triggers, 'prep end does not pay again');
       t.m.dispose();
@@ -1084,17 +1086,17 @@ test('Aphris: board only, both bonds required, every 4 held funds costs 1 for 4/
 });
 
 test('Aphris: Ptilopsis copies the target form and pays from current funds without RNG draws', () => {
-  for (const [form, n] of [['a', 4], ['b', 8]]) {
+  for (const [form, n] of [['a', 6], ['b', 12]]) {
     const s = setup();
     give(s.m, s.ps, `chess_char_6_columbia_aphris_${form}`, 'board', [10, 5]);
     give(s.m, s.ps, 'chess_char_4_21_a', 'board', [10, 4]);
-    s.activate('columbiaShip'); s.ps.funds = 8;
+    s.activate('preciShip'); s.ps.funds = 8;
     const spent = s.ps.round.spent;
     s.roundStart(); assert.deepEqual(s.gainsNow(), {});
     assert.equal(s.ps.funds, 8); assert.equal(s.ps.round.spent, spent);
-    s.activate('preciShip');
+    s.activate('columbiaShip');
     const rng = s.m.rngMeta.state(); s.roundStart();
-    assert.equal(s.G('columbiaShip'), 3 * n); assert.equal(s.G('preciShip'), 3 * n);
+    assert.equal(s.G('columbiaShip'), 3 * n); assert.equal(s.G('preciShip'), 0);
     assert.equal(s.ps.funds, 5); assert.equal(s.ps.round.spent, spent + 3);
     assert.equal(s.m.rngMeta.state(), rng);
     s.m.dispose();
@@ -1102,7 +1104,7 @@ test('Aphris: Ptilopsis copies the target form and pays from current funds witho
 });
 
 test('Aphris: paid trait costs count toward Astesia and Mountain prep-end layers', () => {
-  for (const [form, n] of [['a', 4], ['b', 8]]) {
+  for (const [form, n] of [['a', 6], ['b', 12]]) {
     const s = setup();
     give(s.m, s.ps, `chess_char_6_columbia_aphris_${form}`, 'board', [10, 5]);
     give(s.m, s.ps, 'chess_char_3_columbia_astesi_a', 'board', [10, 6]);
@@ -1111,9 +1113,35 @@ test('Aphris: paid trait costs count toward Astesia and Mountain prep-end layers
     s.ps.funds = 16; s.ps.round.spent = 0;
     s.roundStart(); assert.equal(s.ps.funds, 12); assert.equal(s.ps.round.spent, 4);
     s.prepEnd();
-    onlyGains(s, { columbiaShip: 4 * n + 11, preciShip: 4 * n, arcaneShip: 5, investShip: 3 });
+    onlyGains(s, { columbiaShip: 4 * n + 11, arcaneShip: 5, investShip: 3 });
     s.m.dispose();
   }
+});
+
+test('two elite Aphris read sequential funds once each: 40 -> 30 -> 23 and 120+84 stacks', () => {
+  const s=setup();
+  for(const col of [4,5])give(s.m,s.ps,'chess_char_6_columbia_aphris_b','board',[10,col]);
+  s.activate('columbiaShip');s.ps.funds=40;s.ps.round.spent=0;s.roundStart();
+  assert.equal(s.ps.funds,23);assert.equal(s.ps.round.spent,17);onlyGains(s,{columbiaShip:204});s.m.dispose();
+});
+
+test('elite Ptilopsis skips the empty first tile, copies the second tile form and pays sequentially', () => {
+  for(const [form,funds,layers]of [['a',30,120],['b',23,204]]) {
+    const s=setup();give(s.m,s.ps,`chess_char_4_21_${form}`,'board',[10,3]);
+    give(s.m,s.ps,'chess_char_6_columbia_aphris_b','board',[10,5]);
+    s.activate('columbiaShip');s.ps.funds=40;s.roundStart();
+    assert.equal(s.ps.funds,funds);onlyGains(s,{columbiaShip:layers});s.m.dispose();
+  }
+});
+
+test('elite Saria preserves both target qualities and convergent copy paths do not merge', () => {
+  const s=setup();give(s.m,s.ps,'chess_char_5_11_b','board',[10,3]);
+  give(s.m,s.ps,'chess_char_5_22_a','board',[10,4]);give(s.m,s.ps,'chess_char_5_22_b','board',[10,5]);
+  for(const id of plain().slice(0,3))give(s.m,s.ps,id,'hand');
+  s.activate('sarkazShip','swiftShip');s.prepEnd();onlyGains(s,{sarkazShip:36,swiftShip:36});s.m.dispose();
+  const t=setup();for(const col of [3,4])give(t.m,t.ps,'chess_char_5_11_b','board',[10,col]);
+  give(t.m,t.ps,'chess_char_5_22_a','board',[10,5]);for(const id of plain().slice(0,3))give(t.m,t.ps,id,'hand');
+  t.activate('swiftShip');t.prepEnd();onlyGains(t,{swiftShip:24});t.m.dispose();
 });
 
 test('Silence: inactive bonds gain nothing, active bonds independently gain 2/4, Ptilopsis copies the selected form', () => {

@@ -117,11 +117,7 @@ export function prepareColumbia({ act }) {
     }
   }
   for (const [code, , tier] of RETIRED) act.charShopChessDatas[`chess_char_${tier}_columbia_${code}_a`].isHidden = true;
-  // Keep old ids and kits for saves/self-selection; remove only regular recruitment visibility.
-  for (const [id, shop] of Object.entries(act.charShopChessDatas)) {
-    const bonds = act.charChessDataDict[id]?.bondIds ?? [];
-    if (!RETAINED_CHARACTERS.includes(shop.charId) && bonds.includes('egirShip')) shop.isHidden = true;
-  }
+  // Aegir regular operators are restored by the maintainer's 2026-10-22 revision.
   for (const suffix of ['a', 'b']) act.charChessDataDict[`chess_char_5_16_${suffix}`].bondIds = ['columbiaShip', 'skillfulShip'];
   // Ifrit remains Sarkaz/Farsight; she no longer counts toward Columbia.
   for (const [id, bond] of Object.entries(act.bondInfoDict)) {

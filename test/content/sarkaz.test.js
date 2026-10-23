@@ -44,29 +44,60 @@ function setup(n = 6, L = 0, gs = {}) {
   return { h, ops };
 }
 
-test('Sarkaz three: activation, raw layer scaling and live refresh', () => {
+test('Sarkaz large source budget, damage filtering, rider and real redeployment boundaries', () => {
+  const {h,ops}=setup(6,600),u=ops[0];
+  for(const op of ops)h.b.addBuff(op,{key:'example-hp',mods:{hpFlat:6000}});
+  close(u.s.maxHp,10000);close(u.s.atk,1000);
+  for(let i=0;i<44;i++){u.skill.end('test');u.skill.activate('test',{free:true});}
+  close(u.s.atk,7600);close(u.findBuff(SHIELD).shield,35000);
+  u.skill.end('test');u.skill.activate('test',{free:true});close(u.s.atk,7600);
+  const e=h.spawn('dummy',{pos:[7,9]}),hp=e.hp;
+  h.b.dealDamage(u,e,{amount:100,type:'true',isAttack:true});close(hp-e.hp,5350);
+  const own=u.hp;
+  h.b.dealDamage(e,u,{amount:100,type:'true'});close(own-u.hp,100);
+  h.b.dealDamage(e,u,{amount:100,type:'elemental'});close(own-u.hp,200);
+  h.b.dealDamage(e,u,{amount:100,type:'phys'});close(own-u.hp,200);close(u.findBuff(SHIELD).shield,34900);
+  u.trait.sarkazBoneShields=1;h.b.addBuff(u,{key:'other-budget',shield:3000});
+  close(numericShieldTotal(u),37900);
+  h.b.addBuff(u,{key:'smaller-hp',mods:{hpPct:-.5}});h.step();
+  close(u.findBuff(SHIELD).shield,u.s.maxHp*3.5);
+  close(u.findBuff('other-budget').shield,2500);
+  h.b.emit('deploy',{unit:u,move:true});close(u.s.atk,7600);
+  h.b.kill(u,{reason:'killed'});h.step();assert.equal(h.b._deploy(u),true);
+  close(u.s.atk,1000);close(ops[1].s.atk,7600);
+  assert.deepEqual(h.b.errors,[]);
+});
+
+test('Sarkaz zero-layer cap and non-growth buffs still work with battle layer gains disabled', () => {
+  const {h,ops}=setup(6,0),u=ops[0];h.b.flags.layerGainsEnabled=false;
+  for(let i=0;i<5;i++){u.skill.end('test');u.skill.activate('test',{free:true});}
+  close(u.s.atk,1600);assert.ok(u.findBuff(SHIELD).shield>0);
+  close(h.b.players[0].bonds.sarkazShip.layers,0);
+});
+
+test('Sarkaz three: no opening ATK, real casts add ATK without retroactive layer grants', () => {
   for (const n of [2, 3, 5]) {
     const { h, ops } = setup(n, 100);
-    close(ops[0].s.atk, n >= 3 ? 1900 : 1000);
+    close(ops[0].s.atk, 1000);
     assert.equal(ops[0].findBuff(SHIELD), null);
     ops[0].skill.activate('test', { free: true });
     assert.equal(ops[0].findBuff(SHIELD), null);
-    if (n >= 3) { h.b.addLayers('p1', 'sarkazShip', 50); h.step(2); close(ops[0].s.atk, 2250); }
+    if (n >= 3) { h.b.addLayers('p1', 'sarkazShip', 50); h.step(2); close(ops[0].s.atk, 1150); }
     checkInvariants(h.b);
   }
 });
 
-test('Sarkaz barrier: all seven bodies contribute; every numeric shield shares the 50% cap', () => {
+test('Sarkaz barrier: seven bodies contribute after cast ATK; other shields have an independent budget', () => {
   const { h, ops } = setup(7);
   assert.ok(ops.every((u) => !u.findBuff(SHIELD)), 'no free opening shield');
   ops[0].skill.activate('test', { free: true });
-  for (const u of ops) close(u.findBuff(SHIELD).shield, 252);
+  for (const u of ops) close(u.findBuff(SHIELD).shield, 402.5);
   h.b.addBuff(ops[1], { key: 'other-shield', shield: 3000 });
   for (let i = 0; i < 30; i++) { ops[0].skill.end('test'); ops[0].skill.activate('test', { free: true }); }
-  close(ops[1].findBuff(SHIELD).shield, 252);
-  close(ops[1].findBuff('other-shield').shield, 1748);
+  close(ops[1].findBuff(SHIELD).shield, 2000);
+  close(ops[1].findBuff('other-shield').shield, 3000);
   h.run(11);
-  close(numericShieldTotal(ops[1]), 2000);
+  close(numericShieldTotal(ops[1]), 5000);
   checkInvariants(h.b);
 });
 
@@ -74,11 +105,11 @@ test('Sarkaz: dead and undeployed bodies excluded from attack sum', () => {
   const { h, ops } = setup(6);
   h.b.kill(ops[5], { reason: 'killed' });
   ops[0].skill.activate('test', { free: true });
-  close(ops[0].findBuff(SHIELD).shield, 180);
+  close(ops[0].findBuff(SHIELD).shield, 287.5);
   assert.equal(ops[5].findBuff(SHIELD), null);
 });
 
-test('Sarkaz: each primary hit adds 30% remaining shield; layers and hit-count shields add no rider', () => {
+test('Sarkaz: each primary hit adds 15% remaining shield; layers and hit-count shields add no rider', () => {
   for (const L of [0, 14, 15, 29, 30, 50, 100, 200]) {
     const { h, ops } = setup(6, L);
     const u = ops[0], e = h.spawn('dummy', { pos: [7, 9] });
@@ -88,7 +119,7 @@ test('Sarkaz: each primary hit adds 30% remaining shield; layers and hit-count s
     close(hit(), 1000);
     h.b.removeBuff(u, 'count-shield');
     h.b.addBuff(u, { key: 'external', shield: 1 });
-    close(hit(), 1000.3);
+    close(hit(), 1000.15);
     h.b.dealDamage(e, u, { amount: 1, type: 'true', canDodge: false });
     close(hit(), 1000);
   }
@@ -99,7 +130,7 @@ test('Wisadel normal / elite reads only Sarkaz; Ifrit adds stats instead of dama
     const { h, ops } = setup(6, 100, { 0: [`garrison_sarkaz_wisdel_${form}`], 1: ['garrison_sarkaz_ifrit_a'] });
     close(ops[0].s.dmgDealtMul, form === 'a' ? 2 : 3);
     close(ops[1].s.dmgDealtMul, 1);
-    close(ops[1].s.atk, 2200); close(ops[1].s.maxHp, 5200);
+    close(ops[1].s.atk, 1300); close(ops[1].s.maxHp, 5200);
     h.b.addLayers('p1', 'arcaneShip', 200); h.step(2);
     close(ops[0].s.dmgDealtMul, form === 'a' ? 2 : 3);
     h.b.addLayers('p1', 'sarkazShip', 100); h.step(2);
@@ -114,7 +145,7 @@ test('Shining one reward per player per battle; subsequent casts still grant bar
   const first = ops[2].findBuff(SHIELD).shield;
   ops[1].skill.activate('test', { free: true });
   close(h.b.players[0].bonds.sarkazShip.layers, 32);
-  close(ops[2].findBuff(SHIELD).shield, first * 2);
+  close(ops[2].findBuff(SHIELD).shield, first + 6 * 1300 * .05);
 });
 
 test('Typhon and Hibiscus no longer grow on kills', () => {
@@ -129,15 +160,15 @@ test('Sarkaz statistics count actual barrier gain/absorption and survive result 
   const { h, ops } = setup(6);
   ops[0].skill.activate('test', { free: true });
   const e = h.spawn('dummy', { pos: [7, 9] });
-  h.b.dealDamage(e, ops[1], { amount: 50, type: 'true', canDodge: false });
+  h.b.dealDamage(e, ops[1], { amount: 50, type: 'phys', canDodge: false });
   h.step(3);
   const live = unitStatsEntry(ops[1], ops[1].s).combat;
-  close(live.shield, 166);
-  close(live.shieldGranted, 216);
+  close(live.shield, 295);
+  close(live.shieldGranted, 345);
   close(live.shieldAbsorbed, 50);
   assert.ok(live.fieldSeconds > 0 && live.barrierSeconds > 0);
   const stats = compactResult(h.result()).perPlayer.p1.unitStats.find((s) => s.uid === ops[1].uid);
-  close(stats.shieldGranted, 216);
+  close(stats.shieldGranted, 345);
   close(stats.shieldAbsorbed, 50);
 });
 
@@ -157,7 +188,7 @@ test('Sarkaz rider ignores source multipliers, accepts target vulnerability, and
   h.b.addBuff(e, { key: 'vulnerable', mods: { dmgTakenMul: 1.5, trueTakenMul: 1.2 } });
   const hp = e.hp;
   h.b.dealDamage(u, e, { amount: 100, type: 'true', isAttack: true, mul: 4 });
-  close(hp - e.hp, 100 * 3 * 4 * 1.5 * 1.2 + 300 * 1.5 * 1.2);
+  close(hp - e.hp, 100 * 3 * 4 * 1.5 * 1.2 + 150 * 1.5 * 1.2);
   close(numericShieldTotal(u), 1000);
   for (const tag of ['dot', 'aftershock', 'aphris:relay', 'bond:columbia:rider']) {
     const before = e.hp;
@@ -165,7 +196,7 @@ test('Sarkaz rider ignores source multipliers, accepts target vulnerability, and
     close(before - e.hp, 100 * 3 * 1.5 * 1.2);
   }
   h.b.addBuff(u, { key: 'hp-loss', mods: { hpPct: -.75 } });
-  close(numericShieldTotal(u), u.s.maxHp * .5);
+  close(numericShieldTotal(u), 1000, 1e-6, 'other sources are not clipped by the Sarkaz cap');
 });
 
 test('Typhon independent 28/56 budgets survive redeployment, including mixed qualities', () => {

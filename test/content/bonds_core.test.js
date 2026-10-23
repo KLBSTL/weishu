@@ -76,10 +76,17 @@ test('炎 6 / 9: one / two 炎佑 with their template stats + 30 % of the real �
     const sumAtk = (n - 1) * 1000 * (1 + bb.base_atk);            // 调和 excluded from the sums
     const sumHp = (n - 1) * 10000;
     for (const y of yy) {
+      assert.equal(!!y.s.flags.stealth,n===9);
       close(y.s.atk, (tpl.atk + sumAtk * 0.3) * (n === 9 ? bb.atk : 1), 1e-6, `炎佑 ATK @${n}`);
       close(y.s.maxHp, tpl.maxHp + sumHp * 0.3, 1e-6, `炎佑 HP @${n}`);
       close(y.s.dmgTakenMul, n === 9 ? 1 - bb.damage_resistance : 1, 1e-9, `炎佑 dmgTaken @${n}`);
     }
+    const target=h.spawn('e_dummy',{pos:[7,9]});
+    const elemental=[];h.b.on('hit',c=>{if(c.dmg?.tags?.includes('bond:yan:element'))elemental.push(c.dmg.amount);});
+    h.b.dealDamage(yy[0],target,{amount:1,type:'arts',isAttack:true});
+    assert.deepEqual(elemental,n===9?[yy[0].s.atk]:[]);
+    h.b.dealDamage(yy[0],target,{amount:1,type:'arts',isSkill:true});
+    assert.equal(elemental.length,n===9?1:0,'skill damage creates no ordinary-attack rider');
     checkInvariants(h.b);
   }
 });
@@ -271,7 +278,7 @@ test('谢拉格: ×1.25, vs cold / frozen ×(1.35+0.01L); 6: a cold wind every 2
 // ---------------------------------------------------------------------------------------------------------------------
 // 拉特兰
 
-test('拉特兰: ammo ×(1.05+0.015L) floored; 6: every ammo used → all members ATK +4 %, ≤ +200 %', () => {
+test('拉特兰: ammo ×(1.05+0.015L) floored; 6: every ammo used grants 3%, capped at 90%+L%', () => {
   const list = [];
   for (let i = 0; i < 6; i++) list.push([`l${i}_a`, ['lateranoShip'], { profession: 'SNIPER' }]);
   list.push(['none_a', ['preciShip'], { profession: 'SNIPER' }]);
@@ -291,13 +298,13 @@ test('拉特兰: ammo ×(1.05+0.015L) floored; 6: every ammo used → all member
     if (n === 3) {
       close(b.s.atk, 1000);
     } else {
-      close(b.s.atk, 1000 * (1 + 3 * 0.04));
+      close(b.s.atk, 1000 * (1 + 3 * 0.03));
       close(x.s.atk, 1000, 1e-9, 'non-member gets nothing');
       for (let k = 0; k < 80; k++) {
         if (!a.skill.active) a.skill.activate('test', { free: true });
         a.skill.onAttackPerformed([], null);
       }
-      close(b.s.atk, 1000 * 3, 1e-6, 'cap +200 %');
+      close(b.s.atk, 1000 * (1 + .9 + .01 * L), 1e-6, 'layer-scaled cap');
     }
     checkInvariants(h.b);
   }

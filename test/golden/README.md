@@ -1,5 +1,12 @@
 # Golden results
 
+Confirmed balance revision (2026-10-22, completed from checkpoint on 2026-10-23): 298 scenarios, 148 changed
+against published parent `e8da4d04` (51 roster, 50 bonds, 25 fields, 18 matches, 4 stand-ins), 4 roster groups added,
+146 unchanged. Restored Aegir membership/shop entries and Recorder's tier change alter generated teams; specified
+traits and Alliance mechanics alter combat. All 139 DIY results match the published parent. The pre-task local
+files already differed from that parent; [the per-scenario audit](../../docs/balance-update-20261022-golden.md)
+distinguishes both baselines and names every moved scenario and cause.
+
 Catastrophe second confirmation (2026-10-17): publication keeps the already-published AI and rebuilds all
 293 golden scenarios. The [publication audit](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-second-release-golden.md) lists every moved case;
 the [local implementation audit](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-second-golden.md) is separately labeled against the paused local AI.

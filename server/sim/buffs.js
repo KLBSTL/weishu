@@ -12,6 +12,12 @@ import { powi } from './detmath.js';
 
 /** Numeric shield budget is opt-in; the strictest cap wins. Hit-count shields never consume it. */
 export function clampNumericShields(unit) {
+  for (const b of unit?.buffs ?? []) {
+    const ratio = b.data?.numericShieldSourceCap;
+    if (!(b.shield > 0) || !Number.isFinite(ratio)) continue;
+    const value = Math.min(b.shield, Math.max(0, unit.s.maxHp * ratio));
+    if (value !== b.shield) { b.shield = value; unit.markDirty(); }
+  }
   const ratio = Math.min(unit?.trait?.numericShieldCap ?? Infinity,
     unit?.trait?.sarkazBoneShields > 0 ? .5 : Infinity);
   if (!(ratio >= 0) || !Number.isFinite(ratio)) return;
@@ -23,9 +29,9 @@ export function clampNumericShields(unit) {
     if (value !== b.shield) { b.shield = value; unit.markDirty(); }
   }
 }
-export function numericShieldTotal(unit) {
+export function numericShieldTotal(unit, excludeKey = null) {
   clampNumericShields(unit);
-  return unit?.buffs.reduce((n, b) => n + (b.timeLeft > 0 ? Math.max(0, b.shield || 0) : 0), 0) ?? 0;
+  return unit?.buffs.reduce((n, b) => n + (b.key !== excludeKey && b.timeLeft > 0 ? Math.max(0, b.shield || 0) : 0), 0) ?? 0;
 }
 
 /** 抵抗: "麻痹等状态每5秒流失1层" — tick of the resist buff. */
