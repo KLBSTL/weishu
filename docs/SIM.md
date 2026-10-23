@@ -1392,6 +1392,9 @@ Unknown subprofessions fall back to the profession default (test `professions.te
 ## 9. Wire format (snapshot.js, DESIGN §8.2)
 
 - `snapshot()` → `{ fieldId, t, units: [[id, x, y, hp, maxHp, sp, spMax, flags, anim]], dp, killed, total, resolved, dps?, boss?, down?, elem?, ammo?, wolves?, neg?, stand?, standCut? }`.
+  DP is per player, including Final Assault and Hidden Core pairs: `dps[playerId]` holds each owner's balance;
+  `dp` is the first player's legacy fallback, never a shared wallet. The HUD retains `dps` and selects the player
+  shown by the bond strip (own balance in panorama, selected half / watched player otherwise).
   `killed` counts every `counted` knock-out (§1.3) and `total` only the enemies this field scheduled (`inTotal`), so it may
   exceed it; `resolved = min(total, killedInTotal + leakedInTotal)` is the HUD capsule's numerator (DESIGN §14 顶栏胶囊).
   `sp/spMax` show remaining duration/ammo as a draining bar while a timed skill is active (ammo: `ammoLeft / ammoMax`, the

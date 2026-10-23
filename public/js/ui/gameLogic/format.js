@@ -26,14 +26,18 @@ export const STATUS_META = Object.freeze({
  * `resolved` is the capsule's numerator — knocked out + leaked among the round's own enemies (Battle.leakedInTotal);
  * an older snapshot without it falls back to the kill count.
  * @param {any} snap
+ * @param {string|null} playerId — the player on screen; a shared field's `dp` belongs to its first player only.
  */
-export function snapHud(snap) {
+export function snapHud(snap, playerId = null) {
   if (!isObj(snap)) return null;
   const n = (v) => (Number.isFinite(v) ? v : null);
   let boss = null;
   if (isObj(snap.boss) && Number.isFinite(snap.boss.hp)) boss = { hp: snap.boss.hp, max: n(snap.boss.max) ?? n(snap.boss.maxHp) };
   const killed = n(snap.killed);
-  return { killed, resolved: n(snap.resolved) ?? killed, total: n(snap.total), dp: n(snap.dp), boss };
+  const dps = isObj(snap.dps) ? snap.dps : null;
+  const dp = dps && playerId != null ? n(dps[playerId]) : n(snap.dp);
+  // Retain the per-player counters so changing camera halves reselects from this frame immediately.
+  return { killed, resolved: n(snap.resolved) ?? killed, total: n(snap.total), dp, boss, ...(dps ? { dps } : {}) };
 }
 
 /** Boss HP fraction 0..1 (null when unknown). */

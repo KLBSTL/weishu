@@ -2,6 +2,10 @@
 
 Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 
+Personal DP display correction (2026-10-23): boss / hidden pairs keep independent owner balances. The HUD reads
+`dps[playerId]`, following the visible player's bonds and camera half; `dp` is only the first-player legacy fallback.
+See [cause, scope and validation](../boss-player-dp-20261023.md).
+
 Maintainer balance revision (2026-10-22): [confirmed formulas and event boundaries](../balance-update-20261022-spec.md)
 replace the listed old traits and four Alliance effects. Numeric Sarkaz barriers have an independent source budget
 and absorb physical/Arts only; their rider reads all remaining numeric barriers. Columbia regions are independent
