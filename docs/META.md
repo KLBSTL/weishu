@@ -1,5 +1,13 @@
 # META.md — match & meta engine (server/match)
 
+Opening recruitment filters (2026-10-23): default hard core 1, soft core 3, add-on 5; the room host can configure
+non-negative counts before starting through `room.setBans {banConfig:{hardCore,softCore,addon}}`. Hard/soft cores
+are disjoint and their sum cannot exceed eligible core candidates. Hard excludes any natural member; soft requires
+both core/addon identities and every natural label filtered. Core-only Operators survive soft bans. Static mode
+exclusions remain; DIY stock shares the predicate. Random filters do not disable Alliance activation. Dedicated
+recruitment squads check actual remaining pool membership instead of rejecting a soft label directly. Other humans
+must ready again after changes; reconnect retains settings and Match freezes counts/groups. See [draft and checks](ban-configuration-20261023.md).
+
 2026-10-22: preparation traits and identities follow [the confirmed update](balance-update-20261022-spec.md).
 Elite Ptilopsis/Saria copy both fixed front tiles in order, preserving target quality and sequential funds; elite Yu
 executes two native recruitment draws. Aphris needs Columbia only and pays once per invocation from current funds:

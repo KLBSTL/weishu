@@ -19,6 +19,32 @@
 @media (max-width: 700px) { .stage-picker { padding: .12rem .16rem; flex-wrap: wrap; } }
 
 .room-screen .topbar { height: 1.36rem; }
+.room-screen { overflow-y: auto; }
+.ban-picker { padding: .18rem .4rem; background: #101e1c; border-top: 1px solid var(--line-2); flex-shrink: 0; }
+.ban-picker__head { display: flex; align-items: center; justify-content: space-between; gap: .2rem; }
+.ban-picker h2 { font-size: .19rem; margin: 0; }
+.ban-picker p { color: var(--text-lo); font-size: .13rem; margin: .06rem 0 0; line-height: 1.5; }
+.ban-picker__reset { color: var(--mint-400); background: transparent; border: 1px solid var(--line-2); padding: .07rem .16rem; white-space: nowrap; }
+.ban-picker__cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .12rem; margin-top: .12rem; }
+.ban-picker__card { --ban-color: #f5977e; border: 1px solid var(--line-2); border-top: 2px solid var(--ban-color); background: #172724; padding: .12rem .18rem; }
+.ban-picker__card--softCore { --ban-color: #e1bd73; }
+.ban-picker__card--addon { --ban-color: #60c9bd; }
+.ban-picker__card header { display: flex; align-items: center; gap: .08rem; color: var(--ban-color); }
+.ban-picker__card h3 { font-size: .16rem; margin: 0; }
+.ban-picker__mark { font-size: .22rem; }
+.ban-picker__stepper { display: flex; justify-content: space-between; align-items: center; margin: .08rem 0; }
+.ban-picker__stepper button { width: .34rem; height: .32rem; color: var(--ban-color); border: 1px solid var(--line-2); background: #0c1917; font-size: .22rem; }
+.ban-picker__stepper output { font-size: .3rem; color: var(--text-hi); }
+.ban-picker input[type="range"] { width: 100%; accent-color: var(--ban-color); }
+.ban-picker button:disabled { opacity: .35; cursor: default; }
+.room-bans .num { font-size: .13rem; color: var(--mint-400); }
+.ban-config-dialog .modal__body { padding: 0; }
+.ban-config-dialog .ban-picker { border-top: 0; }
+.ban-config-dialog .ban-picker__cards { margin-top: .18rem; }
+.ban-config-dialog .ban-picker h2 { font-size: max(.19rem, 14px); }
+.ban-config-dialog .ban-picker__card h3 { font-size: max(.16rem, 12px); }
+.ban-config-dialog .ban-picker p { font-size: max(.13rem, 11px); }
+@media (max-width: 700px) { .ban-picker { padding: .14rem .16rem; } .ban-picker__cards { grid-template-columns: 1fr; } }
 .room-ping { display: flex; flex-direction: column; align-items: flex-start; gap: .04rem; }
 
 /* ---- invite key ---------------------------------------------------------------------------------------- */

@@ -75,6 +75,9 @@
 .brief-bonds { padding: .16rem .2rem .2rem; background: rgba(12, 15, 14, .8); border: 1px solid var(--line); }
 .brief-bonds__row { display: flex; flex-wrap: wrap; gap: .16rem .1rem; }
 .brief-bond { position: relative; width: 1rem; display: flex; justify-content: center; }
+.brief-bond:has(.brief-bond__kind) { margin-bottom: .2rem; }
+.brief-bond__kind { position: absolute; top: 100%; left: 0; right: 0; display: block; font-size: max(.13rem, 10px); line-height: 1.4; font-weight: 700; color: #e1bd73; text-align: center; }
+.brief-bond__kind--hard { color: #f5977e; }
 .brief-bond .bond { --disc: .66rem; }
 .brief-bond .bond__name { font-size: .16rem; }
 .brief-bond__ban { position: absolute; top: -.04rem; right: .08rem; display: inline-flex; align-items: center; gap: .01rem; font-size: .12rem; font-weight: 700; padding: 0 .05rem; background: var(--red); color: #fff; line-height: 1.5; box-shadow: 0 0 0 1px #000; }

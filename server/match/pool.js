@@ -16,32 +16,31 @@
 // (`extra`, after its own): one player's 自选 stock (0.2.0, player/diy.js diyRollEntries) — weighted by its copies like
 // any chess, drawn by that player's shop only.
 
+import { banCandidates, normalizeBanConfig, bannedByBonds } from '../../shared/banConfig.js';
+
 /**
- * Per-match disabled bond set D and banned chess (research 01 A2): D = uniform sample of `core` core bonds and `addon`
- * add-on bonds among weight > 0 bonds that are active in the mode. A visible chess is banned iff every one of its
- * bonds is in D ∪ mode.inactiveBondIds.
+ * Opening filters (2026-10-23): disjoint hard/soft cores and add-ons, uniformly sampled from active positive-weight
+ * candidates. Hard removes any natural member. Soft requires both label classes and every natural label filtered.
+ * Static mode exclusions retain their independent all-label rule.
  * @param {import('./gamedata.js').GameData} gd
  * @param {Function} rng seeded rng (createRng)
- * @returns {{ drawn: string[], staticOff: string[], banned: string[] }}
+ * @returns {{ drawn: string[], staticOff: string[], banned: string[], hard: string[], soft: string[], addon: string[], config: {hardCore:number,softCore:number,addon:number} }}
  */
-export function drawDisabledBonds(gd, rng) {
-  const { core: nCore, addon: nAddon } = gd.bans(gd.difficulty);
+export function drawDisabledBonds(gd, rng, config = gd.bans(gd.difficulty)) {
   const staticOff = [...gd.modeInactiveBonds].filter((b) => gd.bond(b)).sort();
-  const eligible = gd.bondIds.filter((b) => {
-    const bond = gd.bond(b);
-    return bond && Number(bond.weight) > 0 && !gd.modeInactiveBonds.has(b);
-  });
-  const core = eligible.filter((b) => gd.bond(b).isCore);
-  const addon = eligible.filter((b) => !gd.bond(b).isCore);
-  const drawn = [...sample(core, nCore, rng), ...sample(addon, nAddon, rng)].sort();
-  const off = new Set([...drawn, ...staticOff]);
+  const candidates = banCandidates(gd.bondIds.map(b => gd.bond(b)), staticOff);
+  const counts = normalizeBanConfig(config, { core: candidates.core.length, addon: candidates.addon.length });
+  const core = sample(candidates.core, counts.hardCore + counts.softCore, rng);
+  const hard = core.slice(0, counts.hardCore).sort(), soft = core.slice(counts.hardCore).sort();
+  const addon = sample(candidates.addon, counts.addon, rng).sort();
+  const drawn = [...hard, ...soft, ...addon].sort();
   const banned = [];
   for (const id of gd.visibleChess) {
     const c = gd.chess(id);
     const bonds = Array.isArray(c.bonds) ? c.bonds : [];
-    if (bonds.length > 0 && bonds.every((b) => off.has(b))) banned.push(id);
+    if (bannedByBonds(bonds, b => gd.bond(b)?.isCore, { hard, soft, addon, staticOff })) banned.push(id);
   }
-  return { drawn, staticOff, banned };
+  return { drawn, staticOff, banned, hard, soft, addon, config: counts };
 }
 
 function sample(arr, n, rng) {

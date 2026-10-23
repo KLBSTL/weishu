@@ -68,7 +68,7 @@ test('matchInfoModel: the two greyed kinds, the briefing order, banned operators
   assert.ok(m.core.every((b) => b.isCore) && m.addon.every((b) => !b.isCore));
   // tiers 1, 1, 3, 5 — ties keep the server's order; the unknown id is dropped
   assert.deepEqual(m.banned, ['chess_char_1_17_a', 'chess_char_1_02_a', 'chess_char_3_09_a', 'chess_char_5_02_a']);
-  assert.equal(m.perBond.get('arcaneShip'), 1, '深靛；海霓退出常规池');
+  assert.equal(m.perBond.get('arcaneShip'), 2, '深靛与恢复的海霓');
   assert.equal(m.perBond.get('preciShip'), 2, '深靛 + 缇缇');
   assert.equal(m.perBond.get('yanShip'), 0);
   // an older payload without drawnDisabledBonds: disabledBonds minus the static list
@@ -90,7 +90,7 @@ test('MatchBondRow: greyed by state (✕ disc), the banned-member badge, the red
   // 奥术: switched off by the mode — greyed, ✕, no tier, badge 1 (hidden 海霓 omitted), tip 本局禁用
   assert.ok(hasClass(cell('arcaneShip'), 'is-off') && !hasClass(cell('arcaneShip'), 'is-incomplete'));
   assert.deepEqual([disc('arcaneShip').props.disabled, disc('arcaneShip').props.active, disc('arcaneShip').props.tier], [true, false, 0]);
-  assert.match(textOf(badge('arcaneShip')), /^1$/);
+  assert.match(textOf(badge('arcaneShip')), /^2$/);
   assert.equal(tipOf('arcaneShip').props.text, '奥术：本局禁用（该盟约不会激活）');
   // 坚守: drawn (D) — greyed as well, marked incomplete, the 阵容不完整 tip
   assert.ok(hasClass(cell('steadShip'), 'is-off') && hasClass(cell('steadShip'), 'is-incomplete'));
@@ -160,12 +160,12 @@ test('a real 标准 match (solo and co-op): the mode\'s 10 inactive bonds are "o
     assert.equal(pub.modeId, modeId);
     const m = matchInfoModel(pub, SRC(pub.modeId));
     assert.deepEqual([...m.sets.off].sort(), [...OFF_FUNNY].sort(), `${modeId}: 标准模拟's inactiveBondIdList`);
-    assert.equal(m.sets.drawn.size, 1, '标准 draws one add-on bond');
-    assert.ok([...m.sets.drawn].every((b) => !OFF_FUNNY.includes(b) && !DATA.bonds[b].isCore));
+    assert.equal(m.sets.drawn.size, pub.banConfig.hardCore + pub.banConfig.softCore + pub.banConfig.addon);
+    assert.ok([...m.sets.drawn].every((b) => !OFF_FUNNY.includes(b)));
     assert.deepEqual([...m.banned].sort(), [...pub.bannedChess].sort(), 'every banned operator is known');
     assert.deepEqual(m.banned.map((id) => DATA.chess[id].tier), [...m.banned.map((id) => DATA.chess[id].tier)].sort((a, b) => a - b));
-    for (const id of m.banned) assert.ok(DATA.chess[id].bonds.every((b) => m.stateOf(b)), `${id}: every bond greyed`);
-    assert.equal(m.addon.filter((b) => m.stateOf(b.bondId)).length + m.core.filter((b) => m.stateOf(b.bondId)).length, 11);
+    for (const id of m.banned) assert.ok(DATA.chess[id].bonds.some(b => pub.hardBannedBonds.includes(b)) || DATA.chess[id].bonds.every(b => m.stateOf(b)), id);
+    assert.equal(m.addon.filter((b) => m.stateOf(b.bondId)).length + m.core.filter((b) => m.stateOf(b.bondId)).length, OFF_FUNNY.length + m.sets.drawn.size);
     assert.match(textOf(MatchLegend({ model: m })), /或本模式禁用/);
     h.m.dispose();
   }
@@ -173,7 +173,7 @@ test('a real 标准 match (solo and co-op): the mode\'s 10 inactive bonds are "o
   const h = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 1, bots: 1, seed: 4 }).start();
   const m = matchInfoModel(h.m.publicView(), SRC('mode_multi_hard'));
   assert.equal(m.sets.off.size, 0);
-  assert.deepEqual([m.core.filter((b) => m.stateOf(b.bondId)).length, m.addon.filter((b) => m.stateOf(b.bondId)).length], [3, 4]);
+  assert.deepEqual([m.core.filter((b) => m.stateOf(b.bondId)).length, m.addon.filter((b) => m.stateOf(b.bondId)).length], [4, 5]);
   assert.deepEqual([...m.banned].sort(), [...h.m.bannedChess].sort());
   h.m.dispose();
 });

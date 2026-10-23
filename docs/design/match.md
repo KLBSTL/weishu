@@ -35,6 +35,13 @@ LOBBY(room) → INFO_CHECK (co-op 25 s; solo and any single-human match untimed 
 ```
 Solo FUNNY has 9 rounds (boss at R9); everything is read from `data/config.json → modes[modeId]`.
 
+2026-10-23 opening filter revision supersedes the legacy 3-core/4-addon counts below: defaults are 1 hard core,
+3 soft cores, 5 addons, configurable by the host before start. Hard excludes every natural member. Soft requires
+both label classes and all natural labels filtered; core-only Operators survive. Static mode-only all-label
+exclusions remain; DIY shares the predicate. The disjoint core draws and addon draws use active positive-weight
+candidates and deterministic RNG. Counts are bounded by candidate availability. Random labels filter recruitment,
+not activation via remaining Operators/equipment. [Specification and validation](../ban-configuration-20261023.md).
+
 ### 6.2 Player state (PlayerState.js) — authoritative per player
 
 ```js

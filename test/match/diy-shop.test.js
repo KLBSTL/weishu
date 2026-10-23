@@ -197,7 +197,7 @@ test('bans: a 自选 piece whose every bond is off this match has no stock (out 
   let h = null;
   for (let seed = 1; seed < 400 && !h; seed++) {
     const t = diyMatch({ seed });
-    if (t.m.disabledBonds.includes('victoriaShip')) h = t; else t.m.dispose();
+    if (t.m.hardBannedBonds.includes('victoriaShip')) h = t; else t.m.dispose();
   }
   assert.ok(h, 'a seed banning 维多利亚');
   h.start();

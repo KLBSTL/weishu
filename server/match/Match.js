@@ -351,15 +351,17 @@ export class Match {
     this.factions = setup.factions;
     this.bossId = setup.bossId;
     this.hiddenBossId = setup.hiddenBossId;
-    const bans = drawDisabledBonds(this.gd, this.rngSetup);
+    const bans = drawDisabledBonds(this.gd, this.rngSetup, opts.banConfig ?? this.gd.bans(this.gd.difficulty));
+    this.banConfig = bans.config;
+    this.hardBannedBonds = bans.hard;
+    this.softBannedBonds = bans.soft;
+    this.addonBannedBonds = bans.addon;
     this.disabledBonds = bans.drawn;
     this.staticInactiveBonds = bans.staticOff;
     this.bannedChess = bans.banned;
     this.pool = new SharedPool(this.gd, { banned: bans.banned });
-    // 自选编队 (0.2.0): each human's slotted DIY pieces get their own stock — none for one whose bonds are all off this
-    // match (player/diy.js initDiyStock); no randomness is drawn here
-    const off = new Set([...bans.drawn, ...bans.staticOff]);
-    for (const ps of this.order) ps.initDiyStock(off);
+    // The same natural-identity hard/soft/static filters govern each human's separate DIY stock; no extra RNG.
+    for (const ps of this.order) ps.initDiyStock(bans);
 
     this.phase = PHASE.LOBBY;
     this.round = 0;

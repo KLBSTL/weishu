@@ -59,12 +59,12 @@ test('#11 the match-info model and its line: the own banned 自选 piece is name
   assert.equal(DiyBannedLine({ model: matchInfoModel(pub, { bonds: [], chess: getChess, priv: { ...priv, diyBanned: [] }, diyData: D }) }), null);
   // English: the msgid is in public/i18n/en.json
   const en = JSON.parse(readFileSync(path.join(ROOT, 'public/i18n/en.json'), 'utf8'));
-  const id = '{names}的盟约本局全部禁用，不会出现在你的商店';
+  const id = '{names}因本局禁用规则，不会出现在你的商店';
   assert.ok(en[id] && en[id].includes('{names}'), 'translated with its placeholder');
   addMessages('en', { [id]: en[id], 自选: en['自选'] });
   setLang('en');
   try {
     const t2 = textOf(DiyBannedLine({ model }));
-    assert.ok(t2.includes('Custom') && t2.includes('not in your shop'), t2);
+    assert.ok(t2.includes('Custom') && t2.includes('cannot appear in your shop'), t2);
   } finally { setLang('zh'); }
 });

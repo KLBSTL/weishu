@@ -84,6 +84,7 @@ export function makeMatch(o = {}) {
     verify: o.verify ?? 'off',
     headlessSliceMs: o.headlessSliceMs,
     aiPicksLast: o.aiPicksLast,
+    banConfig: o.banConfig,
   });
   const m = h.m;
   if (m.clientCombat && o.clients !== false) {

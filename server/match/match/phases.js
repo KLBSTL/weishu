@@ -13,7 +13,7 @@ import { OK, fail, DELAYS, BAND_TURN_SECONDS } from './common.js';
 export class MatchPhases {
   recruitmentBandOff(id) {
     const band = this.gd.band(id), spec = band?.recruitment || band?.shopPriority;
-    return !!spec && (this.gd.modeInactiveBonds.has(spec.bond) || this.disabledBonds.includes(spec.bond));
+    return !!spec && (this.gd.modeInactiveBonds.has(spec.bond) || !this.bondInPool(spec.bond));
   }
   enterInfoCheck() {
     this.phase = PHASE.INFO_CHECK;

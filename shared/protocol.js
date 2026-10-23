@@ -4,6 +4,7 @@
 import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, MAX_SEATS, EMOTES, GEO } from './constants.js';
 import { extensionStats } from './combatStats.js';
 import { isDroppableChess } from './standIn.js';
+import { validBanConfig } from './banConfig.js';
 import { diySlotIds, validateDiyPicks } from './diy.js';
 import { cultivatedStats, isPotential, isCultivate, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from './potential.js';
 
@@ -389,6 +390,7 @@ export const C2S = {
   'room.ready': { ready: isBool },
   'room.setDifficulty': { difficulty: (v) => DIFFICULTIES.includes(v) },
   'room.setStage': { stageId: (v) => v === null || isId(v) },
+  'room.setBans': { banConfig: validBanConfig },
   // the co-op room option 「AI 队友最后选择」 (GitHub #338; host, before the match): the strategy and 机变 drafts order every
   // human seat before every AI seat (server/match/match/phases.js humansFirst); room.state.aiPicksLast
   'room.setAiPicksLast': { on: isBool },

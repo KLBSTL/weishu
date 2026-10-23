@@ -27,6 +27,7 @@ import { net } from '../net.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating } from '../store.js';
 import { difficultyInfo } from './lobby.js';
 import { StagePicker } from '../ui/stagePicker.js';
+import { BanConfigButton } from '../ui/banPicker.js';
 import { t, tc } from '../../../shared/i18n.js';
 
 /**
@@ -262,6 +263,7 @@ export function RoomScreen() {
   };
   const setDifficulty = (difficulty) => run('diff', () => net.request('room.setDifficulty', { difficulty }));
   const setStage = (stageId) => run('stage', () => net.request('room.setStage', { stageId }));
+  const setBans = (banConfig) => run('bans', () => net.request('room.setBans', { banConfig }));
   const setAiLast = (on) => run('ailast', () => net.request('room.setAiPicksLast', { on }));
   // spectator seats: the host frees one; a spectator takes a free player seat with room.join of this room
   const removeSpectator = (playerId) => run(`rs${playerId}`, () => net.request('room.removeSpectator', { playerId }));
@@ -361,6 +363,7 @@ export function RoomScreen() {
         <div class="room-bar__status">${statusLine}</div>
       </div>
       <div class="room-bar__right">
+        <${BanConfigButton} room=${room} isHost=${facts.isHost} busy=${busy || !online} onPick=${setBans} />
         <${LoadoutButton} from="room" size="lg" class="room-loadout" label=${t('干员调配')} />
         ${facts.isHost
           ? html`<${Tooltip} text=${facts.canStart ? null : t('仍有博士未准备就绪')}>

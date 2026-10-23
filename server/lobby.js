@@ -101,6 +101,7 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import { canSelectStage } from '../shared/stages.js';
 import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
+import { DEFAULT_BAN_CONFIG, banCandidates, normalizeBanConfig, validBanConfig } from '../shared/banConfig.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
@@ -176,6 +177,7 @@ export class Room {
     this.mode = mode;
     this.difficulty = difficulty;
     this.stageId = null;
+    this.banConfig = { ...DEFAULT_BAN_CONFIG };
     /**
      * 「AI 队友最后选择」 (room.setAiPicksLast, GitHub #338; co-op only, off by default): the match's strategy and 机变 drafts
      * put every human seat before every AI seat (Match opts.aiPicksLast). Kept across the room's matches.
@@ -231,6 +233,7 @@ export class Room {
       mode: this.mode,
       difficulty: this.difficulty,
       stageId: this.stageId,
+      banConfig: { ...this.banConfig },
       aiPicksLast: this.aiPicksLast,
       inMatch: !!this.match,
       seats: this.seats.map((s) => (s
@@ -342,6 +345,7 @@ export class Lobby {
       case 'room.ready': return this.ready(session, msg);
       case 'room.setDifficulty': return this.setDifficulty(session, msg);
       case 'room.setStage': return this.setStage(session, msg);
+      case 'room.setBans': return this.setBans(session, msg);
       case 'room.setAiPicksLast': return this.setAiPicksLast(session, msg);
       case 'room.addBot': return this.addBot(session);
       case 'room.removeBot': return this.removeBot(session, msg);
@@ -417,6 +421,7 @@ export class Lobby {
     if (!code) return fail(ERR.INTERNAL, 'no room code available');
     if (cur) this.removeMember(cur, session.playerId);
     const room = new Room(code, mode, difficulty, this.now());
+    room.banConfig = normalizeBanConfig(room.banConfig, this.banLimits(room));
     room.ownerKey = key;
     room.seats[0] = this.humanSeat(0, session);
     room.hostId = session.playerId;
@@ -525,7 +530,31 @@ export class Lobby {
     this.dropReplay(room, session.playerId);
     if (room.difficulty !== difficulty) {
       room.difficulty = difficulty;
+      room.banConfig = normalizeBanConfig(room.banConfig, this.banLimits(room));
       if (!canSelectStage(this.safeData(), modeIdFor(room.mode, difficulty), room.stageId)) room.stageId = null;
+      for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
+      this.broadcastState(room);
+    }
+    return OK;
+  }
+
+  banLimits(room) {
+    const data = this.safeData(), mode = data.config?.modes?.[modeIdFor(room.mode, room.difficulty)];
+    const c = banCandidates(data.bonds, mode?.inactiveBondIds);
+    return { core: c.core.length, addon: c.addon.length };
+  }
+
+  setBans(session, { banConfig }) {
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
+    if (room.match) return fail(ERR.ROOM_STARTED);
+    if (!validBanConfig(banConfig)) return fail(ERR.BAD_MSG);
+    const checked = normalizeBanConfig(banConfig, this.banLimits(room));
+    if (Object.keys(checked).some(k => checked[k] !== banConfig[k])) return fail(ERR.BAD_TARGET);
+    this.dropReplay(room, session.playerId);
+    if (Object.keys(checked).some(k => checked[k] !== room.banConfig[k])) {
+      room.banConfig = checked;
       for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
       this.broadcastState(room);
     }
@@ -746,6 +775,7 @@ export class Lobby {
         difficulty: room.difficulty,
         modeId: modeIdFor(room.mode, room.difficulty),
         stageId: room.stageId,
+        banConfig: { ...room.banConfig },
         // 「AI 队友最后选择」 (GitHub #338): fixed for the match
         aiPicksLast: room.mode !== 'solo' && room.aiPicksLast === true,
         seats,

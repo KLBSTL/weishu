@@ -29,7 +29,7 @@ const cx = (...p) => p.flat().filter(Boolean).join(' ');
 /**
  * @typedef {{ sets: { drawn: Set<string>, off: Set<string> }, stateOf: (bondId: string) => 'off'|'drawn'|null,
  *   bonds: any[], core: any[], addon: any[], banned: string[], perBond: Map<string, number>,
- *   diyBanned: Array<{ slotId: string, charId: string, name: string }> }} MatchInfoModel
+ *   hard: Set<string>, soft: Set<string>, diyBanned: Array<{ slotId: string, charId: string, name: string }> }} MatchInfoModel
  */
 
 /**
@@ -52,7 +52,8 @@ export function matchInfoModel(pub, { bonds = [], chess = () => null, mode = nul
   const banned = (Array.isArray(pub?.bannedChess) ? pub.bannedChess : []).filter((id) => typeof id === 'string' && !!chess(id))
     .sort((a, b) => tierOf(a) - tierOf(b));
   return {
-    sets, stateOf, bonds: list, core: list.filter((b) => b.isCore), addon: list.filter((b) => !b.isCore),
+    sets, stateOf, hard: new Set(pub?.hardBannedBonds || []), soft: new Set(pub?.softBannedBonds || []),
+    bonds: list, core: list.filter((b) => b.isCore), addon: list.filter((b) => !b.isCore),
     banned, perBond: bannedPerBond(list, banned),
     diyBanned: priv && diyData ? diyBannedPieces(priv, chess, diyData) : [],
   };
@@ -66,7 +67,7 @@ export function DiyBannedLine({ model, class: cls = 'brief-banned__diy' }) {
   const list = model?.diyBanned || [];
   if (!list.length) return null;
   return html`<p class=${cls} data-testid="diy-banned"><span class="diybanned__tag">${t('自选')}</span>
-    ${t('{names}的盟约本局全部禁用，不会出现在你的商店', { names: list.map((x) => dn(x.name)) })}</p>`;
+    ${t('{names}因本局禁用规则，不会出现在你的商店', { names: list.map((x) => dn(x.name)) })}</p>`;
 }
 
 /**
@@ -88,6 +89,8 @@ export function MatchBondRow({ title, micro, bonds, model }) {
           <div class=${cx('brief-bond', off && 'is-off', state === 'drawn' && 'is-incomplete', !off && bannedN > 0 && 'is-partial')} data-bond=${b.bondId}>
             <${BondDisc} name=${b.name} icon=${bondIconUrl(m, b.bondId)} active=${!off} disabled=${off} tier=${off ? 0 : (b.thresholds?.length || 1)}
               maxTier=${Math.max(1, b.thresholds?.length || 1)} size="md" />
+            ${model.hard?.has(b.bondId) ? html`<span class="brief-bond__kind brief-bond__kind--hard">${t('硬禁')}</span>`
+              : model.soft?.has(b.bondId) ? html`<span class="brief-bond__kind">${t('软禁')}</span>` : null}
             ${bannedN > 0 ? html`<span class="brief-bond__ban num"><${Icon} name="user" />${bannedN}</span>` : null}
           </div>
         <//>`;
@@ -101,7 +104,8 @@ export function MatchBondRow({ title, micro, bonds, model }) {
  * @param {{ model: MatchInfoModel }} props
  */
 export function MatchLegend({ model }) {
-  return html`<p class="brief-legend"><span class="brief-legend__off"></span>${t('灰色：部分盟约所含干员阵容不完整（仍可通过其他盟约的干员或装备激活）')}${model.sets.off.size ? t('，或本模式禁用') : ''} · <span class="brief-legend__ban"><${Icon} name="user" /></span>${t('该盟约中无法出现的干员数')}</p>`;
+  return html`<p class="brief-legend"><span class="brief-legend__off"></span>${t('灰色：部分盟约所含干员阵容不完整（仍可通过其他盟约的干员或装备激活）')}${model.sets.off.size ? t('，或本模式禁用') : ''} · <span class="brief-legend__ban"><${Icon} name="user" /></span>${t('该盟约中无法出现的干员数')}
+    ${model.hard?.size || model.soft?.size ? html`<br/>${t('硬禁移除该大盟约全部干员；软禁要求自身所有大、小盟约均被禁用。')}` : null}</p>`;
 }
 
 /**

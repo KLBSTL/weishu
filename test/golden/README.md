@@ -1,5 +1,10 @@
 # Golden results
 
+Opening filter revision (2026-10-23): all 18 matches intentionally change after moving to configurable hard/soft
+core and addon filters (defaults 1/3/5), keeping core-only Operators under soft bans and checking recruitment squads
+against the actual pool. Scenario seeds, stage/faction/leader setup and generators are unchanged. The five battle-only
+golden files are untouched. See [every moved match and its fields](../../docs/ban-configuration-20261023-golden.md).
+
 Confirmed balance revision (2026-10-22, completed from checkpoint on 2026-10-23): 298 scenarios, 148 changed
 against published parent `e8da4d04` (51 roster, 50 bonds, 25 fields, 18 matches, 4 stand-ins), 4 roster groups added,
 146 unchanged. Restored Aegir membership/shop entries and Recorder's tier change alter generated teams; specified

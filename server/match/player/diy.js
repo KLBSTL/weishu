@@ -37,6 +37,7 @@ import { KITTED_CHARS } from '../../sim/content/kits/index.js';
 import { checkDiyPicks } from '../../../shared/protocol.js';
 import { diyRecord, diySlot, diyTokenOwner } from '../../../shared/diy.js';
 import { atPotential } from '../../../shared/potential.js';
+import { bannedByBonds } from '../../../shared/banConfig.js';
 
 const posIntOr = (v, d) => (Number.isInteger(v) && v > 0 ? v : d);
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -174,9 +175,9 @@ export class PlayerDiy {
   }
 
   /**
-   * The stock of each slotted DIY piece (see the header), once the match has drawn its bans: `off` = the bonds switched
-   * off this match (drawn + the mode's static list). A piece all of whose bonds are off gets none (`diyBanned`).
-   * @param {Set<string>} off
+   * Stock after hard/soft/addon filters, using the same natural-identity predicate as regular stock.
+   * The legacy Set argument retains its old all-label interpretation for existing callers.
+   * @param {any} off opening filters (legacy Set accepted for callers of the old API)
    */
   initDiyStock(off = new Set()) {
     this.diyStock = new DiyStock();
@@ -187,7 +188,9 @@ export class PlayerDiy {
       const slot = diySlot(slotId, gd.raw);
       if (!rec || !slot) continue;
       const bonds = Array.isArray(rec.bonds) ? rec.bonds : [];
-      if (bonds.length > 0 && bonds.every((b) => off.has(b))) { banned.push(slotId); continue; }
+      const excluded = off instanceof Set ? bonds.length > 0 && bonds.every(b => off.has(b))
+        : bannedByBonds(bonds, b => gd.bond(b)?.isCore, off);
+      if (excluded) { banned.push(slotId); continue; }
       const cap = gd.poolCopies(slotId);
       if (!(cap > 0)) continue;
       this.diyStock.entries.set(slotId, { cap, left: cap, tier: gd.tierOf(slotId), shopLevel: slot.shopLevel });

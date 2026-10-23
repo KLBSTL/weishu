@@ -13,7 +13,7 @@ test('pool caps follow config (12/14/18/16/8/5, 缪尔赛思 4) and only visible
   const pool = new SharedPool(gd, { banned: [] });
   const caps = { 1: 12, 2: 14, 3: 18, 4: 16, 5: 8, 6: 5 };
   assert.equal(pool.entries.size, gd.visibleChess.length);
-  assert.equal(pool.entries.size, 114);
+  assert.equal(pool.entries.size, 123);
   for (const [id, e] of pool.entries) {
     const expect = id === 'chess_char_6_11_a' ? 4 : caps[e.tier];
     assert.equal(e.cap, expect, id);
@@ -22,7 +22,7 @@ test('pool caps follow config (12/14/18/16/8/5, 缪尔赛思 4) and only visible
   }
   const banned = [gd.visibleChess[0], gd.visibleChess[5]];
   const p2 = new SharedPool(gd, { banned });
-  assert.equal(p2.entries.size, 112);
+  assert.equal(p2.entries.size, 121);
   assert.ok(!p2.has(banned[0]) && p2.left(banned[0]) === 0 && p2.take(banned[0]) === 0);
 });
 
@@ -59,12 +59,12 @@ test('odds sanity: level L rolls only tiers ≤ L; level 1 only tier 1; shares �
     const shares = pool.tierShares(level);
     for (const [t, n] of Object.entries(seen)) assert.ok(Math.abs(n / 4000 - shares[t]) < 0.035, `L${level} T${t} ${n / 4000} vs ${shares[t]}`);
   }
-  // Updated full pool: 16/17/18/19/17/19 operators, weighted by 12/14/18/16/8/5 copies (Muelsyse has 4).
+  // Restored Aegir and tier-four Recorder: 18/19/21/24/19/22, with Muelsyse one copy fewer.
   const s6 = pool.tierShares(6);
-  const want = { 1: 192 / 1288, 2: 238 / 1288, 3: 324 / 1288, 4: 304 / 1288, 5: 136 / 1288, 6: 94 / 1288 };
-  for (const t of Object.keys(want)) assert.ok(Math.abs(s6[t] - want[t]) < 0.01, `T${t} ${s6[t]}`);
+  const want = { 1: 216 / 1505, 2: 266 / 1505, 3: 378 / 1505, 4: 384 / 1505, 5: 152 / 1505, 6: 109 / 1505 };
+  for (const t of Object.keys(want)) assert.ok(Math.abs(s6[t] - want[t]) < 1e-10, `T${t} ${s6[t]}`);
   const s2 = pool.tierShares(2);
-  assert.ok(Math.abs(s2[1] - 192 / 430) < 0.01 && Math.abs(s2[2] - 238 / 430) < 0.01);
+  assert.ok(Math.abs(s2[1] - 216 / 482) < 1e-10 && Math.abs(s2[2] - 266 / 482) < 1e-10);
 });
 
 test('rolls are copy-weighted: an exhausted chess never rolls; tier/filter options work', () => {
@@ -149,14 +149,17 @@ test('维多利亚 25-layer reward and 洛洛的定制品: the 4 special 维式�
   m.dispose();
 });
 
-test('per-match disabled bonds: 3 core + 4 add-on (NORMAL+), FUNNY static + 0 + 1; weight-0 never drawn; subset ban rule', () => {
-  for (const [modeId, core, addon] of [['mode_multi_hard', 3, 4], ['mode_single_abyss', 3, 4], ['mode_multi_funny', 0, 1], ['mode_single_normal', 3, 4]]) {
+test('per-match filters: one hard core, three soft cores and five add-ons, bounded by mode candidates', () => {
+  for (const modeId of ['mode_multi_hard', 'mode_single_abyss', 'mode_multi_funny', 'mode_single_normal']) {
     const gd = new GameData(DATA, modeId);
     for (let seed = 1; seed <= 20; seed++) {
-      const { drawn, staticOff, banned } = drawDisabledBonds(gd, createRng(seed));
+      const { drawn, staticOff, banned, hard, soft, config } = drawDisabledBonds(gd, createRng(seed));
       const nCore = drawn.filter((b) => DATA.bonds[b].isCore).length;
-      assert.equal(nCore, core, `${modeId} core`);
-      assert.equal(drawn.length - nCore, addon, `${modeId} addon`);
+      assert.equal(nCore, config.hardCore + config.softCore, `${modeId} core`);
+      assert.equal(drawn.length - nCore, config.addon, `${modeId} addon`);
+      if (modeId !== 'mode_multi_funny' && modeId !== 'mode_single_normal') assert.deepEqual(config, { hardCore: 1, softCore: 3, addon: 5 });
+      assert.equal(hard.length, config.hardCore); assert.equal(soft.length, config.softCore);
+      assert.ok(hard.every(b => !soft.includes(b)));
       for (const b of drawn) {
         assert.ok(DATA.bonds[b].weight > 0, `${b} has weight 0`);
         assert.ok(!staticOff.includes(b));
@@ -164,7 +167,10 @@ test('per-match disabled bonds: 3 core + 4 add-on (NORMAL+), FUNNY static + 0 + 
       const off = new Set([...drawn, ...staticOff]);
       for (const id of gd.visibleChess) {
         const bonds = DATA.chess[id].bonds;
-        assert.equal(banned.includes(id), bonds.length > 0 && bonds.every((b) => off.has(b)), id);
+        const hasBoth = bonds.some(b => gd.bond(b)?.isCore) && bonds.some(b => !gd.bond(b)?.isCore);
+        const expected = bonds.some(b => hard.includes(b)) || (bonds.length > 0 && bonds.every(b => staticOff.includes(b)))
+          || (hasBoth && bonds.every(b => off.has(b)));
+        assert.equal(banned.includes(id), expected, id);
       }
     }
   }
@@ -177,10 +183,11 @@ test('per-match disabled bonds: 3 core + 4 add-on (NORMAL+), FUNNY static + 0 + 
 test('the match pool excludes banned chess; m.public lists disabled bonds and banned chess', () => {
   const h = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 1, bots: 1, seed: 3 }).start();
   const pub = h.lastBc('m.public');
-  assert.equal(pub.drawnDisabledBonds.length, 7);
+  assert.equal(pub.drawnDisabledBonds.length, 9);
+  assert.deepEqual(pub.banConfig, { hardCore: 1, softCore: 3, addon: 5 });
   assert.ok(pub.bannedChess.length > 0);
   for (const id of pub.bannedChess) assert.ok(!h.m.pool.has(id), `${id} should not be in the pool`);
-  assert.equal(h.m.pool.entries.size + pub.bannedChess.length, 114);
+  assert.equal(h.m.pool.entries.size + pub.bannedChess.length, h.m.gd.visibleChess.length);
   checkInvariants(h.m);
   h.m.dispose();
 });

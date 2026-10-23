@@ -2,6 +2,11 @@
 
 Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 
+2026-10-23: `room.setBans {banConfig:{hardCore,softCore,addon}}` is host-owned and accepted before start only.
+`room.state.banConfig` survives reconnect; changes reset other human ready flags. Counts are bounded by eligible
+candidates. `m.public` adds frozen `banConfig`, `hardBannedBonds`, `softBannedBonds`, `addonBannedBonds`; the existing
+combined drawn list remains for compatibility. See [opening filter specification](../ban-configuration-20261023.md).
+
 ## 8. Network protocol (shared/protocol.js is normative)
 
 Transport: one WebSocket per tab at `/ws`, JSON text frames `{ t: '<type>', ...payload }`. Client requests may carry `rid` (request id); the server's direct reply echoes `rid` (`ok` or `error`). Server pushes have no `rid`. Max frame 64 KB inbound; rate limit 40 msgs/s per connection (excess dropped with `error RATE`).

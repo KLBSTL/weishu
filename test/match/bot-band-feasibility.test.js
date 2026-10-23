@@ -5,7 +5,7 @@ import {makeMatch,give,legalTileFor} from './harness.js';
 import {parseKey} from '../../server/match/board.js';
 
 function fixture() {
-  const h=makeMatch({mode:'coop',difficulty:'ABYSS',humans:0,bots:2,fake:true,seed:18501}),m=h.m,ps=m.order[0];
+  const h=makeMatch({mode:'coop',difficulty:'ABYSS',humans:0,bots:2,fake:true,seed:18501,banConfig:{hardCore:0,softCore:3,addon:5}}),m=h.m,ps=m.order[0];
   let draws=0;
   m.rngBots=()=>{draws++;return 0;};m.bandTaken=()=>false;
   return {m,ps,draws:()=>draws};

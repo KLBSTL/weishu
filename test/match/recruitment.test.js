@@ -241,8 +241,12 @@ test('ready/combat cannot open or confirm; private views do not leak another pla
 
 test('disabled core blocks new squads and bot spending obeys same server transactions', () => {
   const { ps, m, h } = setup(); order(ps); ps.acquireChess(normal('白面鸮'));
-  m.disabledBonds.push('sarkazShip'); assert.equal(m.recruitmentBandOff('band_recruit_sarkaz'), true);
-  m.disabledBonds.push('columbiaShip'); assert.equal(m.recruitmentBandOff(ps.bandId), true);
+  const original = new Map(m.pool.entries);
+  m.disabledBonds.push('sarkazShip'); assert.equal(m.recruitmentBandOff('band_recruit_sarkaz'), false, 'soft core with remaining members stays playable');
+  for (const id of m.pool.entries.keys()) if (m.gd.chess(id).bonds.some(b => ['sarkazShip','columbiaShip'].includes(b))) m.pool.entries.delete(id);
+  assert.equal(m.recruitmentBandOff('band_recruit_sarkaz'), true);
+  assert.equal(m.recruitmentBandOff(ps.bandId), true);
+  m.pool.entries = original;
   m.disabledBonds = []; takeRecruitment(m, ps);
   assert.equal(ps.recruitment.charges, 0); assert.equal(ps.allChess().length, 1);
   h.invariants();
