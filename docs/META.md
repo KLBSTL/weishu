@@ -1,5 +1,9 @@
 # META.md — match & meta engine (server/match)
 
+Single-core soft-ban correction (2026-10-23): a natural identity containing exactly one core Alliance is also
+excluded when that core is soft-filtered. This supersedes the core-only survival exception below; multi-label,
+hard-ban and static rules are unchanged. See [the correction and checks](soft-ban-single-core-20261023.md).
+
 Opening recruitment filters (2026-10-23): default hard core 1, soft core 3, add-on 5; the room host can configure
 non-negative counts before starting through `room.setBans {banConfig:{hardCore,softCore,addon}}`. Hard/soft cores
 are disjoint and their sum cannot exceed eligible core candidates. Hard excludes any natural member; soft requires

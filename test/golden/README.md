@@ -1,5 +1,10 @@
 # Golden results
 
+Single-core soft-ban correction (2026-10-23): natural single-core-only Operators now leave regular and DIY
+recruitment when their core is soft-filtered. The affected complete matches are rebuilt with the same seeds,
+stage/faction/leader setup and draw groups; other five battle-only golden files remain untouched.
+See [each moved match and verification](../../docs/soft-ban-single-core-20261023.md).
+
 Opening filter revision (2026-10-23): all 18 matches intentionally change after moving to configurable hard/soft
 core and addon filters (defaults 1/3/5), keeping core-only Operators under soft bans and checking recruitment squads
 against the actual pool. Scenario seeds, stage/faction/leader setup and generators are unchanged. The five battle-only

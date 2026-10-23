@@ -9,10 +9,34 @@ import {createRng} from '../../server/sim/rng.js';
 test('hard-any and soft-all identities, multiple cores/addons, no addons, empty and static exclusions',()=>{
   const core=b=>['a','b'].includes(b), filters={hard:['b'],soft:['a'],addon:['x'],staticOff:['s']};
   for(const [labels,expected] of [[['b'],true],[['b','y'],true],[['a','x'],true],[['a','x','y'],false],
-    [['a'],false],[['x'],false],[[],false],[['s'],true],[['a','s'],true],[['a','b','y'],true]])
+    [['a'],true],[['x'],false],[[],false],[['s'],true],[['a','s'],true],[['a','b','y'],true]])
     assert.equal(bannedByBonds(labels,core,filters),expected,JSON.stringify(labels));
   assert.equal(bannedByBonds(['a','b','x'],core,{soft:['a'],addon:['x']}),false);
   assert.equal(bannedByBonds(['a','b','x'],core,{soft:['a','b'],addon:['x']}),true);
+});
+
+test('Ulpianus with only Aegir leaves both ordinary and DIY recruitment under a soft core filter',()=>{
+  const gd=new GameData(DATA,'mode_multi_hard'),id='chess_char_5_05_a';
+  assert.equal(gd.chess(id).name,'乌尔比安');assert.deepEqual(gd.chess(id).bonds,['egirShip']);
+  for(const form of [id,gd.chess(id).goldenId]){
+    const bonds=gd.chess(form).bonds;
+    assert.equal(bannedByBonds(bonds,b=>gd.bond(b)?.isCore,{soft:['egirShip']}),true);
+    assert.equal(bannedByBonds(bonds,b=>gd.bond(b)?.isCore,{hard:['egirShip']}),true);
+    assert.equal(bannedByBonds(bonds,b=>gd.bond(b)?.isCore,{soft:['sargonShip'],addon:['swiftShip']}),false);
+  }
+  let covered=0;
+  for(let seed=1;seed<=50;seed++){
+    const bans=drawDisabledBonds(gd,createRng(seed));
+    if(!bans.soft.includes('egirShip'))continue;
+    covered++;assert.ok(!bans.hard.includes('egirShip'));assert.ok(bans.banned.includes(id));
+    const h=makeMatch({mode:'coop',difficulty:'HARD',seed,humans:1,bots:0});
+    const ps=h.m.order[0];
+    ps._diyRecords=new Map([['chess_char_5_diy1_a',{bonds:['egirShip']}]]);
+    ps.diy={'chess_char_5_diy1_a':{charId:gd.chess(id).charId}};
+    ps.initDiyStock(bans);assert.ok(ps.diyBanned.includes('chess_char_5_diy1_a'));
+    h.m.dispose();
+  }
+  assert.ok(covered>0,'real seeded soft bans exercised');
 });
 
 test('zero filters and all legal candidates, deterministic seeds and disjoint cores',()=>{

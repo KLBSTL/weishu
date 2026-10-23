@@ -3718,7 +3718,7 @@ function buildConfig(ctx, waves, stages, bands) {
     },
     bans: { ...Object.fromEntries(['FUNNY', 'NORMAL', 'HARD', 'ABYSS', 'CATASTROPHE'].map(d => [d, { hardCore: 1, softCore: 3, addon: 5 }])),
       TRAINING: { hardCore: 0, softCore: 0, addon: 0 },
-      rule: 'Hard cores exclude any natural member; soft exclusion requires both core and addon labels and all natural labels filtered. Static mode-only all-label exclusions remain. Hard and soft cores are disjoint; uniform seeded draw.' },
+      rule: 'Hard cores exclude any natural member; soft exclusion also removes a single-core-only Operator. Other soft exclusions require both core and addon labels and all natural labels filtered. Static mode-only all-label exclusions remain. Hard and soft cores are disjoint; uniform seeded draw.' },
     bandDraft: { skipsPerPlayer: 1, order: 'random', duplicatesAllowed: true, timeoutBandId: 'band_bldsk' },
     titles: Object.values(act.playerTitleDataDict || {}).map((t) => ({ id: t.id, picId: t.picId, name: t.txt, ...(titleRules[t.id] || {}) })),
     titleRule: 'each player gets at most one title; each title is used at most once per match; assign by the category where the player ranks best relative to teammates [ASSUMED]',
