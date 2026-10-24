@@ -39,6 +39,7 @@ test('every group keeps original count power; summon pools pay mothers before pr
   for(const e of groups)for(let r=e.minRound;r<=e.maxRound;r++){
     const p=picked(e,r),picks=[];picks[r]=p;
     const w=buildNormalWave(gd,createRng(1),{picks},r),tpl=DATA.waves[w.templateId],used={};
+    const poolKey=(route,key)=>`${gateOf(tpl.routes[route]?.start,false)}:${isFlyKey(gd,key)}`;
     for(const s of w.spawns.slice().sort((a,b)=>a.time-b.time||a.actionIndex-b.actionIndex)){
       const a=tpl.spawns[s.actionIndex],ph=DATA.factions.generation.placeholders[a.key];
       if(!ph)continue;
@@ -46,14 +47,14 @@ test('every group keeps original count power; summon pools pay mothers before pr
       assert.equal(isFlyKey(gd,s.enemyKey),ph.fly);
       const n=replacedCount(gd,a.key,a.count,intended);
       if(e.type!=='SUMMON')assert.equal(s.count,n);
-      else used[s.routeIndex]=(used[s.routeIndex]||0)+s.count*Math.fround(attrPower(gd,s.enemyKey)/(DATA.enemies[s.enemyKey].beFactor||1))
+      else used[poolKey(s.routeIndex,s.enemyKey)]=(used[poolKey(s.routeIndex,s.enemyKey)]||0)+s.count*Math.fround(attrPower(gd,s.enemyKey)/(DATA.enemies[s.enemyKey].beFactor||1))
         *(DATA.factions.generation.summonBudget.mothers.includes(s.enemyKey)?1:.75);
       assert.ok(s.count>=1&&s.count<=5);
       assert.equal(s.time,a.time);
       assert.equal(s.interval,s.count>1?Math.max(a.count*a.interval/s.count,.05*a.count*a.interval):0);
     }
-    if(e.type==='SUMMON')for(const [route,cost]of Object.entries(used)){
-      const budget=w.actions.filter(a=>a.routeIndex===Number(route)&&DATA.factions.generation.placeholders[a.tplKey]
+    if(e.type==='SUMMON')for(const [pool,cost]of Object.entries(used)){
+      const budget=w.actions.filter(a=>poolKey(a.routeIndex,phKey(a.slot,p))===pool&&DATA.factions.generation.placeholders[a.tplKey]
         &&isFlyKey(gd,phKey(a.slot,p))===DATA.factions.generation.placeholders[a.tplKey].fly)
         .reduce((sum,a)=>sum+Math.fround(Math.fround(a.tplCount*attrPower(gd,a.tplKey))/(DATA.enemies[a.tplKey].beFactor||1)),0);
       assert.ok(cost<=budget+.01,`${e.entryId} R${r} no overspend`);

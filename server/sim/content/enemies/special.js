@@ -211,6 +211,21 @@ function kitExposeOnHit(ab) {
 // this family's part of KITS (content/enemies.js spreads the parts in this order)
 
 export const SPECIAL_KITS = Object.freeze({
+  // Official ColdShield blackboard: outside a lit heater, +10% DEF/+5 RES every 3s, up to ten stacks.
+  // Shipped stages have no emergency heaters; their absence does not disable this timed passive.
+  enemy_1387_winshd: (ab) => [{
+    iv: T(ab, 'ColdShield.interval') ?? 3,
+    tick(b, e, a) {
+      const max = T(ab, 'ColdShield.max_stack_cnt') ?? 10;
+      const stacks = Math.min(max, (a.stacks ?? 0) + 1);
+      if (stacks === a.stacks) return;
+      a.stacks = stacks;
+      b.addBuff(e, { key: 'ab:coldShield', persist: true, mods: {
+        defPct: stacks * (T(ab, 'ColdShield.def') ?? 0.1),
+        resFlat: stacks * (T(ab, 'ColdShield.magic_resistance') ?? 5),
+      } });
+    },
+  }],
   // --- SPECIAL 特异 / others
   enemy_1045_hammer: kitStun3,                                       // 粉碎攻坚手 · every 3rd attack stuns
   enemy_1045_hammer_2: kitStun3,                                     // 粉碎攻坚组长 · same

@@ -30,14 +30,15 @@ LOBBY(room) → INFO_CHECK (co-op 25 s; solo and any single-human match untimed 
    R14 FINAL_ASSAULT (merged team LP; pairs by seat; shared boss pool; 120 real s countdown, no hard stop; overtime −1 team LP per
                     real s after 150 real s (§4, m.public.overtimeAt); no layer gains; team LP 0 ⇒ defeat at once (PRTS 直接失败),
                     pool 0 ⇒ victory — the first end the server registers decides, §20.5)
-   R15 HIDDEN_CORE  (if difficulty ≥ NORMAL and Σ activated layers > 350 solo / 1200 co-op and team LP > 1)
+   R15 HIDDEN_CORE  (after defeating the R14 leader, when the mode has a hidden round/leader; no layer or LP threshold)
 → RESULT (per-player stats, titles, rounds passed, victory/defeat)
 ```
 Solo FUNNY has 9 rounds (boss at R9); everything is read from `data/config.json → modes[modeId]`.
 
 2026-10-23 opening filter revision supersedes the legacy 3-core/4-addon counts below: defaults are 1 hard core,
 3 soft cores, 5 addons, configurable by the host before start. Hard excludes every natural member. Soft requires
-both label classes and all natural labels filtered, except a single-core-only Operator is also excluded by its soft
+both label classes and all natural labels filtered, except an addon-only Operator is excluded when all addons are
+filtered and a single-core-only Operator is also excluded by its soft
 core filter (the later [boundary correction](../soft-ban-single-core-20261023.md)). Static mode-only all-label
 exclusions remain; DIY shares the predicate. The disjoint core draws and addon draws use active positive-weight
 candidates and deterministic RNG. Counts are bounded by candidate availability. Random labels filter recruitment,

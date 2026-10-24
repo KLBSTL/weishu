@@ -67,6 +67,10 @@ server/sim/
 
 ## 1. Driving a battle (match owner)
 
+Visiting Group Shieldguard (`enemy_1387_winshd`) gains one timed stack every 3 seconds outside a lit emergency
+heater: +10% DEF and +5 RES, up to ten. Shipped stages have no such heaters, so the passive stays active; incoming
+damage does not add stacks. See [the correction and verification](four-fixes-20261024.md).
+
 ```js
 import { Battle } from './sim/Battle.js';
 const b = new Battle({

@@ -46,7 +46,7 @@ export const DEFAULTS = Object.freeze({
   lpCapPerRound: 10,
   bossOvertimeAfter: 150,
   bossOvertimeDrainPerSec: 1,
-  hiddenCore: { single: 350, multi: 1200, minTeamLpExclusive: 1, difficulties: ['NORMAL', 'HARD', 'ABYSS', 'CATASTROPHE'] },
+  hiddenCore: { checkedAfterRound: 14 },
   dp: { init: 10, perSec: 1, max: 99 },
   unite: { maxHelpers: 2, templates: { 1: 'act1autochess_escaped_single', 2: 'act1autochess_escaped_multi' } },
   timers: { infoCheck: 25, bandDraft: 50, bandTurn: 30, battleCheck: 3, spFirst: 30, spTurn: 16 },
@@ -465,10 +465,7 @@ export class GameData {
   get hiddenCore() {
     const h = this.config.hiddenCore && typeof this.config.hiddenCore === 'object' ? this.config.hiddenCore : {};
     return {
-      single: numOr(h.single, DEFAULTS.hiddenCore.single),
-      multi: numOr(h.multi, DEFAULTS.hiddenCore.multi),
-      minTeamLpExclusive: numOr(h.minTeamLpExclusive, DEFAULTS.hiddenCore.minTeamLpExclusive),
-      difficulties: Array.isArray(h.difficulties) ? h.difficulties : DEFAULTS.hiddenCore.difficulties,
+      checkedAfterRound: posIntOr(h.checkedAfterRound, DEFAULTS.hiddenCore.checkedAfterRound),
     };
   }
   bans(difficulty) {

@@ -1,5 +1,10 @@
 # META.md — match & meta engine (server/match)
 
+2026-10-24: [four corrections and validation](four-fixes-20261024.md). Addon-only Operators leave recruitment when
+all natural addons are filtered (Leonhardt: Swift + Precision); mixed core/addon rules stay unchanged. Beating the R14
+leader unlocks the configured Hidden Core without layer/LP gates. Summon budgets pool once by entrance and motion,
+not template route index, and reuse affordable child-count remainders under the existing mother caps and total budget.
+
 Single-core soft-ban correction (2026-10-23): a natural identity containing exactly one core Alliance is also
 excluded when that core is soft-filtered. This supersedes the core-only survival exception below; multi-label,
 hard-ban and static rules are unchanged. See [the correction and checks](soft-ban-single-core-20261023.md).

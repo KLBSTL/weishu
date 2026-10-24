@@ -25,6 +25,7 @@ export function bannedByBonds(bonds, isCore, { hard = [], soft = [], addon = [],
   if (bonds.some(b => hardSet.has(b)) || bonds.every(b => fixed.has(b))) return true;
   const cores = bonds.filter(isCore), small = bonds.filter(b => !isCore(b));
   const off = new Set([...soft, ...addon, ...staticOff]);
+  if (cores.length === 0) return small.every(b => off.has(b));
   if (cores.length === 1 && bonds.length === 1) return off.has(cores[0]);
   return cores.length > 0 && small.length > 0 && bonds.every(b => off.has(b));
 }

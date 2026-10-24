@@ -538,7 +538,7 @@ export class MatchBoss {
     this.markPublic();
     this.runner = null;
     if (!hidden) {
-      const eligible = victory && !!this.hiddenBossId && hiddenEligible(this.gd, { layerSum: this.hiddenLayerSum, teamLp: this.teamLp });
+      const eligible = !!this.hiddenBossId && hiddenEligible(this.gd, { round: this.round, bossDefeated: victory });
       this.later(this.scaled(DELAYS.SETTLE), () => {
         if (eligible) {
           this.hiddenReached = true;

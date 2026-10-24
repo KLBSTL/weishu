@@ -273,8 +273,9 @@ test('config: modes, rounds and templates', () => {
   assert.equal(config.economy.deployCap, 8);
   assert.equal(config.economy.mergeCountOverrides.chess_char_2_11_a, 2);
   assert.equal(config.economy.poolCopiesOverrides.chess_char_6_11_a, 4);
-  assert.deepEqual(config.hiddenCore.single, 350);
-  assert.deepEqual(config.hiddenCore.multi, 1200);
+  assert.equal(config.hiddenCore.checkedAfterRound, 14);
+  assert.equal(config.hiddenCore.single, undefined);
+  assert.equal(config.hiddenCore.multi, undefined);
   assert.equal(config.titles.length, 6);
 });
 

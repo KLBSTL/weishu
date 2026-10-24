@@ -29,9 +29,8 @@
 //   * BOSS_HIT tickers (BOSS_HIT_STEPS 20 / 50 / 80 %): a player's damage to the round's pool (SharedBossPool.byPlayer)
 //     over its size, each threshold once per boss round — the Hidden Core never counts the Final Assault's damage
 //     (player report after 0.1.0: "隐藏boss还没打就出了造成50%伤害播报").
-//   * Hidden Core eligibility (after an R14 win): difficulty in hiddenCore.difficulties, the mode has a hidden round,
-//     Σ activated layers of the alive players measured at the end of the boss round's prep > threshold (solo 350 /
-//     co-op 1200) and team LP > minTeamLpExclusive (1).
+//   * Hidden Core eligibility: win the R14 leader battle in a mode with a configured hidden round/leader.
+//     No activated-layer or remaining-LP threshold (maintainer revision, 2026-10-24).
 
 import { BOSS_ROW_OFFSET, COLS, BOSS_POOL_MIN_HP } from '../sim/constants.js';
 import { mirrorDir, normDir } from '../sim/dir.js';
@@ -107,13 +106,10 @@ export class SharedBossPool {
 /**
  * Hidden-core eligibility.
  * @param {import('./gamedata.js').GameData} gd
- * @param {{ layerSum: number, teamLp: number }} s
+ * @param {{ round?: number, bossDefeated?: boolean }} s
  */
-export function hiddenEligible(gd, { layerSum, teamLp }) {
-  const hc = gd.hiddenCore;
-  if (!gd.hiddenRound || !hc.difficulties.includes(gd.difficulty)) return false;
-  const threshold = gd.isSolo ? hc.single : hc.multi;
-  return layerSum > threshold && teamLp > hc.minTeamLpExclusive;
+export function hiddenEligible(gd, { round = gd.bossRound, bossDefeated = false } = {}) {
+  return bossDefeated && round === gd.hiddenCore.checkedAfterRound && gd.hiddenRound > round && gd.bossWeights(true).length > 0;
 }
 
 /**

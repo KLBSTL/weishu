@@ -5,7 +5,7 @@ import {GameData} from '../../server/match/gamedata.js';
 import {createRng} from '../../server/sim/rng.js';
 import {buildNormalWave,setupMatchWaves} from '../../server/match/waves.js';
 import {uniteSurvivors} from '../../server/match/unite.js';
-function fixture({routes=1,zero=false,motherPrice=10000,pure=false}={}){
+function fixture({routes=1,zero=false,motherPrice=10000,pure=false,splitRoutes=false}={}){
   const d=structuredClone(DATA),g=d.factions.generation;
   for(const [key,power]of [['bm',motherPrice],['bc',4000],['bn',zero?0:16000],['bs',zero?0:10000]])
     d.enemies[key]={...d.enemies.enemy_1137_plasm,attrPower:power,beFactor:1,isFlyEnemy:false};
@@ -17,6 +17,10 @@ function fixture({routes=1,zero=false,motherPrice=10000,pure=false}={}){
     tpl.spawns.push({key:'bs',slot:'S',count:2,time:0,interval:6,routeIndex});
     for(let i=0;i<5;i++)tpl.spawns.push({key:'bn',slot:'N',count:1,time:12+i*12,interval:12,routeIndex});
   }
+  if(splitRoutes){
+    const original=tpl.routes;tpl.routes=tpl.spawns.map(s=>structuredClone(original[s.routeIndex]));
+    tpl.spawns.forEach((s,i)=>{s.routeIndex=i;});
+  }
   gd.roundCfg=()=>({template:'budget'});gd.wave=()=>tpl;gd.combatTimeLimit=()=>100;
   const picks=[];picks[6]={type:'SUMMON',entryId:'budget',key:pure?'bc':'bm',normal:'bc',elite:'bc',fly:false};
   return buildNormalWave(gd,createRng(1),{picks},6);
@@ -25,6 +29,21 @@ test('100000 budget pays 4 × 10000 mothers, then 20 discounted children at 3000
   const w=fixture();assert.equal(w.spawns.filter(s=>s.enemyKey==='bm').reduce((n,s)=>n+s.count,0),4);
   const children=w.spawns.filter(s=>s.enemyKey==='bc');assert.equal(children.length,5);assert.ok(children.every(s=>s.count===4&&s.interval===3));
   assert.deepEqual(children.map(s=>s.time),[12,24,36,48,60]);
+});
+
+test('separate template route indices at the same entrance share the budget without deleting batches',()=>{
+  const compact=w=>w.spawns.map(s=>[s.enemyKey,s.time,s.count,s.interval]);
+  assert.deepEqual(compact(fixture({splitRoutes:true})),compact(fixture()));
+});
+
+test('fractional child shares reuse affordable remainder, without exceeding budget or five per batch',()=>{
+  const w=fixture({motherPrice:10001,splitRoutes:true});
+  const mothers=w.spawns.filter(s=>s.enemyKey==='bm').reduce((n,s)=>n+s.count,0);
+  const children=w.spawns.filter(s=>s.enemyKey==='bc').reduce((n,s)=>n+s.count,0);
+  assert.equal(mothers,4);assert.equal(children,19);
+  assert.ok(mothers*10001+children*3000<=100000);
+  assert.ok(100000-mothers*10001-children*3000<3000);
+  assert.ok(w.spawns.every(s=>s.count<=5));
 });
 test('two routes share the whole-field mother cap, while each route spends only its own budget',()=>{
   const w=fixture({routes:2});assert.equal(w.spawns.filter(s=>s.enemyKey==='bm').reduce((n,s)=>n+s.count,0),4);

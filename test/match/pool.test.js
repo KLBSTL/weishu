@@ -169,7 +169,7 @@ test('per-match filters: one hard core, three soft cores and five add-ons, bound
         const bonds = DATA.chess[id].bonds;
         const hasBoth = bonds.some(b => gd.bond(b)?.isCore) && bonds.some(b => !gd.bond(b)?.isCore);
         const expected = bonds.some(b => hard.includes(b)) || (bonds.length > 0 && bonds.every(b => staticOff.includes(b)))
-          || ((hasBoth || (bonds.length === 1 && gd.bond(bonds[0])?.isCore)) && bonds.every(b => off.has(b)));
+          || ((hasBoth || !bonds.some(b => gd.bond(b)?.isCore) || (bonds.length === 1 && gd.bond(bonds[0])?.isCore)) && bonds.every(b => off.has(b)));
         assert.equal(banned.includes(id), expected, id);
       }
     }

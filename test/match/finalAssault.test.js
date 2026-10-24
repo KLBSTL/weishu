@@ -143,7 +143,7 @@ test('Final Assault leaks cost their lpr from the merged LP', () => {
   m.dispose();
 });
 
-test('Hidden Core: Σ activated layers (end of the boss prep) > 1200 and team LP > 1 after a win → R15 prep → HIDDEN_CORE', () => {
+test('Hidden Core: an R14 boss win enters R15 prep then HIDDEN_CORE', () => {
   const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', humans: 2, seed: 52, fake: true, script: (b) => (b.kind === 'boss' || b.kind === 'hidden' ? { bossDps: 1e9 } : {}) }).start();
   const m = h.m;
   assert.equal(m.gd.hiddenRound, 15);
@@ -170,14 +170,14 @@ test('Hidden Core: Σ activated layers (end of the boss prep) > 1200 and team LP
   m.dispose();
 });
 
-test('Hidden Core is skipped at Σ layers ≤ threshold, on FUNNY, or with team LP ≤ 1; a failed hidden core keeps the clear', () => {
+test('Hidden Core follows an R14 boss win without layer/LP gates; missing hidden modes and losses are excluded', () => {
   const gd = new GameData(DATA, 'mode_multi_normal');
-  assert.equal(hiddenEligible(gd, { layerSum: 1200, teamLp: 50 }), false);
-  assert.equal(hiddenEligible(gd, { layerSum: 1201, teamLp: 50 }), true);
-  assert.equal(hiddenEligible(gd, { layerSum: 5000, teamLp: 1 }), false);
-  assert.equal(hiddenEligible(new GameData(DATA, 'mode_single_hard'), { layerSum: 351, teamLp: 2 }), true);
-  assert.equal(hiddenEligible(new GameData(DATA, 'mode_single_hard'), { layerSum: 350, teamLp: 2 }), false);
-  assert.equal(hiddenEligible(new GameData(DATA, 'mode_multi_funny'), { layerSum: 9999, teamLp: 99 }), false);
+  assert.equal(hiddenEligible(gd, { round:14,bossDefeated:true }), true);
+  assert.equal(hiddenEligible(gd, { round:14,bossDefeated:false }), false);
+  assert.equal(hiddenEligible(gd, { round:13,bossDefeated:true }), false);
+  assert.equal(hiddenEligible(gd, { round:15,bossDefeated:true }), false);
+  assert.equal(hiddenEligible(new GameData(DATA, 'mode_single_hard'), { round:14,bossDefeated:true }), true);
+  assert.equal(hiddenEligible(new GameData(DATA, 'mode_multi_funny'), { round:14,bossDefeated:true }), false);
   // failed hidden core → still a victory
   const h = makeMatch({ mode: 'solo', difficulty: 'HARD', seed: 53, fake: true, script: (b) => (b.kind === 'boss' ? { bossDps: 1e9 } : b.kind === 'hidden' ? { bossDps: 0 } : {}) }).start();
   const m = h.m;

@@ -30,7 +30,6 @@ export function finishCatastrophe(files) {
     for (const [key, child] of Object.entries(value)) if (key !== 'modes') inherit(child);
   };
   inherit(config);
-  if (!config.hiddenCore.difficulties.includes('CATASTROPHE')) config.hiddenCore.difficulties.push('CATASTROPHE');
   // Separate from the original abilities: these notes describe only the Catastrophe Hidden Core.
   enemies.enemy_9013_acstmk_2.catastropheAbilities = [
     '生命低于20%时，物理、法术、元素与真实伤害降低80%，不减免生命流失。',

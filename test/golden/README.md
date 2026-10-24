@@ -1,5 +1,10 @@
 # Golden results
 
+Four corrections (2026-10-24): regenerate 298 unchanged scenario definitions; 31 move and 267 stay unchanged against
+`261c85e0`. Restore Shieldguard's timed DEF/RES passive, fix fragmented summon budgets, ban addon-only members whose
+natural labels are all filtered, and unlock the configured hidden round after an R14 win. No AI algorithm changes.
+See [every changed case and validation](../../docs/four-fixes-20261024-golden.md).
+
 Single-core soft-ban correction (2026-10-23): natural single-core-only Operators now leave regular and DIY
 recruitment when their core is soft-filtered. The affected complete matches are rebuilt with the same seeds,
 stage/faction/leader setup and draw groups; other five battle-only golden files remain untouched.

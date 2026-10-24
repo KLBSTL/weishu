@@ -54,6 +54,7 @@ export function BanPicker({ room, isHost, busy, onPick }) {
       })}
     </div>
     <p class="ban-picker__note">${isHost ? t('修改后其他博士需要重新准备；开局后配置锁定。') : t('由创建者设置')}
-      ${t('只有一个大盟约的干员，该盟约被软禁时也会移出卡池。')}</p>
+      ${t('只有一个大盟约的干员，该盟约被软禁时也会移出卡池。')}
+      ${t('仅含小盟约的干员，在所有小盟约被禁用时移出卡池。')}</p>
   </section>`;
 }

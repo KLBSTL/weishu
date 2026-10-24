@@ -21,7 +21,7 @@ import { banCandidates, normalizeBanConfig, bannedByBonds } from '../../shared/b
 /**
  * Opening filters (2026-10-23): disjoint hard/soft cores and add-ons, uniformly sampled from active positive-weight
  * candidates. Hard removes any natural member. A single-core-only member also follows soft bans; other soft bans
- * require both label classes and every natural label filtered.
+ * require both label classes and every natural label filtered. Addon-only members leave when all their addons are filtered.
  * Static mode exclusions retain their independent all-label rule.
  * @param {import('./gamedata.js').GameData} gd
  * @param {Function} rng seeded rng (createRng)

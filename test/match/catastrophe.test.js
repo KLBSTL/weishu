@@ -88,8 +88,8 @@ for (const type of ['single', 'multi']) {
     assert.deepEqual(originalSchedule, base.choices.schedule[baseId]);
     assert.equal(gd.choices.schedule[id].rounds['12'].bountyDraft, 'advanced');
     assert.deepEqual(gd.bans(gd.difficulty), base.bans(base.difficulty));
-    assert.equal(hiddenEligible(gd, { layerSum: 10000, teamLp: 26 }), true);
-    assert.equal(hiddenEligible(gd, { layerSum: 1, teamLp: 26 }), false);
+    assert.equal(hiddenEligible(gd, { round:14,bossDefeated:true }), true);
+    assert.equal(hiddenEligible(gd, { round:14,bossDefeated:false }), false);
     for (const stage of gd.mode.stages) assert.equal(canSelectStage(DATA, id, stage), true);
     for (let r = 1; r <= 15; r++) assert.deepEqual(gd.baseEnemyScale(r), base.baseEnemyScale(r));
   });

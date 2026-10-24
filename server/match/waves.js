@@ -384,12 +384,13 @@ function templateSpawns(gd, tpl, round, pick, lanePicks = null) {
     // bounty is inserted into (the others spawn locally on their own timing)
     actions.push({ index: i, key, tplKey: key0, slot: s.slot ?? null, time, count, tplCount: n, window, routeIndex, valid: true, server: !isBoss && !s.group });
   }
-  if (!leader && ultimateRound(round)) allocateSummonBudget(gd, spawns, actions, round);
+  if (!leader && ultimateRound(round)) allocateSummonBudget(gd, spawns, actions, round, routes);
   return { spawns: spawns.filter(s => s.count > 0), actions };
 }
 
-// Each valid original action contributes once to its route/group pool. Mothers share family caps across the field.
-function allocateSummonBudget(gd, spawns, actions, round) {
+// Template route indices often identify individual batches. Pool by entrance and motion, not by batch.
+// Each valid original action contributes once; mothers share family caps across the field.
+function allocateSummonBudget(gd, spawns, actions, round, routes) {
   const cfg = gen(gd).summonBudget;
   if (!cfg) return;
   const mothers = new Set(cfg.mothers), pools = new Map(), used = new Map();
@@ -399,11 +400,11 @@ function allocateSummonBudget(gd, spawns, actions, round) {
     if (s.mods?.ultimateType !== 'SUMMON') continue;
     const action = actions.find(a => a.index === s.actionIndex);
     const budget = Math.fround(Math.fround(action.tplCount * attrPower(gd,action.tplKey)) / beFactor(gd,action.tplKey));
-    const id = s.routeIndex;
+    const id = `${gateOf(routes[s.routeIndex]?.start, false)}:${isFlyKey(gd, s.enemyKey) ? 'FLY' : 'WALK'}`;
     let pool = pools.get(id);
     if (!pool) { pool = { remaining: 0, children: [] }; pools.set(id,pool); }
     pool.remaining += budget;
-    const row = { s, action, pool, budget };
+    const row = { s, action, pool, budget, price: 0, quota: 0 };
     if (mothers.has(s.enemyKey)) ordered.push(row); else pool.children.push(row);
   }
   for (const {s,pool} of ordered.sort((a,b) => a.s.time - b.s.time || a.s.actionIndex - b.s.actionIndex)) {
@@ -419,8 +420,19 @@ function allocateSummonBudget(gd, spawns, actions, round) {
     for (const row of pool.children) {
       const price = Math.fround(power(row.s.enemyKey) * cfg.childPowerMul);
       const share = weight > 0 ? remaining * row.budget / weight : 0;
+      row.price = price;
+      row.quota = price > 0 ? share / price : 0;
       row.s.count = price > 0 ? Math.min(5,Math.floor(share / price),Math.floor(pool.remaining / price)) : 0;
       pool.remaining -= row.s.count * price;
+    }
+    // Reuse affordable integer remainders instead of dropping every fractional batch to zero.
+    // Largest quota deficit first; ties preserve template order and every batch's original window.
+    for (;;) {
+      const next = pool.children.filter(row => row.s.count < 5 && row.price > 0 && row.price <= pool.remaining)
+        .sort((a, b) => (b.quota - b.s.count) - (a.quota - a.s.count) || a.s.actionIndex - b.s.actionIndex)[0];
+      if (!next) break;
+      next.s.count++;
+      pool.remaining -= next.price;
     }
   }
   for (const s of spawns) if (s.mods?.ultimateType === 'SUMMON') {
