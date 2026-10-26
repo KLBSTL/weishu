@@ -25,8 +25,8 @@ function setup(kind = 'columbia', level = 6) {
 function order(ps, r = 3) { ps.startRecruitmentRound(r); }
 function choose(ps, idx = 0) { return ps.pickRecruitment(ps.recruitment.pending.id, idx); }
 
-test('43 squads: metadata, LP, fixed schedules and shared-faction identity', () => {
-  assert.equal(Object.keys(DATA.bands).length, 43);
+test('44 squads: metadata, LP, fixed schedules and shared-faction identity', () => {
+  assert.equal(Object.keys(DATA.bands).length, 44);
   assert.equal(DATA.bands.band_recruit_sarkaz.totalHp, 22);
   assert.equal(DATA.bands.band_recruit_columbia.totalHp, 26);
   assert.deepEqual(DATA.bands.band_recruit_sarkaz.bondIds, ['sarkazShip']);

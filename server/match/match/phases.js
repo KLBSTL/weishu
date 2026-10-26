@@ -13,6 +13,7 @@ import { OK, fail, DELAYS, BAND_TURN_SECONDS } from './common.js';
 export class MatchPhases {
   recruitmentBandOff(id) {
     const band = this.gd.band(id), spec = band?.recruitment || band?.shopPriority;
+    if (spec?.kind === 'fixed-chess' && (this.hardBannedBonds.includes(spec.bond) || this.softBannedBonds.includes(spec.bond))) return true;
     return !!spec && (this.gd.modeInactiveBonds.has(spec.bond) || !this.bondInPool(spec.bond));
   }
   enterInfoCheck() {
@@ -125,7 +126,7 @@ export class MatchPhases {
       // a strategy a teammate already took is not selectable (队友已选): the bot re-draws, else the first free one
       let id = botPickBand(this, ps);
       for (let k = 0; k < 8 && this.bandTaken(id, ps.playerId); k++) id = botPickBand(this, ps);
-      if (this.bandTaken(id, ps.playerId)) id = this.gd.bandIds().find((b) => !this.bandTaken(b, ps.playerId)) || id;
+      if (this.bandTaken(id, ps.playerId)) id = this.gd.bandIds().find((b) => !this.bandTaken(b, ps.playerId) && !this.recruitmentBandOff(b)) || id;
       this._applyBand(ps, id, { dedupe: true });
     });
   }
@@ -151,8 +152,8 @@ export class MatchPhases {
    */
   defaultBand(playerId) {
     const def = this.gd.bandDraft.timeoutBandId;
-    if (!this.bandTaken(def, playerId)) return def;
-    return this.gd.bandIds().find((b) => !this.bandTaken(b, playerId)) || def;
+    if (!this.bandTaken(def, playerId) && !this.recruitmentBandOff(def)) return def;
+    return this.gd.bandIds().find((b) => !this.bandTaken(b, playerId) && !this.recruitmentBandOff(b)) || def;
   }
 
   /**
@@ -163,7 +164,7 @@ export class MatchPhases {
    */
   timeoutBand(playerId) {
     const f = this.draft && this.draft.focus instanceof Map ? this.draft.focus.get(playerId) : null;
-    if (typeof f === 'string' && this.gd.bandAllowed(f) && !this.bandTaken(f, playerId)) return f;
+    if (typeof f === 'string' && this.gd.bandAllowed(f) && !this.bandTaken(f, playerId) && !this.recruitmentBandOff(f)) return f;
     return this.defaultBand(playerId);
   }
 
@@ -196,7 +197,7 @@ export class MatchPhases {
     const d = this.draft;
     if (!d || !ps || d.picks[ps.playerId]) return;
     let id = this.gd.bandAllowed(bandId) && !this.recruitmentBandOff(bandId) ? bandId : this.defaultBand(ps.playerId);
-    if (dedupe && this.bandTaken(id, ps.playerId)) id = this.gd.bandIds().find((b) => !this.bandTaken(b, ps.playerId)) || id;
+    if (dedupe && this.bandTaken(id, ps.playerId)) id = this.gd.bandIds().find((b) => !this.bandTaken(b, ps.playerId) && !this.recruitmentBandOff(b)) || id;
     d.picks[ps.playerId] = id;
     ps.bandId = id;
     ps.lp = this.gd.startLp(id);

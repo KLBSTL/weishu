@@ -1,14 +1,15 @@
 // Original expansion approved by the user; rules: docs/design/sarkaz.md.
-// Numeric barriers are separate from hit-count shields. No timers or random choices.
+// The six-member alliance owns a separate 0..3 physical/Arts hit shield.
 import * as S from '../support/index.js';
-import { numericShieldTotal, clampNumericShields } from '../../buffs.js';
+import { COLS } from '../../constants.js';
 import { hasHp } from '../../damage.js';
 import { primaryHit } from './attack-riders.js';
 import { typhonUsage } from '../../../../shared/typhonUsage.js';
 
 export const BOND = 'sarkazShip';
-export const SHIELD = 'bond:sarkaz:barrier';
-export const hasBarrier = (u) => numericShieldTotal(u) > 0;
+export const SHIELD = 'bond:sarkaz:hits';
+export const shieldLayers = (u) => Math.min(3, Math.max(0, u?.findBuff(SHIELD)?.shieldHits ?? 0));
+export const hasBarrier = (u) => shieldLayers(u) > 0;
 const traits = (u) => u.def?.raw?.garrisonIds ?? [];
 const has = (u, code, form) => traits(u).includes(`garrison_sarkaz_${code}_${form}`);
 const elite = (u, code) => has(u, code, 'b');
@@ -82,30 +83,26 @@ export function install(battle) {
     battle.on('skillStart', ({ unit }) => {
       if (!member(unit) || !S.onField(unit)) return;
       refresh(); // earlier skill-start growth is already recorded; skill mods apply before skillStart.
-      const recipients = S.bondMembers(battle, pid, BOND, { fieldOnly: true });
-      const total = S.playerOps(battle, pid, { fieldOnly: true })
-        .filter((u) => S.unitBonds(u).includes(BOND)).reduce((n, u) => n + u.s.atk, 0);
+      // Read the caster's current attack range AFTER the skill's own startup/range changes.
+      battle._refreshRange(unit);
+      const recipients = battle.allyUnits.filter(u => u.ownerId === pid && S.onField(u)
+        && (u === unit || unit.rangeKeySet.has(u.tileR * COLS + u.tileC)));
       for (const u of recipients) {
-        const old = u.findBuff(SHIELD)?.shield ?? 0;
-        const ratio = .50 + .005 * L();
-        const room = Math.max(0, u.s.maxHp * ratio - old);
-        const shield = Math.min(u.s.maxHp * ratio, old + Math.min(total * .05, room));
-        u.stats.shieldGranted = (u.stats.shieldGranted ?? 0) + Math.max(0, shield - old);
-        if (shield > 0) battle.addBuff(u, { key: SHIELD, shield, duration: Infinity, shieldType: ['phys', 'arts'],
-          data: { numericShieldCapExempt: true, numericShieldSourceCap: ratio } });
+        battle.addBuff(u, { key: SHIELD, shieldHits: Math.min(3, shieldLayers(u) + 1),
+          duration: Infinity, shieldType: ['phys', 'arts'], visible: true });
         S.fxOn(battle, 'shield', u, unit.id, SHIELD);
       }
     }, { priority: -200 });
     const hits = new WeakMap();
     battle.on('hit', ({ source, target, dmg }) => {
       if (!member(source) || target?.side !== 'enemy' || !primaryHit(dmg)) return;
-      hits.set(dmg, .15 * numericShieldTotal(source));
+      hits.set(dmg, .10 * source.s.atk * shieldLayers(source));
     }, { priority: -1000 });
     battle.on('damaged', ({ source, target, dmg }) => {
       const amount = hits.get(dmg); hits.delete(dmg);
       if (!(amount > 0) || !source || !hasHp(target)) return;
-      // Skip source multipliers; target vulnerability/reduction, shields, immunity and kill credit remain native.
-      battle.dealDamage(source, target, { amount, type: 'true', sourceless: true, canDodge: false, tags: ['bond:sarkaz:rider'] });
+      // Retain source multipliers; the bond tag (and absence of attack/skill flags) prevents recursive riders.
+      battle.dealDamage(source, target, { amount, type: 'true', canDodge: false, tags: ['bond:sarkaz:rider'] });
     });
     battle.on('tick', ({ dt }) => {
       for (const u of ops) {
@@ -113,9 +110,6 @@ export function install(battle) {
           u.stats.fieldSeconds = (u.stats.fieldSeconds ?? 0) + dt;
           if (hasBarrier(u)) u.stats.barrierSeconds = (u.stats.barrierSeconds ?? 0) + dt;
         }
-        const shield = u.findBuff(SHIELD);
-        if (shield) shield.data.numericShieldSourceCap = .50 + .005 * L();
-        clampNumericShields(u);
       }
     });
   }

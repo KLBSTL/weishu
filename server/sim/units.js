@@ -129,6 +129,12 @@ export class Unit {
   get maxHp() { return this.s.maxHp; }
   get atk() { return this.s.atk; }
 
+  /** Base ATK before percentages/final additions, including already settled devour and alliance additions. */
+  get effectiveBaseAtk() {
+    const { add } = aggregateMods(this.buffs);
+    return Math.max(0, this.base.atk + (add.atkFlat ?? 0));
+  }
+
   _recalc() {
     const prevMax = this._s ? this._s.maxHp : this.base.maxHp;
     const ignored = this.mem.ignoredStatuses;
@@ -140,7 +146,7 @@ export class Unit {
     const bHp = fin(b.maxHp, 1) > 0 ? fin(b.maxHp, 1) : 1;
     const maxHp = Math.max(1, fin((bHp + a('hpFlat')) * Math.max(0, 1 + a('hpPct')) * m('hpMul') * cm.hp, bHp));
     // PRTS 游戏数据基础 属性基本公式 A_f = F_t[(A + D_p)(1 + D_t) + F_p]: `atkFinal` is the 最终加算 (FINAL_ADDITION) —
-    // added after the percentages, inside the Πmul (阿戈尔's devoured base ATK, DESIGN §24.7)
+    // added after percentages, inside Πmul. Aegir devour uses atkFlat (confirmed 2026-10-25 revision).
     const atk = Math.max(0, fin(((b.atk + a('atkFlat')) * Math.max(0, 1 + a('atkPct')) + a('atkFinal')) * m('atkMul') * cm.atk, fin(b.atk, 0)));
     const def = Math.max(0, fin((b.def + a('defFlat')) * Math.max(0, 1 + a('defPct')) * m('defMul') * cm.def, fin(b.def, 0)));
     const res = clamp(fin((b.res + a('resFlat')) * m('resMul'), fin(b.res, 0)), 0, 100);
@@ -177,6 +183,7 @@ export class Unit {
       elementalTakenMul: m('elementalTakenMul'), // 元素脆弱: 元素伤害 (the 'elemental' HP damage type)
       healingDealtMul: m('healingDealtMul'),
       healingTakenMul: m('healingTakenMul'),
+      recoveryTakenMul: m('recoveryTakenMul'), // Explicitly affects both healing and legitimate HP regeneration.
       atkScaleMul: m('atkScaleMul'),
       spRecovery: Math.max(0, fin((b.spRecovery + a('spRecoveryFlat')) * m('spRecoveryMul'), 0)),
       spCostFlat: a('spCostFlat'),

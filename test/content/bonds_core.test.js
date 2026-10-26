@@ -101,7 +101,7 @@ const sargonDefs = (n) => {
   return list;
 };
 
-test('萨尔贡 3: every member skill start → one independent stack on every member (ASPD +12, 5+0.22L s, ≤ 25)', () => {
+test('萨尔贡 3: every member skill start → one independent stack on every member (ATK +10%, ASPD +10, 5+0.22L s, ≤20)', () => {
   const list = sargonDefs(3);
   const L = 10;
   const h = makeBattle({ defs: defsOf(list), units: lineup(list.map((x) => x[0])), bonds: { sargonShip: bondOn(3, L, null, [3, 6]) } });
@@ -109,35 +109,35 @@ test('萨尔贡 3: every member skill start → one independent stack on every m
   const [a, b, c] = ['s0_a', 's1_a', 's2_a'].map((id) => h.unit(id));
   a.skill.activate('test', { free: true });
   b.skill.activate('test', { free: true });
-  assert.equal(c.s.aspd, 100 + 2 * 12, 'two stacks on the non-caster');
+  assert.equal(c.s.aspd, 100 + 2 * 10, 'two stacks on the non-caster');
   assert.equal(h.unit('none_a').s.aspd, 100);
-  assert.equal(buffOf(c, 'bond:sargon:atk'), null, 'no ATK stacks below 6');
+  close(c.s.atk, 1200, 1e-6, 'attack and speed share the same stacks');
   close(buffOf(c, 'bond:sargon').timeLeft, 5 + 0.22 * L, 1e-6);
-  // cap: 30 more activations → 25 stacks
+  // cap: 30 more activations → 20 stacks
   for (let i = 0; i < 30; i++) { a.skill.end('test'); a.skill.activate('test', { free: true }); }
-  assert.equal(c.buffs.filter((x) => x.key === 'bond:sargon').length, 25);
-  assert.equal(c.s.aspd, Math.min(600, 100 + 300));
+  assert.equal(c.buffs.filter((x) => x.key === 'bond:sargon').length, 20);
+  assert.equal(c.s.aspd, Math.min(600, 100 + 200));
   h.run(5 + 0.22 * L + 0.2);
   assert.equal(c.buffs.filter((x) => x.key === 'bond:sargon').length, 0, 'stacks expire');
   assert.equal(c.s.aspd, 100);
   checkInvariants(h.b);
 });
 
-test('萨尔贡 6: each stack also ATK +12 % (additive, one multiplier), dropped when the stacks expire', () => {
+test('萨尔贡 6: each stack ATK +10 % (additive, one multiplier), dropped when the stacks expire', () => {
   const list = sargonDefs(6);
   const h = makeBattle({ defs: defsOf(list), units: lineup(list.map((x) => x[0])), bonds: { sargonShip: bondOn(6, 0, null, [3, 6]) } });
   h.step(1);
   const a = h.unit('s0_a'), f = h.unit('s5_a');
   for (let i = 0; i < 3; i++) { a.skill.end('test'); a.skill.activate('test', { free: true }); }
-  close(f.s.atk, 1000 * (1 + 3 * 0.12));
-  for (let i = 0; i < 30; i++) { a.skill.end('test'); a.skill.activate('test', { free: true }); }
-  close(f.s.atk, 1000 * (1 + 25 * 0.12), 1e-6, 'cap +300 %');
+  close(f.s.atk, 1000 * (1 + 3 * 0.10));
+  for (let i = 0; i < 50; i++) { a.skill.end('test'); a.skill.activate('test', { free: true }); }
+  close(f.s.atk, 1000 * (1 + 40 * 0.10), 1e-6, 'cap +400 %');
   h.run(5.3);
   close(f.s.atk, 1000);
   checkInvariants(h.b);
 });
 
-test('萨尔贡 6 + 娜仁图亚: no ATK stacks; skill start lends the caster’s equipment (tier ≤ 5, 60 s) to its 8 neighbours', () => {
+test('萨尔贡 6 + 娜仁图亚: 20 dual-attribute stacks; skill start lends the caster’s equipment (tier ≤ 5, 60 s) to its 8 neighbours', () => {
   const list = sargonDefs(6);
   const calls = [];
   deps.lendItemEffects = (battle, from, to, opts) => calls.push([from.defId, to.defId, opts]);
@@ -153,8 +153,8 @@ test('萨尔贡 6 + 娜仁图亚: no ATK stacks; skill start lends the caster’
     h.unit('s0_a').skill.activate('test', { free: true });
     assert.deepEqual(calls.map((c) => c[1]).sort(), ['none_a', 's1_a', 's2_a']);
     assert.deepEqual(calls[0][2], { maxTier: 5, duration: 60 });
-    assert.equal(h.unit('s1_a').s.aspd, 112, 'ASPD stacks still apply');
-    close(h.unit('s1_a').s.atk, 1000, 1e-6, 'no ATK stacks with 娜仁图亚');
+    assert.equal(h.unit('s1_a').s.aspd, 110, 'ASPD stacks still apply');
+    close(h.unit('s1_a').s.atk, 1100, 1e-6, 'new ATK stacks with 娜仁图亚');
     // a member without equipment lends nothing
     calls.length = 0;
     h.unit('s1_a').skill.activate('test', { free: true });
@@ -343,7 +343,7 @@ test('阿戈尔: HP ×(1.35+0.01L); devour chain (left first): 5000 物理流失
   checkInvariants(h.b);
 });
 
-test('阿戈尔 devour ATK is a 最终加算 (GitHub #165 point 2, PR #176): 1000 base ATK, +100 % skill ATK, +2000 devoured → 4000, not 6000', () => {
+test('阿戈尔 devour is base addition: 1000 base ATK, +100% ATK, +2000 devoured gives 6000', () => {
   // PRTS 盟约记录 "该付与来源获得所有标记单位的基础攻击力（最终加算）"; PRTS 游戏数据基础 A_f = F_t[(A + D_p)(1 + D_t) + F_p]
   const list = [
     ['g1_a', ['egirShip']], ['g2_a', ['egirShip']], ['g3_a', ['egirShip']],
@@ -354,14 +354,14 @@ test('阿戈尔 devour ATK is a 最终加算 (GitHub #165 point 2, PR #176): 100
   const h = makeBattle({ defs: defsOf(list), units, bonds: { egirShip: bondOn(3, 0, null, [3, 5]) } });
   h.step(1);
   const g1 = h.unit('g1_a');
-  assert.deepEqual(buffOf(g1, 'bond:egir:devour')?.mods, { atkFinal: 2000, blockCnt: 1 }, 'the fodder\'s base ATK as a 最终加算, its block count');
+  assert.deepEqual(buffOf(g1, 'bond:egir:devour')?.mods, { atkFlat: 2000, blockCnt: 1 }, 'the fodder\'s base ATK as a 最终加算, its block count');
   close(g1.s.atk, 1000 + 2000, 1e-6, 'no percentage: as before');
   h.b.addBuff(g1, { key: 'test:skill', mods: { atkPct: 1 } });
-  close(g1.s.atk, 1000 * 2 + 2000, 1e-6, '+100 %: 4000 (0.1.3: (1000 + 2000) × 2 = 6000)');
+  close(g1.s.atk, (1000 + 2000) * 2, 1e-6, '+100 %: 4000 (0.1.3: (1000 + 2000) × 2 = 6000)');
   h.b.addBuff(g1, { key: 'test:flat', mods: { atkFlat: 100 } });
-  close(g1.s.atk, (1000 + 100) * 2 + 2000, 1e-6, 'a 直接加算 is still scaled by the percentages');
+  close(g1.s.atk, (1000 + 100 + 2000) * 2, 1e-6, 'a 直接加算 is still scaled by the percentages');
   h.b.addBuff(g1, { key: 'test:weaken', mods: { atkMul: 0.5 } });
-  close(g1.s.atk, ((1000 + 100) * 2 + 2000) * 0.5, 1e-6, 'the 最终乘算 (Πmul) scales the whole, the 最终加算 included');
+  close(g1.s.atk, (1000 + 100 + 2000) * 2 * 0.5, 1e-6, 'the 最终乘算 (Πmul) scales the whole, the 最终加算 included');
   checkInvariants(h.b);
 });
 

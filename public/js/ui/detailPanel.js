@@ -370,7 +370,7 @@ export function chessStatsBlock({ rec, chess, live = null }) {
         <strong>${t('本场战斗统计')}</strong>
         ${[[t('造成伤害'), live.combat.dmg], [t('有效治疗'), live.combat.heal], [t('承受伤害'), live.combat.taken],
           [t('击杀数'), live.combat.kills], [t('当前数值屏障'), live.combat.shield],
-          [t('萨卡兹屏障获得'), live.combat.shieldGranted], [t('萨卡兹屏障吸收'), live.combat.shieldAbsorbed],
+          [t('萨卡兹盟约护盾层数'), live.combat.sarkazShieldLayers],
           [t('特质贡献层数'), live.combat.layersGranted]].map(([k, v]) => html`<${Stat} k=${k} v=${Math.round(v || 0)} />`)}
         <${Stat} k=${t('屏障时间覆盖率')} v=${live.combat.fieldSeconds > 0 ? `${Math.round(100 * (live.combat.barrierSeconds || 0) / live.combat.fieldSeconds)}%` : '—'} />
       </div>`}

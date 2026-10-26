@@ -43,6 +43,7 @@
 import * as S from '../support/index.js';
 import { mitigate } from '../../damage.js';
 import { frontOf } from '../../dir.js';
+import { installAegirTraits } from './aegir.js';
 
 const ids = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
 const EMPTY = Object.freeze([]);
@@ -58,6 +59,7 @@ function garrisonIdsOf(u) {
 // install
 
 export function install(battle) {
+  installAegirTraits(battle);
   const all = [];
   const owned = new Map(); // unit → Set(garrisonId)
   const add = (unit, g, grantedBy = null) => {
@@ -261,6 +263,11 @@ const INSTALLERS = {
       if (!arr || !victim) return;
       for (const it of arr) {
         if (!(victim.side === 'enemy' || (it.allies && victim.side === 'ally' && victim.kind === 'op'))) continue;
+        if (it.bb.first_kill_only) {
+          const key = `gar:firstKill:${it.gid}`;
+          if (killer.mem[key]) continue;
+          killer.mem[key] = true;
+        }
         it.cnt++;
         if (it.cnt % Math.max(1, S.num(it.bb.check_cnt, 1)) === 0) fireGain(battle, it);
       }

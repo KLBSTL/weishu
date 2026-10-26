@@ -93,5 +93,5 @@ export function finishBalanceUpdate(files) {
   yan.spec.layerGain=yan.spec.layerGain.replace(/录武官[^;；]*/, '录武官 on gain +8/+16 炎');
   files.bonds.sarkazShip.spec={origin:'Confirmed 2026-10-22 revision',formulas:{attackCap:'.60 + .01*L',shieldPerCast:'.05*livingOwnSarkazAtk',shieldCap:'maxHP*(.50+.005*L)',trueRider:'.15*remainingNumericShields'}};
   files.bonds.columbiaShip.spec={origin:'Confirmed 2026-10-22 revision',formulas:{burst:'2*livingOwnColumbiaAtk',cooldown:'max(1,8-floor(L/10)*.1)',burn:'.30*snapshotAtk each second for five ticks per independent region'}};
-  files.backups.diy.operators.char_4231_clemnt.bonds=['egirShip'];
+  if (files.backups.diy.operators.char_4231_clemnt) files.backups.diy.operators.char_4231_clemnt.bonds=['egirShip'];
 }

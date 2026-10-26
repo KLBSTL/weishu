@@ -21,7 +21,7 @@ test('all natural identities, aliases and four-tier Recorder price/stock have on
   assert.equal(pool.roll(()=>0,{maxTier:3,filter:onlyRecorder}),null);
   assert.equal(pool.roll(()=>0,{maxTier:4,filter:onlyRecorder}),c.chessId);
   assert.equal([...pool.entries.keys()].filter(id=>DATA.chess[id].name==='录武官').length,1);
-  assert.equal(Object.values(DATA.chess).filter(x=>x.visible&&!x.isGolden&&x.bonds.includes('egirShip')).length,9);
+  assert.equal(Object.values(DATA.chess).filter(x=>x.visible&&!x.isGolden&&x.bonds.includes('egirShip')).length,10);
 });
 
 test('legacy Recorder, Nymph, Ptilopsis and Tin Man aliases never double-count any shared Alliance',()=>{
@@ -34,12 +34,12 @@ test('legacy Recorder, Nymph, Ptilopsis and Tin Man aliases never double-count a
   }
 });
 
-test('Clemens remains selectable at both tiers/forms, Aegir only, without garrisons or a regular shop identity',()=>{
+test('Clemens becomes a single formal five-tier Aegir identity and is no longer selectable',()=>{
   for(const tier of [5,6])for(const elite of [false,true]) {
     const c=diyRecord(`chess_char_${tier}_diy1_a`,{charId:'char_4231_clemnt',skillIndex:0,uniEquipId:null},{data:DATA,elite});
-    assert.ok(c);assert.deepEqual(c.bonds,['egirShip']);assert.deepEqual(c.garrisonIds,[]);
+    assert.equal(c,null);
   }
-  assert.equal(Object.values(DATA.chess).filter(c=>c.charId==='char_4231_clemnt'&&c.visible).length,0);
+  assert.equal(Object.values(DATA.chess).filter(c=>c.charId==='char_4231_clemnt'&&c.visible).length,2);
 });
 
 test('Hoshiguma scales HP/DEF only, with active Yan; Jian and Harold retain their shared old traits',()=>{

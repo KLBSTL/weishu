@@ -72,9 +72,9 @@ test('Columbia income: after-income payment precedes Aphris and contributes to t
   m.round = 2; ps.funds = 9; ps.pendingFunds = 0;
   const total = 9 + ps.gd.income(2); ps.startRound(2);
   assert.equal(ps.funds, total - 1); assert.equal(ps.round.spent, 1);
-  const before = ps.layers.preciShip || 0;
+  const before = ps.layers.columbiaShip || 0;
   m.dispatch(ps, 'onRoundStart', { round: 2 });
   const triggers = Math.floor((total - 1) / 4);
   assert.equal(ps.funds, total - 1 - triggers); assert.equal(ps.round.spent, 1 + triggers);
-  assert.equal(ps.layers.preciShip - before, 4 * triggers); m.dispose();
+  assert.equal(ps.layers.columbiaShip - before, 6 * triggers); m.dispose();
 });

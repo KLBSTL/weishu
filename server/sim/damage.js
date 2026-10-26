@@ -621,6 +621,7 @@ export function heal(battle, source, target, amount, opts = {}) {
     if (!target.alive || !target.deployed) return 0;
   }
   const max = target.s.maxHp;
+  amt *= target.s.recoveryTakenMul ?? 1; // Aegir recovery reception, once for either legal path, after heal hooks.
   const actual = Math.max(0, Math.min(amt, max - target.hp));
   target.hp = Math.min(max, target.hp + actual);
   if (opts.overheal && amt > actual) {

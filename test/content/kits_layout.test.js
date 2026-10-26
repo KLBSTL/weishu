@@ -45,7 +45,7 @@ test('a stand-in kit file standin-<codename>.js registers the kit of that stand-
 });
 
 test('a 自选 kit file op-<codename>.js registers the kit of that owned-6★ pick (data/backups.json diy.ownedPool), every skill under `skills`', async () => {
-  const pool = BACKUPS.diy.ownedPool;
+  const pool = [...BACKUPS.diy.ownedPool, 'char_4231_clemnt']; // Existing kit reused by the new formal identity.
   for (const file of OPERATOR_KIT_FILES) {
     const m = /^op-([a-z0-9]+)\.js$/.exec(file);
     assert.ok(m, `${file}: name`);
@@ -58,9 +58,10 @@ test('a 自选 kit file op-<codename>.js registers the kit of that owned-6★ pi
     assert.equal(KITS[charId], mod.default[charId], `${file}: in the merged registry`);
     // every skill of every slot form is authored (a 自选 piece has no default skill: the pick chooses any), built from the
     // composed record and its def as the sim does (shared/diy.js diyRecord, simdata normalizeChess)
-    for (const slot of ['chess_char_5_diy1_a', 'chess_char_6_diy1_a']) {
+    for (const slot of (charId === 'char_4231_clemnt' ? ['chess_char_5_aegir_clemnt_a'] : ['chess_char_5_diy1_a', 'chess_char_6_diy1_a'])) {
       for (const elite of [false, true]) {
-        const rec = diyRecord(slot, { charId, skillIndex: 0 }, { elite, data: { chess: CHESS, backups: BACKUPS } });
+        const rec = charId === 'char_4231_clemnt' ? CHESS[slot.replace(/_a$/, elite ? '_b' : '_a')]
+          : diyRecord(slot, { charId, skillIndex: 0 }, { elite, data: { chess: CHESS, backups: BACKUPS } });
         assert.ok(rec, `${file}: a legal pick of ${slot}`);
         const kit = mod.default[charId](rec.skill.bb, rec, normalizeChess(rec));
         assert.deepEqual(Object.keys(kit.skills || {}).sort(), rec.skills.map((s) => s.skillId).sort(), `${file}@${slot}${elite ? ' elite' : ''}: skills`);
@@ -86,8 +87,8 @@ test('a kit file <chessId>-<codename>.js registers the kit of <chessId>_a (coden
 });
 
 test('the registry is the tier groups in KIT_FILES order, then the stand-ins, then the 自选 operators, one key per file; content/index.js serves the same object', () => {
-  assert.deepEqual(Object.keys(KITS), [...TIER_KITS.flatMap((t) => Object.keys(t)), ...Object.keys(STANDIN_KITS), ...Object.keys(OPERATOR_KITS), ...Object.keys(EXPANSION_KITS)]);
-  assert.equal(Object.keys(KITS).length, KIT_FILES.flat().length + STANDIN_KIT_FILES.length + OPERATOR_KIT_FILES.length + EXPANSION_KIT_FILES.length, 'one key per file, none twice');
+  assert.deepEqual(Object.keys(KITS), [...TIER_KITS.flatMap((t) => Object.keys(t)), ...Object.keys(STANDIN_KITS), ...Object.keys(OPERATOR_KITS), ...Object.keys(EXPANSION_KITS), 'chess_char_5_aegir_clemnt_a']);
+  assert.equal(Object.keys(KITS).length, KIT_FILES.flat().length + STANDIN_KIT_FILES.length + OPERATOR_KIT_FILES.length + EXPANSION_KIT_FILES.length + 1, 'one key per file plus the formal Clemens alias');
   assert.equal(CONTENT_KITS, KITS);
 });
 

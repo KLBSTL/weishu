@@ -157,6 +157,8 @@ export class BattleDeploy {
     }
     // the reason ('killed' | 'retreat' | 'expired' | …) lets the client keep the knock-down sound for real knock-outs
     if (reason !== 'leak') this._ev(['die', unit.id, reason]);
+    // Lifecycle observers must see even removals that intentionally suppress death/knock-out effects.
+    if (this._hooks.unitLeave) this.emit('unitLeave', { unit, reason });
     if (!suppressDeath && !this._suppressDeathEvents && this._hooks.death) this.emit('death', { unit, reason, killer, dying: !!dying });
     if (unit.removed) this._toRelease.push(unit);
   }

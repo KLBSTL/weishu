@@ -52,6 +52,7 @@ import { basename, dirname, join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildRecordOverlay, applyFileOverlay, OVERLAY_VERSION } from '../shared/i18nData.js';
 import { balanceEnglish } from './i18n/balance-update-20261022.mjs';
+import { triAllianceEnglish } from './i18n/tri-alliance-20261026.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE = 'usage: node tools/build-i18n.mjs [--lang en|ja|ko|zh-TW | --lang <code> --dict <file.json>] [--dict <file.json>] [--refresh | --offline] [--source assets|yostar] [--cache <dir>] [--cache-en <dir>] [--data <dir>] [--out <file>] [--report <file>] [--check] [--quiet]';
@@ -759,6 +760,7 @@ async function main() {
     ui: await readDict(join(ROOT, 'public', 'i18n', 'en.json')),
   } : { ui: await readDict(join(ROOT, 'public', 'i18n', `${opts.lang}.json`)) };
   if (opts.lang === 'en') Object.assign(fallback.remake, balanceEnglish(data));
+  if (opts.lang === 'en') Object.assign(fallback.remake, triAllianceEnglish(data));
   if (opts.dict) fallback.dict = JSON.parse(await readFile(opts.dict, 'utf8'));
   const { overlay, report } = buildOverlay({ zh, en, data, fallback, lang: opts.lang, source: client ? { id: opts.source, label: src.label, home: src.home, season: seasonEn } : { id: 'dict', label: src.label } });
 

@@ -75,12 +75,12 @@ test('numbers: every stats/bb/enemyScale object holds only finite numbers (no nu
   assert.deepEqual(bad.slice(0, 10), [], `${bad.length} bad numeric fields`);
 });
 
-test('chess: 290 records, 123 visible non-DIY after restoring Aegir and moving Recorder to tier four', () => {
-  assert.equal(Object.keys(chess).length, 290);
-  assert.equal(visible.length, 123);
+test('chess: 292 records, 124 visible non-DIY after restoring Aegir and moving Recorder to tier four', () => {
+  assert.equal(Object.keys(chess).length, 292);
+  assert.equal(visible.length, 124);
   const perTier = {};
   for (const c of visible) perTier[c.tier] = (perTier[c.tier] || 0) + 1;
-  assert.deepEqual(perTier, { 1: 18, 2: 19, 3: 21, 4: 24, 5: 19, 6: 22 });
+  assert.deepEqual(perTier, { 1: 18, 2: 19, 3: 21, 4: 25, 5: 19, 6: 22 });
   assert.equal(normalChess.filter((c) => c.isDiy).length, 4);
   assert.equal(normalChess.filter((c) => c.isHidden).length, 18);
 });
@@ -147,7 +147,7 @@ test('bonds: 25 bonds with valid members, thresholds and effects', () => {
     assert.ok(effects[b.effectId], `${b.bondId}: effect`);
   }
   assert.deepEqual(bonds.yanShip.thresholds, [3, 6, 9]);
-  assert.deepEqual(bonds.egirShip.thresholds, [3, 5]);
+  assert.deepEqual(bonds.egirShip.thresholds, [3, 5, 6]);
   assert.deepEqual(bonds.suntShip.thresholds, [2, 5]);
   assert.equal(bonds.soloShip.maxCount, 1);
   // Every chess bond membership is mirrored in the bond member list.
@@ -156,7 +156,7 @@ test('bonds: 25 bonds with valid members, thresholds and effects', () => {
 
 test('garrisons: all referenced exist; 60 distinct effect keys', () => {
   const keys = new Set(Object.values(garrisons).map((g) => g.effectKey));
-  assert.equal(keys.size, 60);
+  assert.equal(keys.size, 61);
   for (const g of Object.values(garrisons)) {
     assert.ok(typeof g.eventType === 'string' && typeof g.desc === 'string', g.garrisonId);
     for (const o of g.owners) assert.ok(chess[o], `${g.garrisonId}: owner ${o}`);
@@ -179,7 +179,7 @@ test('items: 125 item chess with valid effects, bonds and golden links', () => {
 });
 
 test('bands: 43 strategies with effects and starting LP', () => {
-  assert.equal(Object.keys(bands).length, 43);
+  assert.equal(Object.keys(bands).length, 44);
   for (const b of Object.values(bands)) {
     assert.ok(effects[b.effectId], `${b.bandId}: effect`);
     assert.ok(isInt(b.totalHp) && b.totalHp >= 20 && b.totalHp <= 45, `${b.bandId}: totalHp`);
@@ -514,8 +514,8 @@ test('chess: skills[] = every skill unlocked at the status, at the chess skill l
     assert.ok(wider(s.trigger.customRangeGrid, c.rangeGrid), `${c.chessId} ${s.skillId}: its running range strictly contains ${c.rangeId}`);
     if (s.rangeGrid) assert.deepEqual(s.trigger.customRangeGrid, s.rangeGrid, `${c.chessId} ${s.skillId}: the skill's own grid`);
   }
-  assert.equal(active.length, 84, '42 skills, normal + elite');
-  assert.equal(new Set(active.map(([c, s]) => `${c.baseId} ${s.skillId}`)).size, 42);
+  assert.equal(active.length, 88, '44 skills, normal + elite');
+  assert.equal(new Set(active.map(([c, s]) => `${c.baseId} ${s.skillId}`)).size, 44);
   // from the SEARCH row (解放者 / 阵法术师 / 安洁莉娜) and 深巡 S2's deviation: the owner's decisions of 2026-10-05
   const fromSearch = active.filter(([, s]) => s.trigger.rawRule === 'SEARCH').map(([c, s]) => `${c.baseId} ${s.skillId}`);
   assert.deepEqual([...new Set(fromSearch)].sort(), ['chess_char_3_08_a skchr_mint_1', 'chess_char_4_05_a skchr_beewax_1', 'chess_char_4_24_a skchr_billro_3', 'chess_char_5_19_a skchr_mlynar_2', 'chess_char_5_20_a skchr_aglina_3']);

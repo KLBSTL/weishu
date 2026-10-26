@@ -4,10 +4,8 @@
 //                        of the 炎 ATK / max HP sums at battle start — PRTS "增加…（最终加算）"); 9: two 炎佑, ATK ×atk,
 //                        damage taken ×(1 − damage_resistance)
 //   (every bond "+X%" ATK / max HP here is 直接乘算 — S.directMods, additive with the other percentages, PRTS 盟约记录)
-//   萨尔贡 sargonShip    member skill start → every member on the field gets an independent stack (ASPD +base_attack_speed
-//                        for base_time + time_per_stack·L s, ≤ max_buff_stack_cnt); 6: each stack also ATK +base_atk
-//                        (additive, one 直接乘算 buff); 6 + band_narant: instead lends the caster's equipment (tier ≤
-//                        filter_item_level) to the 8 surrounding operators (items.js lendItemEffects)
+//   萨尔贡 sargonShip    real skill starts grant independent +10% ATK/+10 ASPD stacks (20 cap, normal six 40).
+//                        Normal six: +.01*starting layers natural SP/s. Narantuya instead retains equipment sharing.
 //   维多利亚 victoriaShip members carrying equipment deal ×(base_damage_scale + damage_scale_per_stack·L);
 //                        6: ATK +atk_normal_equip per item (+atk_golden_equip more per golden item; 直接乘算);
 //                        prep: every `layer` layers → `count` item(s) from `pool` (bond_layer_added_reward_equip)
@@ -16,7 +14,7 @@
 //   拉特兰 lateranoShip  member ammo skills start with floor(ammo × (1 + base_ammo_percent + ammo_percent_per_stack·L));
 //                        6: every ammo used by a member → all members ATK +atk_per_consume (≤ max_atk_for_consume)
 //   阿戈尔 egirShip      members max HP +(base_max_hp + max_hp_per_stack·L) (直接乘算); battle start devour (see devour():
-//                        the marker's gained base ATK is a 最终加算, `atkFinal`, not scaled by its ATK +%);
+//                        the marker inherits current effective base ATK into atkFlat before ATK percentages);
 //                        5: max_free_respawn_cnt free redeploys, one per member on its first knock-out — the devour's
 //                        knock-outs by board position once every devour is over (egirReviveScan), later ones at once
 //   叙拉古 siracusaShip  every member deployment: ASPD +(base + per·L) for (base_duration + per·L) s; 6: 隐匿 for the same
@@ -229,18 +227,16 @@ function installSargon(battle, pid, bb, members) {
   const narant = !!(share && band && share.valid_in_band === band);
   const main = narant ? share : bb;
   const six = reached(battle, pid, 'sargonShip', num(main.power_bond_char_cnt, 6));
-  const atkStacks = six && !narant && !(bb.invalid_in_band && bb.invalid_in_band === band);
-  const maxStacks = Math.max(1, Math.floor(num(main.max_buff_stack_cnt, 25)));
-  const perAtk = num(bb.base_atk, 0);
-  const syncAtk = (u) => {
-    if (!atkStacks) return;
-    let n = 0;
-    for (const b of u.buffs) if (b.key === 'bond:sargon') n++;
-    if (n > 0 && u.alive) battle.addBuff(u, { key: 'bond:sargon:atk', mods: S.directMods({ atk: perAtk * n }) });
-    else battle.removeBuff(u, 'bond:sargon:atk');
-  };
+  const normalSix = six && !narant;
+  const maxStacks = normalSix ? 40 : 20;
+  const snapshot = S.battleStore(battle, 'bond:startingLayers', () => new Map());
+  const key = `${pid}|sargonShip`;
+  if (!snapshot.has(key)) snapshot.set(key, S.bondLayers(battle, pid, 'sargonShip'));
+  if (normalSix) for (const u of members) S.passiveBuff(battle, u, 'bond:sargon:sp', {
+    spRecoveryFlat: .01 * snapshot.get(key),
+  });
   battle.on('skillStart', ({ unit }) => {
-    if (!memberSet.has(unit)) return;
+    if (!memberSet.has(unit) || !S.onField(unit)) return;
     const L = S.bondLayers(battle, pid, 'sargonShip');
     const dur = num(main.base_time, 0) + num(main.time_per_stack, 0) * L;
     if (dur > 0) {
@@ -248,10 +244,8 @@ function installSargon(battle, pid, bb, members) {
         if (!S.onField(m)) continue;
         battle.addBuff(m, {
           key: 'bond:sargon', duration: dur, refresh: 'independent', maxStacks,
-          mods: { aspd: num(main.base_attack_speed, 0) },
-          onExpire: ({ unit: u }) => syncAtk(u), onRemove: ({ unit: u }) => syncAtk(u),
+          mods: S.directMods({ atk: .10 }, { aspd: 10 }),
         });
-        syncAtk(m);
       }
     }
     if (narant && six) lendAround(battle, unit, share, S.bondLayers(battle, pid, 'sargonShip'));
@@ -384,10 +378,9 @@ function egirDownAtStart(battle, u) {
  * the operator on the tile in front of them (one step along each member's own direction `dir`), and through marked
  * members the tiles in front of
  * those (chain); never themselves, a unit already marked by them or a unit that marked them. The marker gains the base
- * ATK and block count of everything it marked — the ATK as a 最终加算 (`atkFinal`, PRTS 盟约记录 "该付与来源获得所有标记单位
- * 的基础攻击力（最终加算）和阻挡数"): added after its percentages, so its skill's ATK +% does not scale it (it was `atkFlat`
- * until 0.1.3: 1000 base ATK, +100 %, +2000 devoured gave 6000 instead of 4000; GitHub #165 point 2, PR #176, the owner's
- * decision of 2026-10-06, DESIGN §24.7). Then each mark makes its target lose damage_value HP as a
+ * ATK and block count of everything it marked. The confirmed 2026-10-25 revision changes ATK to a base addition
+ * before percentages, with one settled ledger entry per distinct legal target (including its previously inherited base
+ * additions). Do not globally deduplicate original origins or unfold a target's ledger twice. Then each mark makes its target lose damage_value HP as a
  * 物理流失 (PRTS 盟约记录: "造成5000点物理流失", 修正 "【吞噬】的物理流失来源为被付与目标自身；单位被【吞噬】击杀时，击杀来源始终为
  * 对应标记的付与来源"; PRTS 作战机制: a 物理流失 "会受到目标当前防御力…影响而相应衰减") — less the target's DEF as a physical hit
  * (its own source: no DEF ignore), then battle.loseHp: no shields, dodge or damage multipliers (DEF-free until 0.1.1); the
@@ -446,9 +439,14 @@ function devour(battle, pid, bb, members) {
     markedBy.set(m, mine);
     if (!mine.length) continue;
     let atk = 0, block = 0;
-    for (const t of mine) { atk += num(t.base.atk, 0); block += num(t.base.blockCnt, 0); marks.push([m, t]); }
+    const ledger = m.mem.egirDevourLedger ??= [];
+    for (const t of mine) {
+      if (!ledger.some(entry => entry.target === t.id)) ledger.push({ target: t.id, atk: t.effectiveBaseAtk, block: num(t.base.blockCnt, 0) });
+      marks.push([m, t]);
+    }
+    for (const entry of ledger) { atk += entry.atk; block += entry.block; }
     const mods = {};
-    if (atk > 0) mods.atkFinal = atk; // 最终加算 (units.js _recalc)
+    if (atk > 0) mods.atkFlat = atk; // Base addition, inherited once per distinct marked target.
     if (block > 0) mods.blockCnt = block;
     if (Object.keys(mods).length) S.passiveBuff(battle, m, 'bond:egir:devour', mods);
   }
@@ -476,6 +474,12 @@ function devour(battle, pid, bb, members) {
 }
 
 function installEgir(battle, pid, bb, members) {
+  const snapshots = S.battleStore(battle, 'bond:startingLayers', () => new Map());
+  const snapshotKey = `${pid}|egirShip`;
+  if (!snapshots.has(snapshotKey)) snapshots.set(snapshotKey, S.bondLayers(battle, pid, 'egirShip'));
+  if (reached(battle, pid, 'egirShip', 6)) for (const u of members) {
+    S.passiveBuff(battle, u, 'bond:egir:six', { atkFlat: snapshots.get(snapshotKey) });
+  }
   // HP (every tier): a match-long buff put on the members when the battle is built, so each one is deployed with it
   // (Battle._deploy: full HP of the raised max HP) and the battle-start devour finds it — the community report's step 1,
   // 「第一步给所有鱼加盟约的血量」 (DESIGN §25.22.5: an elite 深巡, 2904 HP and DEF 655, loses 5000 − 655 = 4345 to a mark and

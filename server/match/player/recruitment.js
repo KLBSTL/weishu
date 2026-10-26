@@ -11,6 +11,15 @@ export class PlayerRecruitment {
     const spec = this.recruitmentSpec();
     if (!spec || !this.alive) return;
     const state = this.recruitment;
+    if (spec.kind === 'fixed-chess') {
+      const index = spec.rounds.indexOf(r);
+      if (index >= 0 && !state.granted.includes(r)) {
+        state.granted.push(r);
+        this.acquireChess(spec.rewards[index], { source: 'recruitment' });
+        this.dirty();
+      }
+      return;
+    }
     if (spec.kind === 'columbia-income') {
       if (state.granted.includes(r)) return;
       state.granted.push(r); // Check once after income, before deployed prep-start traits; never retry this round.

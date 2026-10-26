@@ -1,5 +1,10 @@
 # Golden results
 
+Three-alliance revision (2026-10-26): all 298 scenarios rebuilt and rechecked; 138 change and 160 stay unchanged.
+99 changed cases have an input-description/roster change caused by the new regular identity, tier/label changes,
+DIY exclusion or Aegir's added tier. Others use revised Sarkaz/Sargon/Aegir rules or their specified operators.
+See [every moved case and why](../../docs/tri-alliance-golden-20261026.md) and [validation](../../docs/tri-alliance-update-20261026.md).
+
 Four corrections (2026-10-24): regenerate 298 unchanged scenario definitions; 31 move and 267 stay unchanged against
 `261c85e0`. Restore Shieldguard's timed DEF/RES passive, fix fragmented summon budgets, ban addon-only members whose
 natural labels are all filtered, and unlock the configured hidden round after an R14 win. No AI algorithm changes.

@@ -500,7 +500,7 @@ test('天师古鼎 (炎): battle start ASPD +25 per operator gained this round (
   cover(A('6_03'), B('6_03'));
 });
 
-test('海沟实验体: −180 / −300 per damage instance; (阿戈尔) hit taken ⇒ 50 % ATK arts to the source (0.5 s CD), ×2 with 阿戈尔重刃', () => {
+test('海沟实验体: −180 / −300 per damage instance; (阿戈尔) hit taken ⇒ 50 % ATK arts to the source (0.5 s CD), one shared counter with 阿戈尔重刃', () => {
   for (const [id, dr] of [[A('6_04'), 180], [B('6_04'), 300]]) {
     const h = fight({ units: [{ chessId: 't_op', row: 10, col: 3, items: [id] }], foes: [[10, 9]] });
     h.step(1);
@@ -526,7 +526,7 @@ test('海沟实验体: −180 / −300 per damage instance; (阿戈尔) hit take
   close(c.second, c.first, 'CD');
   close(c.third, 2 * c.first, 'after the CD');
   c = counter([A('6_04'), A('3_07')]);
-  close(c.first, 2 * 0.5 * c.atk, 'two hits with 阿戈尔重刃');
+  close(c.first, 0.5 * c.atk, 'same-name shared counter does not stack');
   const other = fight({ units: [{ chessId: 't_op', row: 10, col: 3, items: [A('6_04')] }], foes: [[10, 9]] });
   other.step(1);
   const e = foe(other), hp0 = e.hp;
@@ -1342,9 +1342,9 @@ test('Columbia DOCX armor and field: mitigation, 300/600 shields, 3000/6000 caps
   }
   const h = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [A('6_columbia_field')] }],
     ops: { t_op: op('t_op', { bonds: ['sarkazShip'] }) }, bonds: { sarkazShip: { active: true, count: 6, tier: 2, layers: 0 } } });
-  h.step(); const u = h.unit('t_op'); close(u.s.atk, 600); close(u.s.aspd, u.base.aspd);
+  h.step(); const u = h.unit('t_op'); close(u.s.atk, 500); close(u.s.aspd, u.base.aspd);
   u.skill.duration = 20; u.skill.activate('test', { free: true }); h.run(4.1);
-  close(numericShieldTotal(u), 1000, 'shared Sarkaz half-HP budget still applies');
+  close(numericShieldTotal(u), 1200, 'equipment numeric shields remain independent of the alliance hit shield');
   const s = setup(); for (const k of ['3_columbia_chip', '6_columbia_field']) {
     s.ps.acquireItem(A(k)); s.ps.acquireItem(A(k)); assert.ok(handIds(s.ps, 'item').includes(B(k)));
     assert.ok(s.m.gd.shopItemsByTier[DATA.items[A(k)].tier].includes(A(k)));

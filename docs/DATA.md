@@ -1,5 +1,7 @@
 # DATA.md — generated game data (`data/*.json`)
 
+2026-10-26: `tools/tri-alliance-data.mjs` prepares identities before all potential passes and applies final text/effects after the earlier expansion generators. There are 124 regular identities (18/19/21/25/19/22), 10 Aegir, 44 squads and 71 owned DIY picks. Ulpianus retains his old sole ID at tier four; Clemens is a formal tier-five identity with her existing S2/kit and is excluded from DIY. Rules: [three-alliance revision](design/tri-alliance.md).
+
 Current 2026-10-22 balance data: `tools/balance-update-20261022-data.mjs` runs after expansion preparation and after
 their final records, respectively. Aegir regulars are restored: 123 visible identities with tier counts 18/19/21/24/19/22,
 18 hidden bases, 4 DIY slots. Recorder keeps `chess_char_5_23_*` as its compatible sole regular four-tier ID;

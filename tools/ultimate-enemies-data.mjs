@@ -76,6 +76,6 @@ export function finishUltimateEnemies(files) {
   factions.generation.summonBudget = { motherBatchMul: 2, childPowerMul: .75,
     mothers: [K.puppet,K.spider,K.spider2,K.giant,K.giant2,K.captain,K.captain2,K.apostle,K.apostle2],
     families: { [K.giant2]: K.giant, [K.captain2]: K.captain, [K.apostle2]: K.apostle } };
-  for (const id of ['char_4132_ascln','char_4231_clemnt']) backups.diy.operators[id].bonds = ['emptyShip'];
+  for (const id of ['char_4132_ascln','char_4231_clemnt']) if (backups.diy.operators[id]) backups.diy.operators[id].bonds = ['emptyShip'];
   backups.diy.operators.char_4037_demetr.bonds = ['siracusaShip'];
 }

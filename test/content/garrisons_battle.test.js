@@ -123,13 +123,13 @@ test('selfkillenemy (送葬人 / 休谟斯 / 斯卡蒂 / 海霓 / 伺夜 / 风�
     for (let i = 0; i < kills; i++) h.b.emit('kill', { killer: h.unit('op'), victim: victim === 'ally' ? h.unit('ally') : h.enemies()[0] });
     return gains(h);
   };
-  assert.deepEqual(run('garrison_38_a', 5, { egirShip: B(0), steadShip: B(0), raidShip: B(0) }), { egirShip: 2, steadShip: 2, raidShip: 2 }, '斯卡蒂: every 2 kills +1');
-  assert.deepEqual(run('garrison_38_b', 4, { egirShip: B(0), steadShip: B(0), raidShip: B(0) }), { egirShip: 4, steadShip: 4, raidShip: 4 });
+  assert.deepEqual(run('garrison_38_a', 5, { egirShip: B(0), steadShip: B(0), raidShip: B(0) }), { egirShip: 5, raidShip: 5 }, '斯卡蒂: each enemy kill +1');
+  assert.deepEqual(run('garrison_38_b', 4, { egirShip: B(0), steadShip: B(0), raidShip: B(0) }), { egirShip: 8, raidShip: 8 });
   assert.deepEqual(run('garrison_50_a', 5, { victoriaShip: B(0), visiShip: B(0), indomShip: B(0) }), { victoriaShip: 6, visiShip: 6, indomShip: 6 }, '风笛: first 3 kills');
   assert.deepEqual(run('garrison_50_b', 5, { victoriaShip: B(0), visiShip: B(0), indomShip: B(0) }), { victoriaShip: 12, visiShip: 12, indomShip: 12 });
   assert.deepEqual(run('garrison_152_a', 5, { siracusaShip: B(0) }), { siracusaShip: 6 }, '伺夜 叙拉古 +2 × 3');
   assert.deepEqual(run('garrison_153_b', 5, { miraShip: B(0) }), { miraShip: 6 }, '伺夜 精锐 奇迹 +2 × 3');
-  assert.deepEqual(run('garrison_131_a', 1, { egirShip: B(0), arcaneShip: B(0) }, 'ally'), { egirShip: 3, arcaneShip: 3 }, '海霓: an ally victim counts');
+  assert.deepEqual(run('garrison_131_a', 1, { egirShip: B(0), arcaneShip: B(0) }, 'ally'), { egirShip: 6 }, '海霓: first allied Operator KO counts');
   assert.deepEqual(run('garrison_138_a', 1, { preciShip: B(0), lateranoShip: B(0) }, 'ally'), {}, '送葬人: allies do not count');
   assert.deepEqual(run('garrison_138_b', 3, { preciShip: B(0), lateranoShip: B(0) }), { preciShip: 6, lateranoShip: 6 }, 'first kill only');
   assert.deepEqual(run('garrison_118_a', 60, { siracusaShip: B(0) }), { siracusaShip: 100 }, '荒芜拉普兰德: +2 per kill, cap 100');
@@ -579,19 +579,19 @@ test('attrByBond (26 ids): floor(Σ layers of the listed ACTIVE bonds / divide_n
     cover(gid);
   }
   const h = battle({
-    units: [{ id: 'mz', g: ['garrison_07_a'], row: 9, col: 4 }, { id: 'ur', g: ['garrison_12_b'], row: 9, col: 6 }, { id: 'rs', g: ['garrison_09_b'], row: 12, col: 6 },
-      { id: 'yx', g: ['garrison_16_a'], row: 11, col: 4 }, { id: 'yx2', g: ['garrison_16_b'], row: 11, col: 6 }, { id: 'sk', g: ['garrison_84_b'], row: 10, col: 4 }],
+    units: [{ id: 'mz', g: ['garrison_07_a'], row: 9, col: 4 }, { id: 'ur', g: ['garrison_aegir_ulpia_b'], row: 9, col: 6, bonds: ['egirShip'] }, { id: 'rs', g: ['garrison_09_b'], row: 12, col: 6 },
+      { id: 'yx', g: ['garrison_16_a'], row: 11, col: 4 }, { id: 'yx2', g: ['garrison_16_b'], row: 11, col: 6 }, { id: 'sk', g: ['garrison_aegir_skadi2_b'], row: 10, col: 4 }],
     bonds: { egirShip: B(25), yanShip: B(6), kjeragShip: B(30, false), lateranoShip: B(10) },
   });
-  approx(h.unit('mz').s.atk, 500 * 1.08, '水月: 25 / 3 = 8 × 1 %');
-  approx(h.unit('ur').s.atk, 500 * 1.24, '乌尔比安 精锐: 25 / 2 = 12 × 2 %');
+  approx(h.unit('mz').s.aspd, 108, '水月: 25/3 gives 8 ASPD');
+  approx(h.unit('ur').s.recoveryTakenMul, 1.2, '乌尔比安: 2 recovery steps');
   approx(h.unit('rs').s.atk, 500 * (1 + 0.02 * 13), '迷迭香 精锐 core bonds: (25 + 6 + 10) / 3 = 13 × 2 %, inactive 谢拉格 ignored');
   assert.equal(h.unit('yx').findBuff('gar:garrison_16_a').mods.aspd, 2, '隐现: 10 / 5 × 1');
   assert.equal(h.unit('yx2').findBuff('gar:garrison_16_b').mods.aspd, 4);
-  assert.deepEqual(h.unit('sk').findBuff('gar:garrison_84_b').mods, { hpRegen: 200, spRecoveryFlat: 0.6 }, '浊心斯卡蒂: 2 steps × (100 HP/s, 0.3 SP/s)');
+  assert.deepEqual(h.unit('sk').findBuff('gar:aegir:skadi2').mods, { hpRegen: 100, spRecoveryFlat: 0.2 }, '浊心斯卡蒂: 2 steps × (100 HP/s, 0.3 SP/s)');
   h.b.addLayers('p1', 'egirShip', 2, 'test');
   h.step(2);
-  approx(h.unit('mz').s.atk, 500 * 1.09, 'recomputed after a layer gain');
+  approx(h.unit('mz').s.aspd, 109, 'recomputed after a layer gain');
   checkInvariants(h.b);
 });
 
@@ -651,9 +651,8 @@ test('attack_enemy (深巡 18 海怪, 跃跃 19 无人机): ATK ×1.5 / ×2 agai
     assert.equal(lost(plain), 100);
     cover(gid);
   }
-  assert.equal(GR('garrison_18_a').bb.atk, 1.5);
-  assert.equal(GR('garrison_19_b').bb.atk, 2);
-  assert.deepEqual([GR('garrison_18_b').bbStr.check_tag, GR('garrison_19_a').bbStr.check_tag], ['seamonster', 'drone']);
+    assert.equal(GR('garrison_19_b').bb.atk, 2);
+  assert.equal(GR('garrison_19_a').bbStr.check_tag, 'drone');
   assert.ok(Object.values(D.enemies).some((e) => (e.tags || []).includes('seamonster')) && Object.values(D.enemies).some((e) => (e.tags || []).includes('drone')));
 });
 
@@ -675,7 +674,7 @@ test('弱点伤害 (宴 / 流星 / 伺夜 garrison_01): phys / arts become which
 
 test('regression: 弱点伤害 keeps the type on a tie, counts the attacker\'s DEF ignore, and runs after ATK multipliers', () => {
   const h = battle({
-    units: [{ id: 'op', g: ['garrison_01_a'], row: 11, col: 4 }, { id: 'sea', g: ['garrison_01_b', 'garrison_18_b'], row: 12, col: 4 }],
+    units: [{ id: 'op', g: ['garrison_01_a'], row: 11, col: 4 }, { id: 'sea', g: ['garrison_01_b', 'garrison_aegir_udflow_b'], row: 12, col: 4 }],
     edefs: { e_mix: dummy({ key: 'e_mix', def: 300, res: 50 }), e_sea: dummy({ key: 'e_sea', def: 150, res: 50, tags: ['seamonster'] }) },
     enemies: [{ key: 'e_dummy', pos: [10, 9] }, { key: 'e_mix', pos: [11, 9] }, { key: 'e_sea', pos: [12, 9] }],
   });
@@ -692,8 +691,9 @@ test('regression: 弱点伤害 keeps the type on a tie, counts the attacker\'s D
   h.b.dealDamage(h.unit('op'), mix, { amount: 500, type: 'arts' });
   assert.deepEqual(types.splice(0), ['phys'], 'with 200 DEF ignore: 400 > 250 ⇒ phys');
   const sea = h.enemies().find((e) => e.defId.endsWith('e_sea'));
-  h.b.dealDamage(h.unit('sea'), sea, { amount: 200, type: 'arts' });
-  assert.deepEqual(types.splice(0), ['phys'], 'decided on the multiplied amount: 400 − 150 = 250 > 200 ⇒ phys (on 200: 100 = 100 → arts)');
+  sea.hp = sea.s.maxHp*.49;
+  h.b.dealDamage(h.unit('sea'), sea, { amount: 400, type: 'arts', isAttack:true });
+  assert.deepEqual(types.splice(0), ['phys'], 'decided on the multiplied amount: 600 − 150 = 450 > 300 ⇒ phys (on 200: 100 = 100 → arts)');
 });
 
 test('风丸 93 (NONE): no battle effect (the 2-copy merge is a prep rule, see garrisons_meta)', () => {
@@ -805,7 +805,8 @@ test('Passenger and Rosmontis read summed active layers and multiply damage with
 });
 
 test('coverage: every IN_BATTLE garrison id of a visible chess (and every id they grant) was exercised above', () => {
-  const missing = [...VISIBLE_IDS].filter((g) => !COVER.has(g)).sort();
+  // The custom shared Aegir traits are covered by tri-alliance.test.js, rather than this generic dispatcher suite.
+  const missing = [...VISIBLE_IDS].filter((g) => !COVER.has(g) && GR(g).effectKey !== 'LOCAL_AEGIR_TRAIT').sort();
   assert.deepEqual(missing, []);
   assert.ok(VISIBLE_IDS.size >= 100, `${VISIBLE_IDS.size} ids`);
 });

@@ -40,7 +40,7 @@ test('Sarkaz browser/server parity and live combat-stat card', {
       const { unitStatsEntry } = await import('/shared/protocol.js');
       const b = S.createBattleFromSpec(spec, ds, { quiet: true });
       const end = b.runToEnd(4000);
-      const unit = b.allyUnits.find(u => u.stats.shieldGranted > 0 && u.stats.dmg > 0);
+      const unit = b.allyUnits.find(u => u.stats.barrierSeconds > 0 && u.stats.dmg > 0);
       if (!unit) throw Error('No active Sarkaz damage/barrier stats');
       const live = { ...unitStatsEntry(unit, unit.s), src: 'battle' };
       const { loadData } = await import('/js/data.js');
@@ -60,11 +60,45 @@ test('Sarkaz browser/server parity and live combat-stat card', {
     assert.equal(result.hash, expected);
     assert.deepEqual(result.errors, []);
     assert.deepEqual(errors, []);
-    assert.ok(result.combat.shieldGranted > 0);
+    assert.ok(result.combat.sarkazShieldLayers >= 0 && result.combat.sarkazShieldLayers <= 3);
     const text = await page.$eval('[data-combat-stats]', e => e.textContent);
-    for (const label of ['造成伤害', '萨卡兹屏障获得', '屏障时间覆盖率']) assert.ok(text.includes(label));
+    for (const label of ['造成伤害', '萨卡兹盟约护盾层数', '屏障时间覆盖率']) assert.ok(text.includes(label));
     mkdirSync('test/e2e/out', { recursive: true });
     await page.screenshot({ path: 'test/e2e/out/sarkaz-stats.png', fullPage: true });
     console.log(JSON.stringify({ hash: expected, combat: result.combat }));
   } finally { await browser?.close(); await srv.close(); }
+});
+
+
+test('Aegir/Sargon real-data browser/server deterministic parity, shared field and starting snapshots', {
+  skip: !(process.env.SIM_E2E === '1' && CHROME && existsSync(CHROME)), timeout: 120000,
+}, async () => {
+  const { startServer } = await import('../../server/index.js');
+  const P=(await import('puppeteer-core')).default;
+  const srv=await startServer({port:0,host:'127.0.0.1',quiet:true});
+  let browser;
+  try {
+    browser=await P.launch({executablePath:CHROME,headless:true,args:['--no-first-run']});
+    const page=await browser.newPage(),ds=getDefaultSource();
+    await page.goto(`http://127.0.0.1:${srv.port}/sim/spec.js`);
+    for(const bond of ['egirShip','sargonShip']){
+      const records=Object.values(ds.raw.chess).filter(c=>c.visible&&!c.isGolden&&c.bonds.includes(bond)).slice(0,6);
+      if(bond==='egirShip') records[5]=ds.raw.chess.chess_char_5_aegir_clemnt_a;
+      const spec=buildBattleSpec({seed:882,kind:'unite',stageId:'act2autochess_m01',timeLimit:60,
+        players:[0,1].map(i=>({playerId:'p'+i,seat:i,side:'L',colOffset:i?8:0,playerEffects:[],
+          bonds:{[bond]:{count:6,active:true,tier:bond==='egirShip'?3:2,layers:i?100:600}},
+          units:records.map((c,j)=>({uid:100*i+j+1,chessId:c.goldenId,row:10+Math.floor(j/3),col:3+j%3,dir:'UP',
+            items:bond==='egirShip'&&j===0?['chess_item_6_04_e_a','chess_item_3_07_e_a']:[]}))})),
+        ...spawnsFromTemplate(ds.getWave('act1autochess_03'))});
+      const b=createBattleFromSpec(spec,ds,{quiet:true}),expected=resultDigest(b.runToEnd(2500)).hash;
+      assert.deepEqual(b.errors,[]);
+      const actual=await page.evaluate(async spec=>{
+        const {loadBrowserSim}=await import('/js/battle/runner.js');
+        const {spec:S,ds}=await loadBrowserSim(),b=S.createBattleFromSpec(spec,ds,{quiet:true});
+        const end=b.runToEnd(2500);return{hash:S.resultDigest(end).hash,errors:b.errors};
+      },spec);
+      assert.deepEqual(actual,{hash:expected,errors:[]});
+      console.log(JSON.stringify({bond,hash:expected}));
+    }
+  } finally {await browser?.close();await srv.close();}
 });

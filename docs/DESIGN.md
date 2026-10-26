@@ -1,5 +1,7 @@
 # 卫戍协议：盟约 — Web Remake · Architecture & Contracts (DESIGN.md)
 
+2026-10-26 current rules: [three-alliance revision](design/tri-alliance.md), [implementation and verification](tri-alliance-update-20261026.md). This replaces the previous Sarkaz six-member numeric barrier, Sargon stacks, and the specified Aegir rules/traits. Other rules remain unchanged.
+
 Local extension §36: [天灾R12高级首领悬赏](design/advanced-bounties.md) — independent legal-set draft, lower-lane leaders and final-kill rewards.
 
 This is the **single source of truth** for every implementer. Research lives in `docs/research/` (start with `00-INDEX.md`; where a research file's body and its "Addendum (critic)" disagree, the addendum wins). When this document and research disagree, **this document wins**; when this document is silent, follow research; when both are silent, choose the simplest faithful behaviour and write it down in the module's header comment.
@@ -20,7 +22,7 @@ Formal operator appearances: [skin/action expansion and roster](https://github.c
 
 Local fan expansion: [Sarkaz rules](design/sarkaz.md) defines the user-approved nine-operator roster, 3/6-member covenant, per-round traits and combat statistics. These explicit deviations apply to this working copy.
 
-[Columbia and recruitment](design/columbia.md) defines the revised Columbia roster, ATK-based area explosions with lingering Arts damage, Identity Badge rewards, and two exclusive items. Aegir/Victoria recruits remain hidden except Blaze the Igniting Spark and Harold. Sarkaz uses 3% skill-start barriers, a shared 50%-HP shield cap and a 30%-shield true-damage rider.
+[Columbia and recruitment](design/columbia.md) defines the revised Columbia roster, ATK-based area explosions with lingering Arts damage, Identity Badge rewards, and two exclusive items. Aegir and Victoria regular recruits are restored. Current Sarkaz, Sargon and Aegir effects follow [the three-alliance revision](design/tri-alliance.md), including the independent 3-hit Sarkaz shield.
 
 Section numbers are global and never change: code, tests and the other documents cite them as "DESIGN §N". The
 current rules by area are in `docs/design/`, the per-release revisions (the evidence behind each rule) in
@@ -55,3 +57,5 @@ normative lines it rewrote).
 | §34 | [design/catastrophe.md](design/catastrophe.md) | Local 天灾 difficulty and tier V/VI stock |
 | §35 | [design/ultimate-enemies.md](design/ultimate-enemies.md) | Ultimate groups, lane budgets and three DIY operators |
 | §36 | [design/advanced-bounties.md](design/advanced-bounties.md) | Catastrophe R12 advanced leader bounties |
+| §37 | [design/tri-alliance.md](design/tri-alliance.md) | Sarkaz, Sargon and Aegir confirmed revision |
+| §38 | [history/tri-alliance-20261026.md](history/tri-alliance-20261026.md) | Three-alliance implementation and verification |

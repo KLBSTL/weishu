@@ -1,5 +1,7 @@
 # SIM.md — battle simulation engine reference (server/sim)
 
+2026-10-26: [three-alliance rules](design/tri-alliance.md). `bond:sarkaz:hits` stores only 0–3 Physical/Arts shield hits; `unitStatsEntry.combat.sarkazShieldLayers` reports the live count independently from numeric shields. Sargon uses one independent buff per dual-stat temporary layer and one starting-layer SP snapshot. Aegir devour uses per-unit `egirDevourLedger` and `effectiveBaseAtk` before percentages. `content/garrisons/aegir.js` owns KO-persistent/non-KO-cleared shared traits. `recoveryTakenMul` applies once at the end of either legal healing or regeneration reception, without changing their eligibility. Trench-set counters use one battle runtime and recipient cooldown map, requiring a live qualified provider.
+
 2026-10-19: `shared/ultimateBalance.js` applies source-scoped Firepower ATK×0.9 and Breakthrough ghost HP×0.8 at spawn.
 `mods.ultimateType` / `mods.ultimateRound` retain original round multipliers through summons/unite, avoiding double scaling.
 Scoped fireballs have zero LP cost, including normal settlement, live pending-LP, co-op survivors and unspawned re-entries;

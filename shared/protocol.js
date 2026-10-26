@@ -364,7 +364,8 @@ export function unitStatsEntry(u, s = null) {
     // the enemy card greys a SILENCE-format line (折射) from this; absent flags ⇒ not silenced
     silenced: !!(cur.flags && cur.flags.silence),
     ...(u?.stats ? { combat: { dmg: fin(u.stats.dmg), heal: fin(u.stats.heal), taken: fin(u.stats.taken), kills: fin(u.stats.kills),
-      ...extensionStats(u.stats), shield: (u.buffs ?? []).reduce((n, b) => n + (b.timeLeft > 0 ? Math.max(0, fin(b.shield)) : 0), 0) } } : {}),
+      ...extensionStats(u.stats), sarkazShieldLayers: Math.min(3, Math.max(0, u.findBuff?.('bond:sarkaz:hits')?.shieldHits ?? 0)),
+      shield: (u.buffs ?? []).reduce((n, b) => n + (b.timeLeft > 0 ? Math.max(0, fin(b.shield)) : 0), 0) } } : {}),
   };
 }
 

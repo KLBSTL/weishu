@@ -152,6 +152,24 @@ function runtime(battle) {
     return rt;
   });
 }
+function installTrenchCounters(battle) {
+  const state = battleStore(battle, 'items:trench', () => ({ installed: false, ready: new Map() }));
+  if (state.installed) return;
+  state.installed = true;
+  const trench = 'chess_item_6_04_e', blade = 'chess_item_3_07_e';
+  const eligible = u => isOp(u) && onField(u) && memberOf(battle, u, 'egirShip');
+  battle.on('damaged', c => {
+    const u = c.target, src = c.source;
+    if (!eligible(u) || !src?.alive || src.side !== 'enemy' || isProc(c.dmg)
+      || (c.dmg?.tags ?? []).some(t => t === 'reflect' || t === 'counter') || battle.time < (state.ready.get(u) ?? -Infinity)) return;
+    const shared = battle.allyUnits.some(p => p.ownerId === u.ownerId && eligible(p)
+      && carries(battle, p, trench) && carries(battle, p, blade));
+    if (!shared && !carries(battle, u, trench)) return;
+    state.ready.set(u, battle.time + .5);
+    battle.dealDamage(u, src, { amount: u.s.atk * .5, type: 'arts', tags: procTags('trench') });
+  });
+}
+
 function grantsOf(rt, u) {
   let m = rt.grants.get(u);
   if (!m) { m = new Map(); rt.grants.set(u, m); }
@@ -788,21 +806,9 @@ const BY_ITEM = {
     const k = Math.min(Math.floor(num(p.max_cnt, 3)), Math.max(0, Math.floor(num(contentInfo(battle, u.ownerId).roundStats?.gainedChess))));
     if (k > 0) S.stat('yan', { aspd: num(p.attack_speed) * k });
   },
-  // 海沟实验体 (阿戈尔): hit taken ⇒ atk_scale × ATK arts to the source (lock_duration CD); + 阿戈尔重刃 ⇒ one more hit
-  chess_item_6_04_e(battle, u, rec, S) {
-    const p = bp(rec, 'act2autochess_equip_acarm078_global_buff');
-    if (!p) return;
-    const partner = partnerOf(p);
-    const cd = num(p.lock_duration, 0.5), sc = num(p.atk_scale);
-    let ready = -Infinity;
-    S.on('damaged', (c) => {
-      const src = c.source;
-      if (c.target !== u || !src || src.side !== 'enemy' || !src.alive || battle.time < ready || isProc(c.dmg)) return;
-      if (!u.alive || !memberOf(battle, u, 'egirShip')) return;
-      ready = battle.time + cd;
-      const hits = partner && carries(battle, u, partner) ? 2 : 1;
-      for (let i = 0; i < hits && src.alive; i++) battle.dealDamage(u, src, { amount: u.s.atk * sc, type: 'arts', tags: procTags('trench') });
-    });
+  // One shared recipient-side runtime also handles lent items and provider loss without resetting cooldowns.
+  chess_item_6_04_e(battle) {
+    installTrenchCounters(battle);
   },
   // 蒸汽之心 (维多利亚): hammer effects of the field (see header)
   chess_item_6_05_e(battle, u, rec, S, g) {
