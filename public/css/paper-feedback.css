@@ -1,0 +1,46 @@
+/* Paper lift, graphite pressure and a single release bounce. Individual transforms preserve any layout transform. */
+[data-paper-ui] {
+  -webkit-tap-highlight-color: transparent;
+  transition: translate 140ms cubic-bezier(.22,.72,.26,1), scale 120ms ease-out,
+    box-shadow 140ms ease-out, background-color 140ms ease-out, border-color 140ms ease-out, color 140ms ease-out;
+}
+/* Replace the terminal bracket/glow/brightness response, rather than stacking another effect on top. */
+.btn::after { display: none; }
+.btn:not(:disabled):active { transform: none; filter: none; }
+.btn:not(:disabled):hover { filter: none; }
+[data-paper-ui]:focus-visible {
+  outline: 2px solid var(--mint-700, #318e7e);
+  outline-offset: 4px;
+}
+@media (hover: hover) and (pointer: fine) {
+  [data-paper-ui].paper-hover:not(:disabled):not([aria-disabled="true"]) {
+    --paper-rest-y: -2px;
+    translate: 0 -2px;
+    box-shadow: 2px 4px 0 #26374422;
+  }
+}
+[data-paper-ui].paper-pressed:not(:disabled):not([aria-disabled="true"]) {
+  translate: 1px 2px;
+  scale: .988;
+  box-shadow: 0 1px 0 #26374450, inset 0 0 0 1px #26374435;
+  transition-duration: 55ms;
+}
+[data-paper-ui].paper-release { animation: paper-release 230ms cubic-bezier(.22,.72,.26,1) 1; }
+@keyframes paper-release {
+  0% { translate: 1px 2px; scale: .988; }
+  55% { translate: 0 -2px; scale: 1.006; }
+  100% { translate: 0 var(--paper-rest-y, 0px); scale: 1; }
+}
+/* A full-image card does not jump inside its clipping seat when the user changes its artwork. */
+[data-paper-motion="ink"].paper-hover,
+[data-paper-motion="ink"].paper-pressed,
+[data-paper-motion="ink"].paper-release {
+  translate: none; scale: none; animation: none;
+  box-shadow: inset 0 0 0 2px var(--mint-700, #318e7e);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-paper-ui], [data-paper-ui].paper-pressed, [data-paper-ui].paper-release {
+    translate: none !important; scale: none !important; animation: none !important; transition: none !important;
+  }
+  [data-paper-ui].paper-hover { translate: none !important; }
+}

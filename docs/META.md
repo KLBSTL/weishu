@@ -1,5 +1,9 @@
 # META.md — match & meta engine (server/match)
 
+2026-10-26 cosmetic room portraits: `room.avatar` checks a formal operator ID and updates only session/seat display
+metadata before start. Reconnect retains it; other players' readiness, loadouts, recruitment and battle data do not
+change. The room interface now groups configuration above the player cards and four large entries below them.
+
 2026-10-24: [four corrections and validation](four-fixes-20261024.md). Addon-only Operators leave recruitment when
 all natural addons are filtered (Leonhardt: Swift + Precision); mixed core/addon rules stay unchanged. Beating the R14
 leader unlocks the configured Hidden Core without layer/LP gates. Summon budgets pool once by entrance and motion,
@@ -17,7 +21,7 @@ exclusions remain; DIY stock shares the predicate. Random filters do not disable
 recruitment squads check actual remaining pool membership instead of rejecting a soft label directly. Other humans
 must ready again after changes; reconnect retains settings and Match freezes counts/groups. See [draft and checks](ban-configuration-20261023.md).
 
-2026-10-22: preparation traits and identities follow [the confirmed update](balance-update-20261022-spec.md).
+2026-10-22: preparation traits and identities follow the confirmed update.
 Elite Ptilopsis/Saria copy both fixed front tiles in order, preserving target quality and sequential funds; elite Yu
 executes two native recruitment draws. Aphris needs Columbia only and pays once per invocation from current funds:
 ordinary min(6,floor(F/4)) at 6 stacks per payment; elite floor(F/4) at 12. Recorder retains its stable ID as the sole
@@ -25,18 +29,35 @@ regular tier-four identity (buy 3 / sell 1 / pool 16). Aegir regulars return; Cl
 
 Stable publication review (2026-10-22): `STABLE_BOT_PROFILE` explicitly pins planner `off`, tactics `legacy`,
 playbook `off`, selector `legacy` and three real layout rehearsals. Normal shopping, growth, upgrades and placement
-remain active. New games use this configuration without loading a model; see [selection and checks](ai-best-publication-20261022.md).
+remain active. New games use this configuration without loading a model; see selection and checks.
 
-Opt-in controls: `botTactics` accepts `legacy`, `risk`, `roster`, `combined`; the latter modes add ordinary-battle
-survival scoring and/or at most two existing-roster candidates. `botPlaybook` accepts `off`, `auto`, `siracusa`,
-`yan`, `kjerag`; its finite recipes constrain purchases, retention, deployment, modules and level timing through
-validated intents. `botPlaybookSelector` accepts `legacy` or experimental `recipe`. An enabled playbook cannot
-run together with a beam/team planner. None is exposed as a new game rule or enabled by default.
+Playbook engine pass (2026-10-22): explicit recipes can operate partial acquisition engines through real prep handlers,
+validate buy/sell cycles in isolated PREP branches, and advance Siracusa one shop tier per formal prep after an operating
+window. `botPlaybookSelector` defaults to `legacy`; `recipe` separately selects a feasible recipe before its squad.
+The botbench `--policy-trace` ledger is optional and excludes branch-validation transactions. Stable defaults and economy
+are unchanged. See scope, ablations and outcomes.
+
+Fixed-playbook experiment (2026-10-22): `Match.opts.botPlaybook` is independently opt-in (`off` by default,
+`auto`, `siracusa`, `yan`, `kjerag`). One per-match recipe controls acquisition, bench retention, core deployment,
+upgrade ceilings and squad resources through normal validated intents. It does not change income, enemy rules,
+layout rehearsal count or load a model. See implementation and outcome evidence.
+
+The offline terminal learner adds a separate diverse first-live late-PREP dataset, numerical terminal deltas and four
+independent regression-risk heads. It abstains on unsupported risk classes or uncovered inputs; it is advisory only,
+with no runtime integration or policy-success claim. See the learning draft.
+
+The separate offline endgame teacher can continue sampled late pure-AI PREP through native Final Assault and Hidden
+Core to RESULT. It records terminal goals and paired survival risks, preserving the old normal-rollout boundary and
+default off. It neither unlocks Hidden Core early nor deploys a new actor. See review and results.
+
+Experimental team planner version 3 is opt-in, with public teammate deployment context and explicit legal upgrades;
+its separate offline teacher advances three ordinary rounds and stops at boss PREP. Legacy models remain readable,
+and the default stays off. See [AI contracts](design/ai.md) and current draft.
 
 天灾 (`CATASTROPHE`) inherits ABYSS mode data, draft schedules and hidden-core qualification. Stock uses original
 caps in every mode. Four regular factions plus SPECIAL supply distinct upper/lower picks each R1–13, preserving
 the original lane counts/times/routes. Its R14/R15 shared leader pool uses ABYSS blood points × alive-player share
-×1.5/×2 respectively. Chiave's band adds +1 income at R4–6, +2 at R7 onward, without changing its description.
+×1.5/×2 respectively. Chiave's band uses the standard round income and retains its shop refresh reward.
 UI selectors replace FUNNY with CATASTROPHE; legacy standard records remain readable.
 See [天灾 rules](design/catastrophe.md).
 
@@ -62,6 +83,22 @@ pick revalidates sample, capacity and offer identity before consuming anything. 
 pool invariants and release on cancel/prep end/elimination. The ordinary reward-offer queue remains separate.
 
 Columbia's `band.recruitment.kind = columbia-income` checks once after formal-round income: with at least 10 funds and free hand/temp capacity, draw one visible ordinary Columbia operator at or below the current shop level from remaining shared stock, pay 1, and acquire normally. No candidate or capacity means no payment. It precedes deployed Aphris and its payment counts in `round.spent`. New games receive neither the initial Beanstalk nor fixed-round orders. Sarkaz uses `band.shopPriority` in `PlayerEconomy.refresh`: the first successful manual refresh each formal round prioritizes two distinct eligible Sarkaz identities. Free manual refreshes count; automatic round-start rolls and rejected requests do not. No beacon is issued. Vigna costs 1; Mudrock grants immediate funds on acquisition. Astesia checks each recipient bond independently; Aphris requires both Columbia and Precision active together.
+
+Local AI iteration (2026-10-22): offline native terminal sampling can explicitly opt into R6/R8 PREP, alongside the
+existing late-only default. `tools/ai-native-collect.mjs` stores a separate deployment-aligned two-/three-bot schema;
+`tools/ai-iteration.mjs` runs two-bot Ultimate as primary and a smaller three-bot regression. Production stable heuristics,
+income and rehearsal budgets are unchanged. Feature evaluation follows the actual deployment planner; historical
+ranker rules are invalidated. See scope and verification.
+
+The follow-up native campaign adds optional teacher-only actual-field diagnostics, fixed opening-level training/
+validation allocation and three-bot regression. It records actual recipients, skill starts and layer sources without
+changing production decisions or exposing central diagnostics to actor inputs. The stop prefix resumes normal AI
+play. See data expansion and evidence.
+
+The native survival-v2 offline converter separately labels continuous normal-round survivor trajectories, retaining
+terminal wins/progress/entrants/LP first and using seat-rounds only to resolve ties. It adds pre-boss attrition and
+earlier-wipe risks without changing actor inputs or training/loading a model. Legacy datasets and learners stay
+separate. See draft and boundaries.
 
 Audience: **content authors** writing prep-side ("SERVER_*") effects in `server/sim/content/*.js → registerMeta(registry)`,
 the **UI owner** consuming `m.public` / `m.private` / `m.result`, and anyone driving matches in tests or tools.
@@ -295,19 +332,40 @@ The rest of this section is the legacy server-run mode
 × 0.02); a band whose mechanic rides on a bond the mode switches off weighs 0 — `GameData.bandBondIds` (bands.json
 `bondIds`, built by shared/bandBonds.js: the bond names in <…> of its text, the bond ids / bond pools of its blackboards)
 ∩ `modeInactiveBonds`: 标准's 潘格尼尼, 克莱门莎, 玛恩纳 — and with every offered band excluded it takes the default band;
-one rng draw per pick (DESIGN §21.26). The strategy draft marks the same bands 本局禁用 for humans (still selectable).
-Buys toward a full board first (the cap is 8 from R1; leftover funds are lost), completes the merges it can afford,
-then levels on a curve (L2 ≈ R3, L3 ≈ R5, L4 ≈ R7, L5 ≈ R10, L6 ≈ R12 — the competent curve of docs/BALANCE.md; free
+one rng draw per pick (DESIGN §21.26). Specialty priority requires enough distinct remaining identities for at least
+one core's first tier, outside mode-static exclusions and ineffective dedicated recruitment. Random `disabledBonds`
+filters chess only when all its labels are drawn/static-off; it does not itself disable bond activation. Retained
+multi-bond members can activate that core. The temporary hard exclusion of every drawn core has been removed;
+generic-benefit fallback and already-taken checks remain. Humans can still select marked bands.
+
+Ordinary battle experiments use independent `botTactics`: legacy, risk, roster, combined. Risk uses chargeable capped
+leaks and pre-rescue survival; roster appends at most two owned-member alternatives at R5–11, with true capacity,
+role checks and isolated real-move verification. Combined enables both. Three original trials remain, up to five
+total; full-hand/unsupported cases fall back. Proposal, legality and simulation jobs can yield/cancel without
+committing an incomplete trial. These flags do not enable economic/model planning; see validation scope.
+Independent confirmation did not meet the default gates (two bots: 3/60 vs P0 2/60 and prior hard-filter 5/60;
+three bots: 1/8 vs 2/8). Legacy remains default; see outcomes and limitations.
+Extra owned-member layout proposals now use a private derived RNG keyed by round, seat and sorted member UIDs.
+Rejected or cancelled proposals do not advance the formal bot stream and perturb later teammates' original layouts.
+The original layouts retain their existing stream; see same-PREP ablations and fix.
+Recruits an initial squad first (the cap is 8 from R1; leftover funds are lost), protects affordable merges,
+then levels on a curve (L2 ≈ R3, L3 ≈ R4, L4 ≈ R6, L5 ≈ R8, L6 ≈ R10; a stable squad tries before discretionary buys, free
 levels always), then spends the rest (a band that keeps its leftover funds — 坎诺特 利滚利 — holds its interest capital
 of 5 back from refreshes, full-board buys that complete nothing, items and spare level-ups). It builds around a
-**focus core bond** (owned members × 10 + members the shop can still bring at its level + banked layers + 6 for last
+**focus core bond** (a viable specialty core of the selected band comes first, even before its first purchase; otherwise
+owned members × 10 + members the shop can still bring at its level + banked layers + 6 for last
 round's focus, − 6 when it is a teammate's main core bond on that teammate's bond strip — humans included: the pool is
-shared) and a **second bond** (most owned members, next threshold within reach); its keepers are the deployed
-operators, the focus / second members and chess of tier ≥ shop level − 1. With a full board a purchase must be merge
+shared) and **two small-bond routes** (`botPlans.js`, with `second` retained as the first route for compatibility).
+Routes combine the specialty's preferred partners, actual owned members and growth engines, activation and reachable
+pool thresholds; they can adapt to available resources. Keepers include deployed operators, focus / route members
+and chess of tier ≥ shop level − 1. With a full board a purchase must be merge
 progress or a lineup upgrade **and** be worth more than the refreshes its price would pay for: a refresh is worth
 Σ over the held pairs of P(the refresh shows the third copy) × the value of an elite (the shop's copy-weighted odds
 over the remaining pool; an elite also brings the merge's free pick of the next tier, so any pair is worth completing)
-— otherwise it refreshes. Up to 4 pairs wait on the bench (6 spare units, pairs first); a third copy it cannot afford
+— otherwise it refreshes. A finite on-gain engine may instead be legally bought and sold when forecast layer utility
+exceeds the real net cost, before the Boss; held pieces never gain their acquisition reward again. Up to 4 pairs wait
+on the bench (normally 6 spare units, pairs first); deployed hand-count engines may retain extra chess while keeping
+one hand slot free. A third copy it cannot afford
 freezes the shop for the next round (freeze is free). Purchase scores: merge progress > bond thresholds > role needs
 (2 blockers, anti-air when the wave flies, ≤ 2 healers) > tier, the 特质 that keep adding layers, and armour fit (the
 share of a dealer's damage that gets through the round's DEF / RES — `mitigate` of the sim per hit, HP-weighted over
@@ -349,11 +407,52 @@ of a pair mirrored, only the routes that end on its half) and the leader counts 
 on its first tiles, so the damage dealers reach stationary leaders.
 **Rehearsal.**
 
+2026-10-20 experimental PREP search: `Match({ botPlanner: 'beam', botPlannerModel })` enables a bounded real-transaction
+beam planner; default is `off`. Versioned local ranker calibration and same-state real-Battle diagnostics are available
+offline. They do not change income or game rules and are not full-match reinforcement learning. See the
+task roadmap, [AI rules](design/ai.md) and results.
+
+The second experimental pass adds exact per-search memoization, model schema 2, configured layout rehearsal in
+the offline teacher, and capped normal-round chargeable-leak risk plus operator survival. Shared defence is still
+outside that single-seat teacher. Formal paired tests did not establish a clear-rate improvement, so defaults remain
+off; see second-pass evidence.
+
+`botTeamRollout.js` separately supports offline pure-AI team continuation from an unready normal PREP entry:
+native normal combat, shared defence, settlement and the next PREP, for 1–3 rounds, stopping at boss PREP.
+Only sampled in-memory PREP boundaries can resume their own RNG. This central teacher copies teammate internal
+state for simulation, but exports only the actor's private observation and public teammate status. It is not
+imported by the production bot. `tools/ai-team-diagnose.mjs` saves separate team labels, rejects incomplete/error
+outcomes and compares every formal game against a fresh same-seed control, even when the original sim errors.
+Errors remain in separate artifacts rather than becoming training labels. See scope and results.
+
+The next experiment adds `Match({botPlanner:'team', botTeamModel})`: one observed first action at R6/R8 for seat 0
+in pure three-AI Ultimate co-op, before ordinary reward handling. A separately versioned 24-feature pairwise ranker
+reranks the same bounded local first-action candidates. It uses own-state deltas and public teammate LP pressure,
+never teammate private hands or the multi-round teacher at runtime. Other seats, rounds and autoplay retain the
+base policy. Invalid models fail initialization; stale/cancelled transactions fall back safely. Default remains `off`.
+Draft and scope, development validation.
+
+Version 2 `guarded-team-prep-ranker` preserves explicit loading while correcting absent purchase tier to zero.
+It trains on ties too and uses eight fixed seed-subset members, training coverage and observed-effect checks before
+allowing an intervention. Abstention continues the base prep policy. Offline evaluation and runtime share the same
+selector; version 1 is retained only for historical experiments. Default remains off. Second-pass record.
+
 Local update (2026-10-13): [AI growth, economy and Boss decisions](design/ai.md) extends rehearsal to boss/hidden
 previews with isolated pools and shadow boards (60 game-second decision window), and ranks effective boss damage,
 survival and clear time. Only real AI seats receive +1 income in R3–R5, +2 in R6–R8, +4 from R9; human autoplay does not.
 Faction/core-bond specialty strategies are preferred when legally available, and custom growth traits/equipment
 combinations are evaluated. The older heuristic and timing figures below are historical, not measurements of this update.
+
+Local update (2026-10-14): [layer growth decisions and evidence](ai-layer-growth-update.md) score hypothetical lineups
+with their actual bond activation. Native prep/acquisition/refresh growth, spending thresholds, per-piece first refresh,
+Investor gain multipliers and shared layer/payment capacity inform retention and recruitment. Stored layers use actual
+bond scaling/saturation, and paid upgrades preserve useful growth funds. All forecasts are read-only estimates; the
+existing formal event handlers, economic rules and real-battle rehearsal remain the source of truth.
+
+The next local Boss pass ([draft](ai-boss-output-update.md)) keeps a marginal damage objective for leaders after the
+ordinary kill estimate saturates, uses public DEF/RES and hypothetical activation for dealer/layout scores, compares
+bounded legal roster swaps, and includes owned bounties in boss/hidden rehearsal. These are AI estimates and candidate
+choices; official battle-layer restrictions, game values, three-candidate and sliced execution limits stay intact.
 
 For normal rounds, with `opts.botRehearsal = N` (default 3), the bot simulates the N best
 distinct layout variants once each with the real `Battle` (a rehearsal seed, no meta dispatch, board restored exactly)
@@ -978,4 +1077,4 @@ round was over. The official 1 s `broadcastBeginDelay` is not modelled.
 
 See [rules](design/sarkaz.md). `bondsMeta.js` counts unique Sarkaz identities; the content registry handles Vigna/Meteorite acquisition and Vigna promotion. Shining's formal-round counter is supplied in contentInfo and carried from the normal result into unite. `fields.js` preserves approved statistics and the once-per-round result marker.
 
-[Columbia](design/columbia.md) counts unique charIds, excluding Ifrit. Every 10 earned layers grants a president doll (delayed 1/2 funds). Deployed Silence/Aphris pay capped prep-start costs; Mountain reads held funds at prep-start for Columbia and actual spent funds at prep-end for Investor. Tier-3 Astesia pays up to 5 remaining funds at prep-end for active Columbia/Arcane and grants 1 next-round fund. Normal/elite Saria each copy one front prep-end trait. Tin Man now has HP/ATK and stepped SP recovery; acquisition cards are removed. Full current numbers, equipment and fixed non-stacking fire regions are in [the document update](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/columbia-docx-update.md). Armor/field normal equipment enter tier-4/6 pools, merge in pairs, with shield caps 3000/6000; dolls are reward-only. Hibiscus prep-end 2/4 and Meteorite acquisition 4/8 remain. Typhon per-copy 28/56 counters carry through results/unite; hidden recruits and Aphris's three S3 relays remain.
+[Columbia](design/columbia.md) counts unique charIds, excluding Ifrit. Every 10 earned layers grants a president doll (delayed 1/2 funds). Deployed Silence/Aphris pay capped prep-start costs; Mountain reads held funds at prep-start for Columbia and actual spent funds at prep-end for Investor. Tier-3 Astesia pays up to 5 remaining funds at prep-end for active Columbia/Arcane and grants 1 next-round fund. Normal/elite Saria each copy one front prep-end trait. Tin Man now has HP/ATK and stepped SP recovery; acquisition cards are removed. Full current numbers, equipment and fixed non-stacking fire regions are in [the document update](columbia-docx-update.md). Armor/field normal equipment enter tier-4/6 pools, merge in pairs, with shield caps 3000/6000; dolls are reward-only. Hibiscus prep-end 2/4 and Meteorite acquisition 4/8 remain. Typhon per-copy 28/56 counters carry through results/unite; hidden recruits and Aphris's three S3 relays remain.

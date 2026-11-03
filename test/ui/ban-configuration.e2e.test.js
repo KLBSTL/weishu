@@ -40,7 +40,22 @@ for(const mode of ['solo','coop'])test(`opening bans ${mode}: actual controls, r
     }
     assert.deepEqual(await config(),{hardCore:0,softCore:0,addon:0});
     await c.click('.ban-picker__reset');await c.page.waitForFunction(()=>globalThis.__SP__.store.get().room.banConfig.addon===5);
+    let expected={hardCore:1,softCore:3,addon:5};
     if(mode==='coop'){
+      await c.click('[data-testid="ban-mode-manual"]');
+      await c.page.waitForSelector('.ban-picker__choice');
+      const choices=kind=>c.page.$$eval(`[data-ban-kind="${kind}"] .ban-picker__choice`,es=>es.map(e=>e.dataset.banId));
+      const [soft,hard]=await choices('hardCore');
+      const [addon]=await choices('addon');
+      const pick=(kind,id)=>c.click(`[data-ban-kind="${kind}"] [data-ban-id="${id}"]`);
+      const selected=(kind,id)=>c.page.waitForSelector(`[data-ban-kind="${kind}"] [data-ban-id="${id}"][aria-pressed="true"]`);
+      await pick('hardCore',soft);await selected('hardCore',soft);
+      await pick('softCore',soft);await selected('softCore',soft);
+      assert.equal(await c.page.$eval(`[data-ban-kind="hardCore"] [data-ban-id="${soft}"]`,e=>e.getAttribute('aria-pressed')),'false');
+      await pick('hardCore',hard);await selected('hardCore',hard);
+      await pick('addon',addon);await selected('addon',addon);
+      expected={mode:'manual',hardCore:1,softCore:1,addon:1,hardCoreIds:[hard],softCoreIds:[soft],addonIds:[addon]};
+      assert.deepEqual(await config(),expected);
       guest=new Client(P,srv.base,'bans-guest',{prefix:'bans-guest'});await guest.open();await guest.enter('访客');
       const code=(await c.st()).room.code;
       await guest.page.evaluate(code=>globalThis.__SP__.net.request('room.join',{code}),code);
@@ -56,8 +71,14 @@ for(const mode of ['solo','coop'])test(`opening bans ${mode}: actual controls, r
     await c.page.$eval('.room-bar__right',e=>e.scrollIntoView({block:'center'}));await c.click('.room-bar__right button','开始模拟');
     await c.waitFor(s=>s.phase==='INFO_CHECK','briefing');
     const pub=await c.page.evaluate(()=>globalThis.__SP__.store.get().match.public);
-    assert.deepEqual(pub.banConfig,{hardCore:1,softCore:3,addon:5});
-    assert.equal(pub.hardBannedBonds.length,1);assert.equal(pub.softBannedBonds.length,3);assert.equal(pub.addonBannedBonds.length,5);
+    assert.deepEqual(pub.banConfig,expected);
+    if(expected.mode==='manual'){
+      assert.deepEqual(pub.hardBannedBonds,expected.hardCoreIds);
+      assert.deepEqual(pub.softBannedBonds,expected.softCoreIds);
+      assert.deepEqual(pub.addonBannedBonds,expected.addonIds);
+    }else{
+      assert.equal(pub.hardBannedBonds.length,1);assert.equal(pub.softBannedBonds.length,3);assert.equal(pub.addonBannedBonds.length,5);
+    }
     await c.page.waitForSelector('.brief-bond__kind--hard',{visible:true});
     assert.equal(await c.page.$eval('.brief-bond__kind--hard',e=>e.getBoundingClientRect().width>20),true);
     await c.shot('briefing');

@@ -1,11 +1,11 @@
 # DESIGN §34 — 天灾 difficulty
 
 Part of [DESIGN.md](../DESIGN.md). Maintainer-confirmed revision, 2026-10-17.
-Full specification: [第二次确认稿](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-second-confirmed-20261017.md), superseding corresponding parts of
-the [first confirmation](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-confirmed-20261017.md).
-Implementation and validation: [第二次实施记录](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-second-revision-20261017.md).
-The 2026-10-18 [Helm revision](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-helm-20261018.md) supersedes Steel Flood's SP spending, barrier amounts and armor recoil.
-Its [follow-up](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-helm-followup-20261018.md) further revises the barrier cap, cooldown and immunity eligibility.
+Full specification: 第二次确认稿, superseding corresponding parts of
+the first confirmation.
+Implementation and validation: 第二次实施记录.
+The 2026-10-18 Helm revision supersedes Steel Flood's SP spending, barrier amounts and armor recoil.
+Its follow-up further revises the barrier cap, cooldown and immunity eligibility.
 
 ## 34. 天灾 — maintainer-defined difficulty
 
@@ -46,7 +46,7 @@ The shared ground-path repair also prevents wall landings by ground children dro
 and makes the springs' 5s pursuit follow legal ground waypoints. `[ASSUMED]` an invalid child landing uses the nearest
 reachable ground centre, row-major ties. This path repair applies to every difficulty; Catastrophe ability changes
 remain Hidden Core-only. Existing fixed deep-water tiles keep their slowdown/damage and flight exemption; no periodic
-tide schedule is invented. See the [three moved golden cases](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/catastrophe-second-golden.md).
+tide schedule is invented. See the three moved golden cases.
 
 ### 34.2 Hidden Helm — 钢铁洪流
 
@@ -110,7 +110,7 @@ new burst entrants are knocked down synchronously by `elementBurstApplied`, with
 keep their body tile and normal redeploy timer, and automatically redeploy when the timer and DP conditions are met.
 Fatal/kill/death dispatch remains suppressed so immortality/revive cannot intercept the knock-down. Nested removal callbacks
 also suppress friendly-death triggers. Tactical crabs, wolf points and Manifolds retain their original recovery mechanisms;
-other later re-summoning is permitted. See [the correction and verification](../pipe-string-knockdown-fix-20261021.md).
+other later re-summoning is permitted. See the correction and verification.
 
 On Pipe's first HP ratio strictly below 50%, ordinary cost/cap permanently becomes 20 and one free performance is
 queued. It waits for any running skill/performance to finish and then starts as a separate 10s performance. It spends
@@ -135,5 +135,5 @@ The restored eight have 12 selectable extra skins in the validated catalogue; Ca
 There are now 114 visible base recruits, tiers 17/18/19/21/18/21. Aegir hiding and saved ownership remain unchanged.
 Mudrock normal/elite retain Sarkaz + 坚守; Shining normal/elite retain Sarkaz + 助力.
 
-Chiave's band secretly adds +1 income at R4–6 and +2 at R7 onward (not cumulative); R1–3 and its displayed description
-remain unchanged. The separate paused AI work is outside this revision.
+Chiave's band grants its Siracusa recruitment reward after the required shop refreshes and retains its combat effects.
+The former extra per-round income was removed.

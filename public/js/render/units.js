@@ -884,13 +884,13 @@ export class UnitView {
 
   _buildHud() {
     const P = this.P, h = this.hud;
-    this.hpBg = bar(P, h, COLORS.hpBack, 0.85);
+    this.hpBg = bar(P, h, COLORS.hpBack, 1);
     this.hpGhost = bar(P, h, COLORS.hpGhost, 0.9);
     this.hpFill = bar(P, h, this.isEnemy ? (this.isBoss ? COLORS.hpBoss : COLORS.hpEnemy) : COLORS.hpAlly);
     // a negative-HP pool (斩业星熊's 我执), drawn over the drained HP bar as the red bar
     this.negFill = bar(P, h, COLORS.hpNeg);
     this.shieldBar = bar(P, h, COLORS.shield, 0.95);
-    this.spBg = bar(P, h, COLORS.hpBack, 0.85);
+    this.spBg = bar(P, h, COLORS.hpBack, 1);
     this.spFill = bar(P, h, COLORS.sp);
     this.spGlow = new P.Sprite(fxAtlas().tex.glow);
     this.spGlow.anchor.set(0.5);
@@ -1548,7 +1548,7 @@ export class UnitView {
       if (this.ghostHp < this.hp) this.ghostHp = this.hp;
       else this.ghostHp = Math.max(this.hp, this.ghostHp - this.maxHp * dt * 0.9);
       const g = this.maxHp > 0 ? clamp(this.ghostHp / this.maxHp, 0, 1) : 0;
-      this.hpBg.position.set(x0 - 1, cy); this.hpBg.width = bw + 2; this.hpBg.height = bh + 2;
+      this.hpBg.position.set(x0 - 1, cy - 1); this.hpBg.width = bw + 2; this.hpBg.height = bh + 2;
       this.hpGhost.position.set(x0, cy); this.hpGhost.width = bw * g; this.hpGhost.height = bh;
       this.hpFill.position.set(x0, cy); this.hpFill.width = bw * k; this.hpFill.height = bh;
       if (!this.isEnemy) this.hpFill.tint = k < 0.3 ? COLORS.hpAllyLow : COLORS.hpAlly;
@@ -1573,7 +1573,7 @@ export class UnitView {
       const k = ammo ? ammo[0] / ammo[1] : clamp(this.sp / this.spMax, 0, 1);
       ready = !active && k >= 0.999;
       sy = cy + bh / 2 + spH / 2 + 1.5;
-      this.spBg.position.set(x0 - 1, sy); this.spBg.width = bw + 2; this.spBg.height = spH + 2;
+      this.spBg.position.set(x0 - 1, sy - 1); this.spBg.width = bw + 2; this.spBg.height = spH + 2;
       this.spFill.position.set(x0, sy); this.spFill.width = bw * k; this.spFill.height = spH;
       this.spFill.tint = ammo ? COLORS.ammo : active ? COLORS.spActive : ready ? COLORS.spReady : COLORS.sp;
       this._spY = sy;
@@ -2283,7 +2283,7 @@ export class DeviceView {
     ctx.layers.units.addChild(this.gfx);
     this.hud = new P.Container();
     ctx.layers.bars.addChild(this.hud);
-    this.hpBg = bar(P, this.hud, COLORS.hpBack, 0.85);
+    this.hpBg = bar(P, this.hud, COLORS.hpBack, 1);
     this.hpFill = bar(P, this.hud, this.turret ? COLORS.hpAlly : 0xe0b877);
     this.camVersion = -1;
   }
@@ -2338,7 +2338,7 @@ export class DeviceView {
     this.hud.visible = show;
     if (show) {
       const bw = clamp(p.s * 0.7, 24, 90), bh = clamp(p.s * 0.06, 3, 6);
-      this.hpBg.position.set(p.x - bw / 2 - 1, p.y); this.hpBg.width = bw + 2; this.hpBg.height = bh + 2;
+      this.hpBg.position.set(p.x - bw / 2 - 1, p.y - 1); this.hpBg.width = bw + 2; this.hpBg.height = bh + 2;
       this.hpFill.position.set(p.x - bw / 2, p.y); this.hpFill.width = bw * clamp(this.hp / this.maxHp, 0, 1); this.hpFill.height = bh;
     }
     this.screen.top = p.y;

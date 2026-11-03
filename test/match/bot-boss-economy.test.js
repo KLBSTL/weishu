@@ -10,16 +10,17 @@ const item = name => Object.values(DATA.items).find(i => i.name === name && !i.i
 const setup = (isBot = true, fake = true) => makeMatch({ mode: 'solo', difficulty: 'NORMAL', fake,
   seats: [{ seat: 0, playerId: 'p', name: 'P', isBot, connected: true }], seed: 91 }).start().toPrep(1);
 
-test('AI income: exact R2/3/5/6/8/9/14 boundaries; no subsidy for human autoplay', () => {
-  for (const isBot of [true, false]) {
+test('AI income: exact boundaries preserve the generic subsidy without a Chiave stipend or human-autoplay subsidy', () => {
+  for (const isBot of [true, false]) for (const band of ['band_bldsk', 'band_chiave']) {
     const h = setup(isBot), ps = h.m.order[0];
-    ps.bandId = 'band_bldsk'; ps.autoplay = !isBot;
-    for (const [round, bonus] of [[2, 0], [3, 1], [5, 1], [6, 2], [8, 2], [9, 4], [14, 4]]) {
-      h.m.round = round; ps.funds = 0; ps.pendingFunds = 0;
+    ps.bandId = band; ps.autoplay = !isBot;
+    for (const [round, bonus] of [[2, 0], [3, 1], [4, 1], [5, 1], [6, 2], [7, 2], [8, 2], [9, 4], [14, 4]]) {
+      h.m.round = round; ps.funds = 0; ps.pendingFunds = 3;
       const before = ps.stats.fundsGained;
       ps.startRound(round);
-      assert.equal(ps.funds, h.m.gd.income(round) + (isBot ? bonus : 0));
+      assert.equal(ps.funds, h.m.gd.income(round) + 3 + (isBot ? bonus : 0), `${band}, bot=${isBot}, R${round}`);
       assert.equal(ps.stats.fundsGained - before, ps.funds);
+      assert.equal(ps.pendingFunds, 0, 'earned pending funds are credited exactly once');
       assert.equal(botIncomeBonus(round), bonus);
     }
     h.m.dispose();

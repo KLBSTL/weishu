@@ -2,6 +2,7 @@
 
 import { clamp, isObj } from './shared.js';
 import { DEFAULT_HOTKEYS, sanitizeHotkeys } from './shortcuts.js';
+import { ART_THEMES } from './artThemes.js';
 
 
 // ---- settings ------------------------------------------------------------------------------------------------------
@@ -13,13 +14,14 @@ import { DEFAULT_HOTKEYS, sanitizeHotkeys } from './shortcuts.js';
 export const VOICE_LANGS = Object.freeze(['cn', 'jp']);
 
 /** keys: the in-match shortcuts' key map (ui/gameLogic/shortcuts.js; settings → 快捷键). voiceLang: VOICE_LANGS. */
-export const DEFAULT_SETTINGS = Object.freeze({ bgm: 0.6, sfx: 0.8, voice: 0.8, voiceLang: 'cn', muted: false, damageNumbers: true, officialDamageNumbers: false, ammoCount: false, quality: 'high', keys: DEFAULT_HOTKEYS });
+export const DEFAULT_SETTINGS = Object.freeze({ bgm: 0.6, sfx: 0.8, voice: 0.8, voiceLang: 'cn', muted: false, damageNumbers: true, officialDamageNumbers: false, ammoCount: false, artUiEnabled: false, artUiTheme: 'inkSeal', paperOutside: false, paperInside: false, quality: 'high', keys: DEFAULT_HOTKEYS });
 const QUALITIES = ['high', 'medium', 'low'];
 
 /**
  * Sanitize persisted settings.
  * @param {any} raw
  * @returns {{ bgm: number, sfx: number, voice: number, voiceLang: 'cn'|'jp', muted: boolean, damageNumbers: boolean, quality: 'high'|'medium'|'low',
+ *   artUiEnabled: boolean, artUiTheme: string, paperOutside: boolean, paperInside: boolean,
  *   keys: Record<'refresh'|'freeze'|'levelUp'|'retreat'|'sell'|'ready', string> }}
  */
 export function sanitizeSettings(raw) {
@@ -34,7 +36,18 @@ export function sanitizeSettings(raw) {
     damageNumbers: typeof r.damageNumbers === 'boolean' ? r.damageNumbers : DEFAULT_SETTINGS.damageNumbers,
     officialDamageNumbers: typeof r.officialDamageNumbers === 'boolean' ? r.officialDamageNumbers : DEFAULT_SETTINGS.officialDamageNumbers,
     ammoCount: typeof r.ammoCount === 'boolean' ? r.ammoCount : DEFAULT_SETTINGS.ammoCount,
+    artUiEnabled: typeof r.artUiEnabled === 'boolean' ? r.artUiEnabled : DEFAULT_SETTINGS.artUiEnabled,
+    artUiTheme: ART_THEMES.some(theme => theme.id === r.artUiTheme) ? r.artUiTheme : DEFAULT_SETTINGS.artUiTheme,
+    paperOutside: typeof r.paperOutside === 'boolean' ? r.paperOutside : DEFAULT_SETTINGS.paperOutside,
+    paperInside: typeof r.paperInside === 'boolean' ? r.paperInside : DEFAULT_SETTINGS.paperInside,
     quality: QUALITIES.includes(r.quality) ? r.quality : DEFAULT_SETTINGS.quality,
     keys: sanitizeHotkeys(r.keys),
   };
 }
+
+/** Paper presentation is independent of illustrated menu art and defaults off in old profiles. */
+export const paperStyleActive = (settings, inMatch) => (inMatch ? settings?.paperInside : settings?.paperOutside) === true;
+
+/** The pencil atlas has dark ink for paper; old illustrated themes remain independent of the paper skin. */
+export const menuArtActive = (settings, inMatch) => settings?.artUiEnabled === true
+  && (settings.artUiTheme !== 'pencilPaper' || paperStyleActive(settings, inMatch));

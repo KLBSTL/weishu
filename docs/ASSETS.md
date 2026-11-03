@@ -1,10 +1,36 @@
 # Assets: sources, layout, manifest, credits
 
+Hand-drawn chrome (2026-11-02): `public/icons/paper-grain.svg`, `pencil-hatch.svg` and `pencil-city.svg` are
+original code-authored decorative vectors. They repeat as small static textures/line art without filters, external
+fonts or a continuous redraw loop. Paper/graphite UI cues are short, fixed-seed buffers synthesized and cached by
+`AudioManager.paperUi`, connected to the existing SFX volume/mute channel. They replace generic clicks, not the
+recorded purchase, battle or operator voice assets. The approved raster concept boards stay outside runtime assets.
+
+`public/ui-art/pencil-paper-v1.png` is the new optional `pencilPaper` menu atlas (1024×1536 RGBA, four 1024×384
+regions). It was generated with built-in imagegen using the user's approved hand-drawn lobby reference, not cropped
+from a concept board. Prompt: four evenly spaced transparent 8:3 rows, pen/colored-pencil teal-cap messenger with
+prohibition sign, shuffling cards, reading a book and riding a paper plane, exact Chinese headings 盟约禁用／干员调配／
+盟约图鉴／开始模拟, soft mint/ocher marks, no rectangular frame or background; final edit cleared background alpha
+and protected row boundaries. The previous four atlases and the default-off art preference remain available.
+
+Static standby art (2026-10-31): `tools/assets/standby-art.mjs` validates the fifteen selected PNGs in
+`public/assets/standby/` and adds `standbyArt` / `standbyStats` to the existing manifest without replacing other
+sections. It records dimensions, source URLs and SHA256. The normal asset rebuild attaches these entries and
+protects all fifteen files from pruning. Nightfall/Flower Garden use their original left/right halves; four default
+operator illustrations come from [ArknightsAssets2](https://github.com/ArknightsAssets/ArknightsAssets2/tree/cn/assets/dyn/arts).
+Seven full posters were supplied by the user: the original `lora-randomizer_00041_.png`, plus `00087`,
+`26fb548c-daa3-482e-bdc9-7df8a3e10a5b`, `00081`, `00067`, `00057` and 「云端碎片：少女与天空系统」 (all PNGs).
+Copies retain original pixels and SHA256; their explicit cosmetic IDs and source basenames are in the selected
+pack map. They can be selected for room cards or the lobby display and never become Arknights operators.
+Run `node tools/assets/standby-art.mjs` for the targeted offline refresh. This
+pack has no video or dynamic Spine dependency; downloaded assets stay out of the source distribution. Credits remain
+with their rights holders.
+
 2026-10-19 supplied icons: power armor and force-field equipment use the user's original 1254px RGBA PNGs;
 Ferdinand uses the supplied holographic JPG. Ordinary/elite items share the appropriate icon. New dated URLs avoid
 stale caches. `tools/assets/custom-icons.mjs` is the canonical three-entry map used by the full asset plan; running
 `node tools/assets/custom-icons.mjs` refreshes those manifest entries/hash offline without changing other assets.
-Original credits remain. Sources, alpha checks and validation: [implementation record](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/ultimate-balance-20261019.md).
+Original credits remain. Sources, alpha checks and validation: implementation record.
 
 Local Sarkaz extension: `tools/assets/plan.mjs` maps the original covenant SVG to `/icons/sarkaz.svg`, includes the new formal operators from the chess data and uses Wisadel's `token_10035_wisdel_wward_game_9` animation variant. All downloaded art remains in ignored `public/assets`; optional unrelated token gaps are reported in `.cache/assets-report.json`.
 
@@ -27,7 +53,7 @@ pruning. Current full board art: 156 files, 56,000,708 bytes (up 6,680,233 bytes
 The fixed Android scene normals are RGB (ETC2_RGB / ASTC_6x6); N/M use linear sampling and emission uses sRGB.
 Data maps never pass through a lossy colour codec. Optional scene extraction also exports these maps losslessly;
 an unknown normal encoding is skipped with a diagnostic until an explicit decoder is supplied. Details, shader
-sources, assumptions and verification: [scene materials](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/material-restoration-draft.md).
+sources, assumptions and verification: scene materials.
 
 ## Selectable skins and actions in weishu
 
@@ -35,7 +61,7 @@ The current batch contains 194 additional battle skins for 126 formal operators 
 
 `tools/build-skins.mjs` validates PNG headers, atlas regions, skeleton parsing and animation lists, normalizes PMA and page sizes, generates the catalogue and updates the asset hash/counts. Validation failures and attempts to include non-formal characters leave the usable catalogue and manifest intact. A clone rebuilds with no arguments from the committed catalogue; maintainers may supply a downloaded report, cached official skin table and validation-report destination as arguments 1–3. `tools/fetch-assets.mjs` incorporates this catalogue and protects these files from orphan pruning. `chars[charId].skins` stores battle models and optional costume Base; `chars[charId].base` stores the default Base model (`catalogue.defaults`). A character whose default has no Back may use a single-direction costume through the existing Front fallback. `skinSource` records the pinned source, catalogue `scope` records the formal roster and `skinStats` counts all appearances, including default Base.
 
-Operator details and loadouts save skin selection and the action toggle locally by charId, shared by normal/elite forms. Front/Back models are used in battle, Base models only in the action preview. Default costumes now expose available Base actions too; the preview prefers an animated Idle/Relax over the zero-duration Default pose. Animation timestamps used by the simulation still come from the default model; skin choice does not change damage, hit timing or deterministic RNG. The out-of-game bond library opens the same current rules and member details without creating a match. [Initial batch](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/appearance-and-bond-library.md), [formal roster, draft and verification](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/remaining-skins-draft.md).
+Operator details and loadouts save skin selection and the action toggle locally by charId, shared by normal/elite forms. Front/Back models are used in battle, Base models only in the action preview. Default costumes now expose available Base actions too; the preview prefers an animated Idle/Relax over the zero-duration Default pose. Animation timestamps used by the simulation still come from the default model; skin choice does not change damage, hit timing or deterministic RNG. The out-of-game bond library opens the same current rules and member details without creating a match. [Initial batch](appearance-and-bond-library.md), formal roster, draft and verification.
 
 ## Running
 

@@ -5,6 +5,20 @@ const CAMERA_MS = 750;
 /** Camera pan to / from the enemy preview pen (configBlackBoard move_time 0.25). */
 export const PEN_CAMERA_MS = 250;
 
+/** Keep animated scenery at 20–30 Hz; camera motion and a replaced board draw immediately. */
+export function createBoardFrameGate() {
+  let drawnAt = -Infinity, lastCamera = null, lastVersion, lastBoard = null, lastQuality;
+  return (now, camera, board, quality) => {
+    const interval = 1000 / (quality === 'low' ? 20 : quality === 'medium' ? 24 : 30);
+    const changed = camera !== lastCamera || camera.version !== lastVersion || board !== lastBoard || quality !== lastQuality;
+    const elapsed = now - drawnAt;
+    if (!changed && elapsed + 1e-6 < interval) return false;
+    drawnAt = changed ? now : drawnAt + interval * Math.max(1, Math.floor((elapsed + 1e-6) / interval));
+    lastCamera = camera; lastVersion = camera.version; lastBoard = board; lastQuality = quality;
+    return true;
+  };
+}
+
 /** Recovery of a lost 3D board context: delays of the rebuild attempts (ms) and how soon a new loss counts as failure. */
 const BOARD3D_RETRY_MS = [1200, 4000, 12000];
 

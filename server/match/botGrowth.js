@@ -304,7 +304,6 @@ export function forecastGrowth(gd, ps, pieces, round, { acquisition = false, rec
   for (let k = 1; k <= remaining; k++) {
     const future = round + k, weight = .65 ** k;
     frame.funds = gd.income(future) + (ps.isBot ? future >= 9 ? 4 : future >= 6 ? 2 : future >= 3 ? 1 : 0 : 0) + frame.pendingFunds;
-    if (ps.bandId === 'band_chiave') frame.funds += future >= 7 ? 2 : future >= 4 ? 1 : 0;
     frame.pendingFunds = 0; frame.round = { spent: 0, gainedChess: 0, refreshes: 0 };
     if (!event || event === 'SERVER_PREP_START') collect(previewPrep(gd, frame, { event: 'SERVER_PREP_START', round: future, only: onlyPiece, record }), weight);
     frame.round = { spent: Math.floor(frame.funds * .65), gainedChess: 2, refreshes: 2 };

@@ -4,6 +4,56 @@ Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 
 ## 9. Client rendering contract (public/js/render)
 
+Hand-drawn interface (2026-11-02): the shared client skin uses ivory paper, blue-grey pen outlines and restrained
+colored-pencil hatching. Lobby, room, settings, operator management, guide, statistics, match chrome and reports
+share the same surfaces while retaining their existing responsive layouts and live translated text. Static SVG grain,
+hatching and architecture do not add a rendering loop or a battlefield filter. The delegated paper feedback layer adds
+pointer/keyboard lift, pressure and release, with cancellation, disabled controls and reduced-motion handling.
+Generic UI sounds use bounded, cached paper/graphite buffers through the existing SFX bus, mute/volume and
+visibility policy; recorded purchasing, battle and voice cues remain separate. No gameplay data changes.
+
+Settings → Display controls the paper skin independently outside and inside a match. Both switches default
+to off, including for saved preferences from before the split. Each switch also controls paper motion and
+paper UI sounds for its scene. The optional pencil-paper button atlas uses live labels while that skin is off.
+
+Standby appearance (2026-10-29, entry revised 2026-11-02): Settings → Appearance opens the separate editor;
+the lobby and room no longer expose its direct toolbar entry or an inline editing area.
+It groups background/dimming, lobby illustration, player card style/portrait and the existing art themes. Scene and
+illustration defaults are off; the new static illustration-card style can switch back to classic. Preferences are
+local, with portrait choices additionally scoped by player identity for independent tabs. The formal portrait list
+and the seven user-supplied poster IDs sync through room metadata; readiness, player names, chess and battles stay
+unchanged. Built-in scene halves/portraits resolve only from `assets.standbyArt`, use static images and retain missing-image
+fallbacks. Four cards/two rows on compact screens remain scrollable with controls reachable. No extra renderer or
+continuous animation is created. Appearance reset preserves sound, hotkeys and combat quality.
+Illustration cards fill the entire 2:3 seat, with no outer frame, separate nameplate or character subtitle.
+Seat/player identity and status are small corner overlays; portrait selection and teammate removal remain live
+controls. Transparent art uses per-character framing over a tinted copy of the selected scene, with a bottom fade;
+posters keep their own composition. Unselected occupied seats use stable seat-based illustrations. Legacy art
+themes do not add their ornamental frames to this style; classic cards retain the earlier themed presentation.
+The original standby background is restored once for earlier scene preferences; later manual scene choices still
+persist. Appearance → Player cards and the portrait picker offer local image upload (PNG/JPEG/WebP, up to 20 MiB).
+Images are resized within 768×1152 and uploaded to the same game server (network §8.1); filenames are not transmitted.
+Uploads behave as full-card posters. The latest 8 uploaded IDs are retained in this browser for reselection, while
+the selected ID remains per player. Unsupported servers or failed uploads leave the current card selected.
+
+Local interface art (2026-10-26, moved to Appearance → Art Theme on 2026-10-29): Interface Art is off by default for new and existing profiles.
+Four optional themes (inkSeal, animeSquad, paperGarden, paperGardenSeated) decorate the existing menu buttons and
+classic player-seat frames. Theme choice alone never enables art; settings persist on this browser only. Buttons retain
+live translated labels, counts, permissions and loading/disabled behaviour. Missing art or another interface
+language falls back to text; compact landscape screens keep readable live text instead of tiny image lettering.
+The 2026-11-02 `pencilPaper` theme adds a transparent pen/colored-pencil menu atlas as a fifth option, retaining the
+same real labels, fallback paths and default-off preference. Its four rows do not contain baked dark rectangles.
+Seat corner ornaments are non-interactive; reduced motion disables their decorative animation. The waiting room has
+one utility header, a compact difficulty/map/AI configuration strip, integrated portrait/name/status cards, and a
+four-entry launch dock. Classic cards: H4 uses floral cameo invitations and wax seals; B uses ink contracts and stamps;
+D uses collector cards and shield badges. Compact classic cards use head portraits and real text. Formal operator portrait
+selection is cosmetic room metadata (network §8.1), preserving all readiness and match rules; missing art uses the
+name/robot emblem. New clients disable portrait editing against older servers without the avatar metadata field.
+Room dock artwork (2026-10-30) has no outer button frame, background panel or hover corner ornaments. The four
+desktop pictures fill equal-width columns, with their height capped at 19vh on short windows. Room status and
+counter captions are visually hidden, remain accessible to screen readers and reserve no separate rows.
+Keyboard focus, disabled/loading feedback and readable text fallbacks remain available.
+
 `import { createFieldView } from './render/app.js'`
 
 ```js
@@ -40,7 +90,7 @@ Visuals: oblique perspective board (tilted ~30°, trapezoid tiles), raised highl
 
 ## 10. Client UI (screens & components)
 
-The weishu appearance selector uses the formal operator roster (non-DIY `data/chess.json` characters). Only those operators receive additional costumes and default Base actions; stand-in/DIY-only characters retain their existing assets. Details/loadouts choose skin, animation playback, facing and preview clip per charId, shared by normal/elite forms. Base models are preview-only, and use animated Idle/Relax when available. Skins never change the simulation's default hit timestamps, damage, alliances or random stream. Full scope and evidence: [formal appearances](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/remaining-skins-draft.md), [asset schema](../ASSETS.md#selectable-skins-and-actions-in-weishu).
+The weishu appearance selector uses the formal operator roster (non-DIY `data/chess.json` characters). Only those operators receive additional costumes and default Base actions; stand-in/DIY-only characters retain their existing assets. Details/loadouts choose skin, animation playback, facing and preview clip per charId, shared by normal/elite forms. Base models are preview-only, and use animated Idle/Relax when available. Skins never change the simulation's default hit timestamps, damage, alliances or random stream. Full scope and evidence: formal appearances, [asset schema](../ASSETS.md#selectable-skins-and-actions-in-weishu).
 
 Look & feel: research 06 §11–§12 (near-black green-grey panels, mint `#4ed8af` accents, gold prices, bracket frames, hexagon badges, bond discs, 7-segment countdown). Fonts: Noto Sans SC (Google Fonts with local fallback), Bender/Novecento self-hosted for numerals and Latin micro-labels.
 
@@ -72,10 +122,10 @@ Audio: autochess BGM per phase, UI SFX (buy/sell/refresh/level/merge/ready/timer
 
 ## 15. Official 3D board scene (v2 visual target)
 
-Corrected findings (2026-10-15, ported from upstream 0.2.5/0.2.6): the eleven official battlefields do have prebuilt scene bundles in the in-season hot update. The older off-season lookup incorrectly concluded that there were none. Official scenes supply the mesh, material albedo and baked lighting; the procedural metal board is the fallback. The weishu distribution includes a validated art pack under `public/assets/scenes/`, registered as `assets.json.boardArt`; optional machine-local extraction overrides its entries. Basic board, gate and device resources remain needed to initialise the 3D layer. The level's `options.configBlackBoard` still supplies the camera framing. Sources, assumptions and implementation record: [visual migration](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/visual-restoration-migration-draft.md).
+Corrected findings (2026-10-15, ported from upstream 0.2.5/0.2.6): the eleven official battlefields do have prebuilt scene bundles in the in-season hot update. The older off-season lookup incorrectly concluded that there were none. Official scenes supply the mesh, material albedo and baked lighting; the procedural metal board is the fallback. The weishu distribution includes a validated art pack under `public/assets/scenes/`, registered as `assets.json.boardArt`; optional machine-local extraction overrides its entries. Basic board, gate and device resources remain needed to initialise the 3D layer. The level's `options.configBlackBoard` still supplies the camera framing. Sources, assumptions and implementation record: visual migration.
 
 Target: a **real 3D board layer** rendered with three.js (vendored ESM, no CDN) underneath the existing Pixi layer:
-- A matching stage loads its official scene; mesh chunks sharing a material/lightmap are merged. Extracted direct and baked lighting use their full gain (1/1). Dynamic 射击台, 特制水上平台 and 封印地面 are drawn over the scene; ordinary high ground is not duplicated. Procedural geometry still comes from `data/stages.json` for missing/custom scenes. Map legality, unit heights and collision never come from decorative meshes. Scene surface maps now follow shader keywords: RGB normals use a derivative tangent frame, metal R/smoothness A are linear data, and emission is sRGB. Missing maps use scalar/geometric fallbacks; unlit surfaces bypass lighting. [ASSUMED] A linear mobile-BRDF approximation reuses the existing studio PMREM; original reflection probes and full vertex-colour layering remain incomplete, as do environment particles, skybox and postprocessing. See [material implementation and validation](https://github.com/KLBSTL/weishu/blob/f10164cadb1e31295f15f9b257d6f9a5a2f577e3/docs/material-restoration-draft.md); do not describe this as full Unity scene fidelity.
+- A matching stage loads its official scene; mesh chunks sharing a material/lightmap are merged. Extracted direct and baked lighting use their full gain (1/1). Dynamic 射击台, 特制水上平台 and 封印地面 are drawn over the scene; ordinary high ground is not duplicated. Procedural geometry still comes from `data/stages.json` for missing/custom scenes. Map legality, unit heights and collision never come from decorative meshes. Scene surface maps now follow shader keywords: RGB normals use a derivative tangent frame, metal R/smoothness A are linear data, and emission is sRGB. Missing maps use scalar/geometric fallbacks; unlit surfaces bypass lighting. [ASSUMED] A linear mobile-BRDF approximation reuses the existing studio PMREM; original reflection probes and full vertex-colour layering remain incomplete, as do environment particles, skybox and postprocessing. See material implementation and validation; do not describe this as full Unity scene fidelity.
 - One camera model drives both layers: `public/js/render/projection.js` keeps its public API (`worldToScreen`, `screenToWorld`/tile picking, presets, transitions) but derives it from a three.js `PerspectiveCamera` initialised from the official configBlackBoard framing, so Spine units, FX, drag/drop and hit-testing stay aligned with the 3D board.
 - Must degrade gracefully: official scene → procedural 3D board → 2D atlas board when scene art, the base pack or WebGL2 is unavailable. Runtime needs no extraction tools. Frame rates require same-device measurements; no universal 60 fps guarantee.
 - Implemented (`public/js/render/board3d/*`, `render/app.js`): three.js is downloaded only when the distributed or optional local-art manifest lists the board atlas; the built 3D area, the drawn 2D rows and the lit rect follow `viewKind(kind, {rect})` (the field the camera actually shows: a 'prep' camera on rows ≤ 6 = `bossPrep`); the background plane is extended with mirrored copies and the clear colour matches the fog (no visible edge at any aspect); battle crates live in their own group (survive scene rebuilds) and follow the board mode (`switchableBox`: 3D mesh ⇄ 2D box on a mode switch or a lost WebGL context); quality 'low' drops shadows; `?board=2d|3d` overrides. The direction wheel's range stripes sit between the board canvas and the unit canvas.

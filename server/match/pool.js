@@ -16,11 +16,12 @@
 // (`extra`, after its own): one player's 自选 stock (0.2.0, player/diy.js diyRollEntries) — weighted by its copies like
 // any chess, drawn by that player's shop only.
 
-import { banCandidates, normalizeBanConfig, bannedByBonds } from '../../shared/banConfig.js';
+import { banCandidates, normalizeBanConfig, validBanConfig, bannedByBonds } from '../../shared/banConfig.js';
 
 /**
- * Opening filters (2026-10-23): disjoint hard/soft cores and add-ons, uniformly sampled from active positive-weight
- * candidates. Hard removes any natural member. A single-core-only member also follows soft bans; other soft bans
+ * Opening filters: disjoint hard/soft cores and add-ons. Random mode samples active positive-weight candidates;
+ * manual mode uses exactly the validated lists without consuming setup RNG. Hard removes any natural member.
+ * A single-core-only member also follows soft bans; other soft bans
  * require both label classes and every natural label filtered. Addon-only members leave when all their addons are filtered.
  * Static mode exclusions retain their independent all-label rule.
  * @param {import('./gamedata.js').GameData} gd
@@ -30,10 +31,14 @@ import { banCandidates, normalizeBanConfig, bannedByBonds } from '../../shared/b
 export function drawDisabledBonds(gd, rng, config = gd.bans(gd.difficulty)) {
   const staticOff = [...gd.modeInactiveBonds].filter((b) => gd.bond(b)).sort();
   const candidates = banCandidates(gd.bondIds.map(b => gd.bond(b)), staticOff);
-  const counts = normalizeBanConfig(config, { core: candidates.core.length, addon: candidates.addon.length });
-  const core = sample(candidates.core, counts.hardCore + counts.softCore, rng);
-  const hard = core.slice(0, counts.hardCore).sort(), soft = core.slice(counts.hardCore).sort();
-  const addon = sample(candidates.addon, counts.addon, rng).sort();
+  const limits = { core: candidates.core.length, addon: candidates.addon.length };
+  if (config?.mode === 'manual' && !validBanConfig(config, limits, candidates)) throw new Error('invalid manual ban configuration');
+  const counts = normalizeBanConfig(config, limits, candidates);
+  // Keep the random path's two shuffles, including when a count is zero: setup RNG replay depends on them.
+  const core = counts.mode === 'manual' ? null : sample(candidates.core, counts.hardCore + counts.softCore, rng);
+  const hard = counts.mode === 'manual' ? counts.hardCoreIds.slice() : core.slice(0, counts.hardCore).sort();
+  const soft = counts.mode === 'manual' ? counts.softCoreIds.slice() : core.slice(counts.hardCore).sort();
+  const addon = counts.mode === 'manual' ? counts.addonIds.slice() : sample(candidates.addon, counts.addon, rng).sort();
   const drawn = [...hard, ...soft, ...addon].sort();
   const banned = [];
   for (const id of gd.visibleChess) {

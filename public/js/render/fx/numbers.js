@@ -36,7 +36,7 @@ const NUM_CROWD = 6;          // more live numbers than this around a spot → s
 const NUM_LANES = Object.freeze([0, -1, 1, -2, 2]);   // lane order (lane widths from the unit's head)
 
 /** Screen scale of a number's text (24 px font) at `s` px per tile. */
-const numScale = (s, big, style) => clamp(s / 115, 0.42, 1.05) * (big ? 1.35 : 1) * (style === 'heal' ? 0.9 : 1);
+const numScale = (s, big, style) => Math.max(0.5, clamp(s / 115, 0.42, 1.05) * (style === 'heal' ? 0.9 : 1)) * (big ? 1.35 : 1);
 
 /** Characters of a damage number as drawn (heals get a '+'; a yellow MISS is four letters). */
 const numChars = (v, style) => (style === 'miss' ? 4 : String(Math.round(v)).length + (style === 'heal' ? 1 : 0));
@@ -61,9 +61,9 @@ export class FxNumbers {
     const tint = HIT_TINT[style] || 0xffffff;
     const big = view.maxHp > 0 && amount >= view.maxHp * 0.18;
     const melee = !!srcView && this._slashAt === srcView.id;
-    this.particle('glow', px, py, { tint, life: 0.18, s0: (s / 128) * (big ? 1.0 : 0.6), s1: (s / 128) * (big ? 1.5 : 0.9), a0: 0.9, a1: 0 });
+    this.particle('glow', px, py, { tint, life: 0.18, s0: (s / 128) * (big ? 1.0 : 0.6), s1: (s / 128) * (big ? 1.5 : 0.9), a0: 0.6, a1: 0 });
     if (melee) { this._slashAt = null; this._slash(view, srcView, px, py, s, style, big); }
-    this.burst(px, py, s, big ? 8 : melee ? 6 : 4, tint, { speed: melee ? 2.8 : 2.4, size: big ? 0.6 : 0.46 });
+    this.burst(px, py, s, big ? 6 : melee ? 4 : 3, tint, { speed: melee ? 2.8 : 2.4, size: big ? 0.6 : 0.46 });
     if (srcView && this.ctx.subProfOf && SPLASH_SUBS.has(this.ctx.subProfOf(srcView.info?.defId, srcView.info))) {
       if (!this._lastRing || this.time - this._lastRing > 0.08) {
         this._lastRing = this.time;

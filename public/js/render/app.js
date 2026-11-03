@@ -146,7 +146,7 @@ import { pickOnTile, pickBattle, hitTiles } from './pick.js';
 import { promotionsOf } from './promote.js';
 import { ensurePixi } from './app/pixi.js';
 import { pieceDirOf, pickUnitOf } from './app/pick.js';
-import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, RANGE_GROUPS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, CHAIN_KINDS, DROP_PENDING_MS, DEPLOY_REPLAY_MS } from './app/tune.js';
+import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, RANGE_GROUPS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, CHAIN_KINDS, DROP_PENDING_MS, DEPLOY_REPLAY_MS, createBoardFrameGate } from './app/tune.js';
 import { boardPreference, switchableBox, bandFor, fieldRows, boardArea, viewKind, penShown, leaderShown } from './app/view.js';
 import { renderInfo, FORCED_EXIT, showsDeathFx } from './app/info.js';
 import { resolveAssets, makeData, withTimeout, QUALITY_RES, BOARD_RES, releaseGl } from './app/host.js';
@@ -157,6 +157,15 @@ export { PEN_CAMERA_MS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, DEPLOY_REPLAY_MS } fr
 export { viewKind, boardArea, bandFor, fieldRows, penShown, leaderShown, boardPreference, switchableBox } from './app/view.js';
 export { FORCED_EXIT, showsDeathFx, renderInfo } from './app/info.js';
 export { releaseGl } from './app/host.js';
+
+/** Warm shared downloads/parsing in the room, without allocating a renderer, canvas or model reference. */
+export async function preloadFieldResources() {
+  await ensurePixi();
+  const assets = resolveAssets();
+  await Promise.all([assets.ready?.(), assets.local?.()]);
+  if (await boardArtListed(assets)) await Promise.all([loadThree(), loadBoardPack(assets)]);
+  if (document.fonts?.load) await Promise.all([document.fonts.load('700 40px Bender'), document.fonts.load('700 40px Oxanium')]);
+}
 
 /**
  * Create the battlefield view inside `host` (an element sized by CSS; the canvas fills it).
@@ -1697,6 +1706,7 @@ export async function createFieldView(host, options = {}) {
   // ---- frame --------------------------------------------------------------------------------------------------
 
   let clock = 0;
+  const boardFrameDue = createBoardFrameGate();
   let cpuMs = 0;
   let frameNo = 0;
   let impInterval = 0;
@@ -1765,7 +1775,7 @@ export async function createFieldView(host, options = {}) {
       stepCamera(now);
       if (board3d) {
         if (board3d.lost) onBoard3dLost();
-        else board3d.render(cam, clock);
+        else if (boardFrameDue(now, cam, board3d, settings.quality)) board3d.render(cam, clock);
       }
       tiles.project(cam);
       updateBackdrop(clock);
@@ -1858,7 +1868,10 @@ export async function createFieldView(host, options = {}) {
   const offAssets = typeof assets.onChange === 'function' ? assets.onChange(onAssets) : null;
   setupCleanup.push(() => offAssets?.());
   const onVisible = () => {
-    if (destroyed || globalThis.document?.visibilityState !== 'visible') return;
+    if (destroyed) return;
+    if (globalThis.document?.visibilityState === 'hidden') { app.stop(); return; }
+    lastNow = performance.now();
+    app.start();
     retryBoard();
     if (stageRec) useOfficialScene(stageRec);
     if (assets.loaded === false && typeof assets.ready === 'function') assets.ready();
@@ -1867,6 +1880,7 @@ export async function createFieldView(host, options = {}) {
     leader?.view.retryAssets?.();
   };
   globalThis.document?.addEventListener?.('visibilitychange', onVisible);
+  if (globalThis.document?.visibilityState === 'hidden') app.stop();
   setupCleanup.push(() => globalThis.document?.removeEventListener?.('visibilitychange', onVisible));
 
   // ---- public API ---------------------------------------------------------------------------------------------

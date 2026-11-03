@@ -1,0 +1,168 @@
+/* Waiting room: one utility row, one configuration row, integrated identity cards, four equal launch entries. */
+.room-screen .room-topbar { display: flex; justify-content: space-between; height: .78rem; min-height: 58px; gap: .14rem; padding: .08rem .32rem; }
+.room-topbar .topbar__left { flex-wrap: nowrap; gap: .14rem; flex: 1; }
+.room-heading { min-width: 0; display: flex; flex-direction: column; gap: .025rem; }
+.room-topbar .topbar__title { font-size: max(.24rem, 15px); gap: .14rem; white-space: nowrap; }
+.room-topbar .topbar__right { gap: .08rem; flex: none; }
+.room-topbar .btn { min-width: 30px; min-height: 30px; }
+.room-topbar .settings-btn, .room-topbar .room-guide { padding: .08rem; }
+.room-topbar .invite { display: flex; padding: .05rem .12rem; gap: .12rem; border: 0; background: transparent; }
+.room-topbar .invite::before, .room-topbar .invite::after, .room-topbar .invite__label { display: none; }
+.room-topbar .invite__code { gap: .02rem; }
+.room-topbar .invite__code span { width: auto; height: auto; min-width: .2rem; padding: 0; font-size: max(.25rem, 16px); border: 0; background: none; }
+.room-topbar .invite__btns { display: flex; flex-direction: row; gap: .04rem; }
+.room-topbar .invite__btns .btn { font-size: max(.12rem, 10px); padding: .04rem .07rem; }
+.room-config { display: flex; flex: none; align-items: center; gap: .18rem; padding: .07rem .32rem; min-height: 46px; background: #14221ef2; border-block: 1px solid var(--line); }
+.room-config__difficulty { flex: none; }
+.room-config .dpick__opt { height: .36rem; min-height: 30px; padding: 0 .12rem; font-size: max(.14rem, 11px); letter-spacing: 0; }
+.room-config .dpick__opt .icon { width: max(.16rem, 12px); height: max(.16rem, 12px); }
+.room-config .stage-picker { position: relative; flex: 1; min-width: 0; padding: 0; border: 0; background: transparent; gap: .08rem; }
+.room-config .stage-picker__copy { display: flex; align-items: center; gap: .08rem; min-width: 0; width: 100%; }
+.room-config .stage-picker__copy label { flex: none; font-size: max(.13rem, 11px); margin: 0; }
+.room-config .stage-picker select { min-width: 0; width: 100%; min-height: 30px; font-size: max(.13rem, 11px); }
+.stage-picker__details { position: relative; flex: none; font-size: max(.12rem, 11px); }
+.stage-picker__details summary { cursor: pointer; padding: .06rem; white-space: nowrap; color: var(--text-lo); }
+.stage-picker__details > div { position: absolute; top: 100%; right: 0; z-index: 20; width: min(420px, 80vw); padding: .18rem; background: #152720; border: 1px solid var(--line-3); box-shadow: 0 8px 24px #0009; }
+.stage-picker__details figure { margin: .1rem 0 0; }
+.room-config .ailast { flex: none; }
+.room-config .ailast .t-dim { display: none; }
+.room-screen .seats { width: min(100%, 18.8rem); align-self: center; flex: 1; min-height: 4.5rem; grid-template-columns: repeat(4,minmax(0,1fr)); grid-template-rows: minmax(0,7.2rem); gap: .22rem; padding: .22rem .32rem; }
+.room-screen .seats--solo { grid-template-columns: minmax(2.8rem,4.2rem) minmax(0,7.4rem); }
+.room-screen .room-bar { display: block; min-height: 0; padding: .08rem .18rem max(.1rem,env(safe-area-inset-bottom)); }
+.room-screen .room-bar::before { left: .32rem; right: .32rem; }
+.room-screen .room-bar__right { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); width: 100%; margin-inline: auto; gap: .12rem; }
+.room-bar__right > .btn, .room-launch, .room-launch > .tt-anchor, .room-launch > .tt-anchor > .btn { min-width: 0; width: 100%; max-width: 100%; }
+.room-launch { position: relative; display: flex; flex-direction: column; }
+.room-launch > .tt-anchor { display: flex; flex: 1; }
+.room-bar__right > .btn, .room-launch .btn { min-height: max(.56rem,44px); height: 100%; }
+.room-screen .room-bar .btn--xl { min-width: 0; letter-spacing: .08em; }
+.room-launch__ready { font-size: max(.12rem,11px); letter-spacing: 0; }
+.room-screen .room-launch__status, .room-screen .room-bar .art-button__badge { position: absolute; width: 1px; height: 1px; min-height: 0; padding: 0 !important; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.room-bar .art-button--ready { min-height: 0; padding: .025rem .04rem; }
+.room-screen .room-bar .btn.art-button--ready { min-height: 44px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.room-screen .room-bar .art-button--ready::after { display: none; }
+.room-bar .art-button--ready > .btn__label { display: flex; flex-direction: column; gap: 0; align-self: stretch; justify-content: center; width: 100%; }
+.room-bar .art-button--ready .art-image { width: 100%; max-width: none; flex: none; }
+.room-bar .art-button__badge { width: 100%; min-height: 1.4em; line-height: 1.4; font-size: max(.12rem,12px); padding: 2px 4px !important; }
+.room-bar .art-button__badge:empty { display: none; }
+.room-bar .room-bans .num { font-size: max(.12rem,11px); }
+/* Atlas rows are 8:3. Fill each column while limiting picture height to 19vh on short windows. */
+[data-art-ui] .room-bar .art-button--ready .art-image { width: min(100%,calc(19vh * 8 / 3)); height: auto; max-width: 100%; }
+.room-screen .room-bar .art-button--ready > .btn__label { align-items: center; }
+
+/* Card anatomy stays the same across states; theme changes the actual portrait and seal silhouette. */
+.seat.doctor-card { position: relative; display: grid; align-items: stretch; grid-template-rows: auto minmax(0,1fr) auto auto; gap: .08rem; padding: .2rem; overflow: hidden; isolation: isolate; }
+.doctor-card__paper { position: absolute; z-index: -1; inset: 7px; pointer-events: none; border: 1px solid #ffffff0d; }
+.doctor-card .seat__head { position: relative; z-index: 2; margin: 0; padding: .02rem 0; border: 0; }
+.doctor-card__identity, .doctor-card__crown { margin-left: auto; font-size: max(.12rem,10px); color: var(--mint-400); }
+.doctor-card__crown { color: var(--gold); }
+.doctor-card__identity + .doctor-card__identity { margin-left: .06rem; }
+.doctor-card__portrait { position: relative; min-height: 0; }
+.doctor-card__portrait-button, .doctor-card__invite { position: absolute; inset: .1rem 6%; display: grid; place-items: center; min-width: 0; min-height: 0; padding: 0; overflow: hidden; border: 1px solid var(--line-3); background: radial-gradient(ellipse at 50% 30%,#53796b66,#101b16); color: var(--text-hi); }
+.doctor-card__portrait-button:disabled { opacity: 1; cursor: default; }
+.doctor-card__portrait-button .avatar { width: 100%; height: 100%; border: 0; background: transparent; box-shadow: none; }
+.doctor-card__portrait-button .avatar::before, .doctor-card__portrait-button .avatar::after, .doctor-card__portrait-button .avatar__badge, .doctor-card__portrait-button .avatar__tag { display: none; }
+.doctor-card__portrait-button .avatar__glyph { font-size: clamp(40px,1.1rem,120px); }
+.doctor-card__portrait-image { width: 100%; height: 100%; min-height: 0; object-fit: cover; object-position: 50% 22%; }
+.doctor-card__picture { display: block; position: absolute; inset: 0; width: 100%; height: 100%; }
+.doctor-card__edit { position: absolute; right: 15%; bottom: 8%; display: grid; place-items: center; width: max(.28rem,24px); height: max(.28rem,24px); background: #101a16d9; border-radius: 50%; color: white; opacity: .8; }
+.doctor-card__edit .icon { width: 65%; height: 65%; }
+.doctor-card__signature { display: flex; position: relative; flex-direction: column; align-items: center; gap: .04rem; min-width: 0; padding: .08rem .02rem 0; }
+.doctor-card__eyebrow { font: 600 max(.1rem,8px)/1.5 var(--font-display); letter-spacing: .2em; opacity: .55; }
+.doctor-card .seat__name { font-size: max(.27rem,14px); max-width: 100%; }
+.doctor-card__rule { display: block; width: 70%; height: 1px; margin-top: .06rem; background: linear-gradient(90deg,transparent,currentColor,transparent); opacity: .3; }
+.doctor-card .seat__foot { position: relative; min-height: .68rem; margin: 0; padding: .04rem 0; border: 0; }
+.doctor-card__seal { display: flex; align-items: center; justify-content: center; gap: .08rem; }
+.doctor-card .seat__state { color: inherit; font-size: max(.17rem,11px); letter-spacing: .06em; }
+.doctor-card__seal-symbol { display: grid; place-items: center; width: max(.4rem,26px); height: max(.4rem,26px); border: 1px solid currentColor; border-radius: 50%; }
+.doctor-card__seal-symbol .icon { width: 58%; height: 58%; }
+.doctor-card__seal--ready { color: var(--mint-400); }
+.doctor-card__seal--host { color: var(--gold); }
+.doctor-card__seal--waiting { color: var(--text-lo); }
+.doctor-card__seal--offline { color: var(--orange); }
+.doctor-card__invite { display: flex; flex-direction: column; justify-content: center; gap: .13rem; border-style: dashed; color: var(--text-lo); }
+.doctor-card__invite > .icon { width: .7rem; height: .7rem; opacity: .6; }
+.doctor-card__invite > span { font-size: max(.16rem,11px); }
+.doctor-card__empty-note { font-size: max(.13rem,10px); opacity: .65; }
+.doctor-card .doctor-card__remove { opacity: .6; }
+.doctor-card__sprig { position: absolute; top: 1%; bottom: -5%; width: 27%; z-index: 2; pointer-events: none; display: none; }
+.doctor-card__sprig--left { left: -4%; }
+.doctor-card__sprig--right { right: -4%; transform: scaleX(-1); }
+.room-avatar-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(76px,1fr)); gap: 8px; margin-top: 12px; }
+.room-avatar-grid button { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; padding: 6px; border: 1px solid var(--line-2); background: #15241e; color: var(--text-hi); }
+.room-avatar-grid button[aria-pressed="true"] { border-color: var(--mint-400); }
+.room-avatar-grid img { width: 56px; height: 56px; object-fit: contain; }
+.room-avatar-grid button > span { font-size: 12px; }
+
+/* H4: ivory invitation, oval cameo among botanical branches, signature and floral wax seal. */
+[data-art-ui^="paperGarden"] .doctor-card { color: #57405f; background: linear-gradient(145deg,#fff8e9,#e9dfe3 75%,#d9c5dc); border: 1px solid #a98baf; border-radius: .14rem .14rem .3rem .08rem; box-shadow: 0 .12rem .3rem #0007,inset 0 0 0 4px #e9d9ca; }
+[data-art-ui^="paperGarden"] .doctor-card__paper { background: repeating-linear-gradient(0deg,#96749a06 0 1px,transparent 1px 4px),radial-gradient(ellipse at 0 100%,#d5b1d55c,transparent 65%); border: 1px solid #bc9d92; border-radius: .1rem; }
+[data-art-ui^="paperGarden"] .doctor-card .seat__filigree { opacity: .4; }
+[data-art-ui^="paperGarden"] .doctor-card .seat__no, [data-art-ui^="paperGarden"] .doctor-card__identity { color: #765681; }
+[data-art-ui^="paperGarden"] .doctor-card__crown { color: #9e7829; }
+[data-art-ui^="paperGarden"] .doctor-card__portrait-button, [data-art-ui^="paperGarden"] .doctor-card__invite { inset: .1rem 7%; border-radius: 50% 50% 46% 46%; border: 3px double #af8d85; background: radial-gradient(ellipse at 50% 30%,#fbf3e7,#bba4be); box-shadow: 0 0 0 5px #f7efdc,0 0 0 6px #b1a087; color: #735c7c; }
+[data-art-ui^="paperGarden"] .doctor-card__sprig { display: block; background: url('/icons/card-botanical.svg') center / 100% 100% no-repeat; }
+[data-art-ui^="paperGarden"] .doctor-card__signature { padding-top: .1rem; }
+[data-art-ui^="paperGarden"] .doctor-card .seat__name { font-family: 'Noto Serif SC','SimSun',serif; color: #573b64; }
+[data-art-ui^="paperGarden"] .doctor-card__seal { padding: .03rem .14rem; background: #f5eada; border: 1px solid #bda899; transform: rotate(-3deg); border-radius: 0 0 .12rem 0; color: #806242; }
+[data-art-ui^="paperGarden"] .doctor-card__seal--ready { background: #eee1ed; color: #724e82; }
+[data-art-ui^="paperGarden"] .doctor-card__seal--ready .doctor-card__seal-symbol { background: radial-gradient(circle at 35% 25%,#b580ad,#6e436f); color: #fff4db; border: 3px double #d4b095; border-radius: 42% 58% 48% 52%; box-shadow: 0 2px 3px #6d4c6b55; transform: rotate(10deg); }
+[data-art-ui^="paperGarden"] .doctor-card__seal--offline { color: #a14541; border-style: dashed; }
+[data-art-ui^="paperGarden"] .doctor-card .doctor-card__remove { color: #614967; }
+
+/* B: ink portrait ring and red contract stamp; deliberately no metallic portrait grid. */
+[data-art-ui="inkSeal"] .doctor-card { background: radial-gradient(ellipse at 5% 0,#3b363030,transparent 50%),linear-gradient(120deg,#ede5d2,#d6cfbc); color: #302e2a; border: 1px solid #a19279; border-radius: 0; box-shadow: 0 .1rem .25rem #0008; }
+[data-art-ui="inkSeal"] .doctor-card__paper { border: 1px solid #716a5b; background: repeating-linear-gradient(40deg,#00000004 0 1px,transparent 1px 4px); }
+[data-art-ui="inkSeal"] .doctor-card .seat__no { color: #342c26; border-color: #a74032; }
+[data-art-ui="inkSeal"] .doctor-card__identity { color: #962f27; }
+[data-art-ui="inkSeal"] .doctor-card__portrait-button, [data-art-ui="inkSeal"] .doctor-card__invite { border: 7px solid #272825; border-radius: 46% 54% 41% 59% / 48% 44% 56% 52%; background: radial-gradient(ellipse,#b8b5a8,#555b52); box-shadow: 3px 1px 0 #272825,-4px -2px 0 #615d4b; }
+[data-art-ui="inkSeal"] .doctor-card .seat__name { color: #282620; font-family: 'Noto Serif SC','SimSun',serif; }
+[data-art-ui="inkSeal"] .doctor-card__seal { padding: .04rem .12rem; color: #3e3931; border: 2px solid currentColor; transform: rotate(-5deg); }
+[data-art-ui="inkSeal"] .doctor-card__seal--ready { color: #ac3026; border-style: double; border-width: 4px; }
+[data-art-ui="inkSeal"] .doctor-card__seal-symbol { border-radius: 0; }
+[data-art-ui="inkSeal"] .doctor-card__invite { color: #3f3b32; }
+[data-art-ui="inkSeal"] .doctor-card .seat__filigree { opacity: .2; }
+
+/* D: illustrated collector card, large portrait breaks into a slanted nameplate and a ready shield. */
+[data-art-ui="animeSquad"] .doctor-card { background: radial-gradient(circle,#527c6c33 1px,transparent 2px) 0 0 / 7px 7px,linear-gradient(135deg,#1c3f39,#112423); border: 3px solid #749b8a; border-radius: .04rem; box-shadow: .05rem .05rem 0 #d66e54; }
+[data-art-ui="animeSquad"] .doctor-card__portrait { padding: 0; }
+[data-art-ui="animeSquad"] .doctor-card__portrait-button, [data-art-ui="animeSquad"] .doctor-card__invite { inset: 0; border: 0; border-radius: 0; background: radial-gradient(ellipse at 50% 30%,#9cb9a3,#29463d); clip-path: polygon(0 0,100% 0,100% 90%,89% 100%,0 100%); }
+[data-art-ui="animeSquad"] .doctor-card__signature { margin-top: -.08rem; padding: .08rem .04rem; color: #17392f; background: #efe4c9; transform: rotate(-2deg); box-shadow: .04rem .04rem 0 #dd765c; }
+[data-art-ui="animeSquad"] .doctor-card .seat__name { color: #17392f; font-weight: 900; }
+[data-art-ui="animeSquad"] .doctor-card__rule { display: none; }
+[data-art-ui="animeSquad"] .doctor-card__seal-symbol { border-radius: 0; clip-path: polygon(50% 0,100% 20%,90% 75%,50% 100%,10% 75%,0 20%); background: #4c6c60; }
+[data-art-ui="animeSquad"] .doctor-card__seal--ready .doctor-card__seal-symbol { background: #c56848; color: #fff1c8; }
+[data-art-ui="animeSquad"] .doctor-card .seat__filigree { display: none; }
+.doctor-card__portrait-button:focus-visible, .doctor-card__invite:focus-visible, .room-avatar-grid button:focus-visible { outline: 3px solid var(--mint-500); outline-offset: 4px; }
+@media(max-width:1100px) {
+  .doctor-card__portrait-image { object-fit: contain; object-position: center; }
+  .room-topbar .ping { display: none; }
+  .room-topbar .invite__btns .btn__label { display: none; }
+  .room-screen .room-bar__right { grid-template-columns: repeat(4,minmax(0,1fr)); }
+  .room-screen .seats { flex: 1 0 auto; grid-template-rows: 4.8rem; }
+}
+@media(max-width:1000px) {
+  .room-bar .art-button--ready { min-height: 44px; }
+  .room-bar .art-button--ready .art-image { display: none; }
+  .room-bar .art-button--ready .art-button__sr { position: static; width: auto; height: auto; margin: 0; clip-path: none; overflow: visible; white-space: normal; font-size: 12px; }
+}
+@media(max-width:800px) {
+  .room-topbar .topbar__title .difficulty-tag, .room-topbar .micro { display: none; }
+  .room-topbar .invite { padding: 0; gap: .04rem; }
+  .room-config { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; padding: 6px 12px; }
+  .room-config .stage-picker { grid-row: 2; grid-column: 1/-1; }
+  .room-config .ailast { grid-row: 1; grid-column: 2; }
+  .room-screen .seats { padding: .2rem; gap: .15rem; grid-template-rows: 5.5rem; }
+  .seat.doctor-card { padding: .12rem; gap: .05rem; }
+  .doctor-card__eyebrow { letter-spacing: 0; }
+  .doctor-card__portrait { padding: .08rem .05rem; }
+  .doctor-card .seat__no { font-size: 13px; }
+  .doctor-card .seat__head .micro { display: none; }
+  .room-screen .room-bar { padding: 6px 8px max(12px,env(safe-area-inset-bottom)); }
+  .room-screen .room-bar__right { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 5px; }
+  .room-bar .art-button--ready { min-height: 44px; }
+  .room-bar .art-button--ready .art-image { display: none; }
+  .room-bar .art-button--ready .art-button__sr { position: static; width: auto; height: auto; margin: 0; clip-path: none; overflow: visible; white-space: normal; font-size: 12px; }
+  .room-bar .art-button--ready > .btn__label { justify-content: center; }
+}
+@media(prefers-reduced-motion:reduce) { .doctor-card { animation: none; transition: none; } }

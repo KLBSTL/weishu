@@ -107,6 +107,8 @@ export function bondIconUrl(m, bondId) {
 export function bandIconUrl(m, bandId) {
   if (bandId === 'band_recruit_sarkaz') return '/icons/recruit-sarkaz.svg';
   if (bandId === 'band_recruit_columbia') return '/icons/recruit-columbia.svg';
+  // The custom squad has no official strategy icon; reuse its leader's existing portrait.
+  if (bandId === 'band_glady') return str(obj(obj(m)?.bands)?.[bandId]) || chessAvatarUrl(m, { charId: 'char_474_glady' });
   return bandId ? str(obj(obj(m)?.bands)?.[bandId]) : null;
 }
 

@@ -9,6 +9,7 @@
                       |unite[,through][,helper|,dead] (SETTLE: the result box after a 联防 — your charge from m.public.uniteResult)
                       |overtime|drain (boss rounds: level time over / overtime drain) |paused (solo battles)
                       |funny (标准: 本局禁用 bonds) |morph (变形同构体 in the hand / shop, a wearer on the board) |harmony (缪尔赛思 on the board)
+                      |report-stress|report-empty (RESULT: long names/large numbers/missing lineup/title, or empty report)
               &shot=1 (hide the switcher)  &render=engine|fallback (default: the Pixi engine, DOM fallback if it fails)
   Keyboard: ` toggles the switcher.
 -->
@@ -16,6 +17,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0c0f0e" />
+  <meta name="color-scheme" content="dark" />
   <title>Game Mock · 卫戍协议：盟约</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="/fonts/fonts.css" />
@@ -30,6 +33,14 @@
   <link rel="stylesheet" href="/css/screens/guide.css" />
   <link rel="stylesheet" href="/css/emotes.css" />
   <link rel="stylesheet" href="/css/devices.css" />
+  <link rel="stylesheet" href="/css/art-ui.css" />
+  <link rel="stylesheet" href="/css/room-cards.css" />
+  <link rel="stylesheet" href="/css/interface.css" />
+  <link rel="stylesheet" href="/css/appearance.css" />
+  <link rel="stylesheet" href="/css/handdrawn.css" data-paper-style media="not all" />
+  <link rel="stylesheet" href="/css/handdrawn-game.css" data-paper-style media="not all" />
+  <link rel="stylesheet" href="/css/handdrawn-library.css" data-paper-style media="not all" />
+  <link rel="stylesheet" href="/css/paper-feedback.css" data-paper-style media="not all" />
   <script type="importmap">
     { "imports": { "preact": "/vendor/preact.module.js", "preact/hooks": "/vendor/hooks.module.js", "htm": "/vendor/htm.module.js" } }
   </script>

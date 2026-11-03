@@ -11,15 +11,20 @@
 import { useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Modal, Button, Icon, MicroLabel } from './components.js';
 import { GIcon } from './gameComponents.js';
-import { createStore, useStore, loadPref, savePref, store } from '../store.js';
+import { createStore, useStore, loadPref, savePref, store, selectRoute } from '../store.js';
 import { sanitizeSettings, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey, VOICE_LANGS } from './gameLogic.js';
 import { audio } from '../audio.js';
 import { openGuide } from './guide.js';
 import { detectFeatures } from './device.js';
 import { LangToggle, machineTranslationNote } from './lang.js';
-import { t, tc, N_ } from '../../../shared/i18n.js';
+import { t, tc, N_, getLang } from '../../../shared/i18n.js';
+import { ART_THEMES } from './gameLogic/artThemes.js';
+import { ArtImage } from './art.js';
 import { errorCount, currentBattle, diagnosticsText } from '../diag.js';
 import { copyText } from './clipboard.js';
+import { openAppearance } from './standbyState.js';
+import { applyPaperPresentation } from './paperFeedback.js';
+import { menuArtActive } from './gameLogic/settings.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -42,6 +47,62 @@ export function updateSettings(patch) {
 /** Preact hook: current settings. */
 export const useSettings = () => useStore((s) => s, Object.is, settingsStore);
 
+/** Applies only the current scene's opt-in skin, synchronously before paint; menu-art preferences stay separate. */
+export function PaperStyleHost({ inMatch = false }) {
+  const s = useSettings();
+  useLayoutEffect(() => {
+    applyPaperPresentation(s, inMatch);
+  }, [inMatch, s.paperOutside, s.paperInside]);
+  return null;
+}
+
+/** Local-only theme on every route. */
+export function ArtUiHost() {
+  const s = useSettings();
+  const inMatch = useStore(s => selectRoute(s) === 'game');
+  const enabled = menuArtActive(s, inMatch);
+  useLayoutEffect(() => {
+    if (enabled) document.documentElement.dataset.artUi = s.artUiTheme;
+    else delete document.documentElement.dataset.artUi;
+    return () => { delete document.documentElement.dataset.artUi; };
+  }, [enabled, s.artUiTheme]);
+  return null;
+}
+
+/** Keep real text until the optional image loads, and on missing art or another language. */
+export function ArtButton({ art, badge, children, class: cls, icon, iconSlot, ...props }) {
+  const s = useSettings();
+  const inMatch = useStore(s => selectRoute(s) === 'game');
+  const [loaded, setLoaded] = useState(null);
+  const [failed, setFailed] = useState(null);
+  const key = `${s.artUiTheme}:${art}`;
+  const enabled = menuArtActive(s, inMatch) && getLang() === 'zh' && failed !== key;
+  const ready = enabled && loaded === key;
+  return html`<${Button} ...${props} icon=${ready || iconSlot ? null : icon}
+      class=${cx(cls, enabled && 'art-button', ready && 'art-button--ready')}>
+    ${enabled ? html`<${ArtImage} key=${key} theme=${s.artUiTheme} kind=${art}
+      onLoad=${() => setLoaded(key)} onError=${() => setFailed(key)} />` : null}
+    ${!ready && iconSlot ? iconSlot : null}
+    <span class=${ready ? 'art-button__sr' : 'art-button__text'}>${children}</span>
+    ${badge ? html`<span class="art-button__badge">${badge}</span>` : null}
+  <//>`;
+}
+
+export function ArtThemePicker({ settings: s }) {
+  return html`<section class="set-art" aria-label=${t('艺术主题')}>
+    <${Toggle} label=${t('界面艺术效果')} micro="INTERFACE ART" value=${s.artUiEnabled}
+      onChange=${value => updateSettings({ artUiEnabled: value })} />
+    <p class="set-hint">${t('开启后美化入口按钮与玩家卡片，仅在本机生效。')}</p>
+    <div class="set-art__themes" role="radiogroup" aria-label=${t('艺术主题')}>
+      ${ART_THEMES.map(theme => html`<button key=${theme.id} type="button" role="radio"
+        data-art-theme=${theme.id} aria-checked=${s.artUiTheme === theme.id ? 'true' : 'false'}
+        class=${s.artUiTheme === theme.id ? 'is-selected' : ''} onClick=${() => updateSettings({ artUiTheme: theme.id })}>
+        <${ArtImage} theme=${theme.id} /><span>${t(theme.name)}</span>
+      </button>`)}
+    </div>
+  </section>`;
+}
+
 /**
  * The label of the key a rebindable shortcut has right now ('R', 'Space' …) — the HUD's key hints (shop bar, ready /
  * pause, underframe). Read at render: the game screen re-renders when the settings dialog closes.
@@ -62,7 +123,7 @@ function Slider({ label, micro, value, onInput, icon }) {
 function Toggle({ label, micro, value, onChange }) {
   return html`<div class="set-row">
     <span class="set-row__label">${label}<${MicroLabel}>${micro}<//></span>
-    <button type="button" class=${`set-toggle${value ? ' is-on' : ''}`} role="switch" aria-checked=${value ? 'true' : 'false'}
+    <button type="button" class=${`set-toggle${value ? ' is-on' : ''}`} role="switch" aria-label=${label} aria-checked=${value ? 'true' : 'false'}
       onClick=${() => onChange(!value)}><i></i><span>${value ? tc('toggle', '开启') : tc('toggle', '关闭')}</span></button>
   </div>`;
 }
@@ -213,17 +274,62 @@ function DiagSection() {
 export function SettingsModal({ open, onClose }) {
   const s = useSettings();
   const [tested, setTested] = useState(false);
+  const [tab, setTab] = useState('display');
   const [touchUi] = useState(() => detectFeatures().coarse && !detectFeatures().fine);
+  const tabs = [
+    ['display', N_('画面与语言')], ['audio', N_('声音')], ['controls', N_('快捷键')],
+    ['diagnostics', N_('问题反馈')],
+  ];
+  const onTabKey = event => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+    const current = tabs.findIndex(([id]) => id === tab);
+    const index = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+      : step ? (current + step + tabs.length) % tabs.length : null;
+    if (index == null) return;
+    event.preventDefault();
+    const id = tabs[index][0];
+    setTab(id);
+    event.currentTarget.querySelector(`#settings-tab-${id}`)?.focus();
+  };
   const mtNote = machineTranslationNote(); // a pack marked as machine translation says so under the switch
-  return html`<${Modal} open=${open} onClose=${onClose} title=${t('设置')} micro="SETTINGS" width="7.4rem"
-    actions=${html`<${Button} variant="secondary" icon="book" class="set-guide" onClick=${() => openGuide(0)}>${t('玩法说明')}<//>
+  const showAppearance = () => {
+    onClose();
+    // Let the settings dialog unmount and restore its trigger before the independent dialog captures focus.
+    queueMicrotask(openAppearance);
+  };
+  return html`<${Modal} open=${open} onClose=${onClose} title=${t('设置')} micro="SETTINGS" width="min(860px,calc(100vw - 24px))" class="settings-dialog"
+    actions=${html`<${Button} variant="secondary" icon="edit" class="set-appearance" data-testid="settings-appearance" aria-haspopup="dialog" onClick=${showAppearance}>${t('外观调整')}<//>
+      <${Button} variant="secondary" icon="book" class="set-guide" onClick=${() => openGuide(0)}>${t('玩法说明')}<//>
       <${Button} variant="primary" icon="check" onClick=${onClose}>${t('完成')}<//>`}>
-    <div class="set-list">
+    <div class="settings-layout">
+    <nav class="settings-nav" role="tablist" aria-label=${t('设置分类')} onKeyDown=${onTabKey}>
+      ${tabs.map(([id, label]) => html`<button key=${id} type="button" role="tab" id=${`settings-tab-${id}`} aria-controls="settings-panel" tabIndex=${tab === id ? 0 : -1}
+        aria-selected=${tab === id ? 'true' : 'false'} onClick=${() => setTab(id)}>${t(label)}</button>`)}
+    </nav>
+    <div class="set-list" role="tabpanel" id="settings-panel" aria-labelledby=${`settings-tab-${tab}`}>
+      ${tab === 'display' ? html`
       <div class="set-row">
         <span class="set-row__label">${t('语言')}<${MicroLabel}>LANGUAGE<//></span>
         <${LangToggle} class="set-lang" />
       </div>
       ${mtNote ? html`<p class="set-hint set-lang-note" data-testid="lang-mt-note">${mtNote}</p>` : null}
+      <${Toggle} label=${t('局外纸绘风界面')} micro="LOBBY PAPER STYLE" value=${s.paperOutside} onChange=${(v) => updateSettings({ paperOutside: v })} />
+      <${Toggle} label=${t('局内纸绘风界面')} micro="MATCH PAPER STYLE" value=${s.paperInside} onChange=${(v) => updateSettings({ paperInside: v })} />
+      <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
+      <${Toggle} label=${t('官方伤害数字')} micro="OFFICIAL NUMBERS" value=${s.officialDamageNumbers} onChange=${(v) => updateSettings({ officialDamageNumbers: v })} />
+      <p class="set-hint">${t('只显示达到官方暴击条件的红色数字。关闭时仍显示每一次命中。')}</p>
+      <${Toggle} label=${t('弹药数量')} micro="AMMO COUNT" value=${s.ammoCount} onChange=${(v) => updateSettings({ ammoCount: v })} />
+      <p class="set-hint">${t('弹药类技能开启时，在弹药条下方显示剩余弹药 / 总弹药数（如 13/14）。官方界面没有这个数字。')}</p>
+      <div class="set-row">
+        <span class="set-row__label">${t('画面质量')}<${MicroLabel}>QUALITY<//></span>
+        <div class="set-seg" role="radiogroup" aria-label=${t('画面质量')}>
+          ${QUALITY.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.quality === id ? 'true' : 'false'}
+            class=${s.quality === id ? 'is-on' : ''} onClick=${() => updateSettings({ quality: id })}>${t(label)}</button>`)}
+        </div>
+      </div>
+      <p class="set-hint">${t('卡顿时可尝试中、低画质；画质设置不改变战斗结果。')}</p>
+      ` : null}
+      ${tab === 'audio' ? html`
       <${Slider} label=${t('背景音乐')} micro="BGM" icon="play" value=${s.bgm} onInput=${(v) => updateSettings({ bgm: v })} />
       <${Slider} label=${t('干员语音')} micro="VOICE" icon="mic" value=${s.voice} onInput=${(v) => updateSettings({ voice: v })} />
       <div class="set-row">
@@ -236,21 +342,11 @@ export function SettingsModal({ open, onClose }) {
       <${Slider} label=${t('音效')} micro="SFX" icon="signal" value=${s.sfx}
         onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
       <${Toggle} label=${t('静音')} micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
-      <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
-      <${Toggle} label=${t('官方伤害数字')} micro="OFFICIAL NUMBERS" value=${s.officialDamageNumbers} onChange=${(v) => updateSettings({ officialDamageNumbers: v })} />
-      <p class="set-hint">${t('只显示达到官方暴击条件的红色数字。关闭时仍显示每一次命中。')}</p>
-      <${Toggle} label=${t('弹药数量')} micro="AMMO COUNT" value=${s.ammoCount} onChange=${(v) => updateSettings({ ammoCount: v })} />
-      <p class="set-hint">${t('弹药类技能开启时，在弹药条下方显示剩余弹药 / 总弹药数（如 13/14）。官方界面没有这个数字。')}</p>
-      <div class="set-row">
-        <span class="set-row__label">${t('画面质量')}<${MicroLabel}>QUALITY<//></span>
-        <div class="set-seg" role="radiogroup">
-          ${QUALITY.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.quality === id ? 'true' : 'false'}
-            class=${s.quality === id ? 'is-on' : ''} onClick=${() => updateSettings({ quality: id })}>${t(label)}</button>`)}
-        </div>
-      </div>
-      <${HotkeySection} keys=${s.keys} touchUi=${touchUi} />
-      <${DiagSection} />
-      <p class="set-hint">${touchUi ? t('触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向') : t('右键查看详情')}</p>
+      ` : null}
+      ${tab === 'controls' ? html`<${HotkeySection} keys=${s.keys} touchUi=${touchUi} />
+        <p class="set-hint">${touchUi ? t('触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向') : t('右键查看详情')}</p>` : null}
+      ${tab === 'diagnostics' ? html`<${DiagSection} />` : null}
+    </div>
     </div>
   <//>`;
 }

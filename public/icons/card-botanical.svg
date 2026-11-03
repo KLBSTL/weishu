@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 500">
+<defs><g id="flower"><g fill="#e7c6dc" stroke="#b78eaf" stroke-width="1"><ellipse cy="-12" rx="8" ry="13"/><ellipse cy="-12" rx="8" ry="13" transform="rotate(72)"/><ellipse cy="-12" rx="8" ry="13" transform="rotate(144)"/><ellipse cy="-12" rx="8" ry="13" transform="rotate(216)"/><ellipse cy="-12" rx="8" ry="13" transform="rotate(288)"/></g><circle r="5" fill="#d4ae64"/></g></defs>
+<g fill="none" stroke="#929a7a" stroke-width="2"><path d="M85 490C-30 360 45 280 68 218S150 85 80 8"/><path d="M37 386 8 330m34-59-22-62m58-12 58-38m-35-59 28-47"/></g>
+<g fill="#a9b294" stroke="#7e8f78" stroke-width="1"><path d="M28 358Q-8 346 12 316q25 5 16 42M43 300Q75 295 70 264q-31 1-27 36M72 219Q49 186 30 201q1 25 42 18M105 157q41-4 30-31-31-1-30 31M105 92Q69 85 79 62q32 0 26 30M65 427q43-2 37-30-28-6-37 30"/></g>
+<use href="#flower" transform="translate(24 326) rotate(-18)"/><use href="#flower" transform="translate(67 245) scale(.9)"/><use href="#flower" transform="translate(126 143) scale(.8)"/><use href="#flower" transform="translate(104 58) scale(.65)"/><use href="#flower" transform="translate(74 437) scale(.8)"/>
+</svg>

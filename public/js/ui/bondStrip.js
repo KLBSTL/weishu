@@ -123,6 +123,8 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   const countsHand = entry?.countsHand ?? b.countsHand;
   const next = nextThreshold(count, th);
   const hasNow = !off && !!(b.effectDescRaw || b.effectDesc);
+  const currentEffect = hasNow ? formatBondEffect(b, layers) : '';
+  const baseEffect = b.descRaw || b.desc;
   const at = place || (beside === 'left' ? 'beside' : 'left');
   // 调和's +1 in this count (the server's word), and the 调和 operators on that board who give it
   const harmony = !off && Number.isInteger(entry?.harmony) && entry.harmony > 0 ? entry.harmony : 0;
@@ -136,6 +138,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   return html`<div class=${cx('bpop', 'brackets', `bpop--${at}`, over && 'is-over', owner && 'is-other')} data-place=${at} data-owner=${owner || null}
       role="dialog" aria-label=${owner ? t('{owner} 的盟约：{name}', { owner, name: b.name }) : t('盟约：{name}', { name: b.name })}>
     <button type="button" class="bpop__close" aria-label=${t('关闭')} onClick=${onClose}><${Icon} name="close" /></button>
+    <div class="bpop__scroll">
     <header class="bpop__head">
       <div class=${cx('bpop__disc', active && 'is-active')}><${BondGlyph} bondId=${bondId} /></div>
       <div class="bpop__titles">
@@ -155,12 +158,15 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
     </div>
     ${hasNow ? html`<section class="bpop__sec bpop__sec--now">
       <h4>${t('当前效果')} ${b.noStack ? null : html`<small class="num">${t('（{layers} 层）', { layers })}</small>`}</h4>
-      <${RichText} as="p" text=${formatBondEffect(b, layers)} class="bpop__desc" />
+      <${RichText} as="p" text=${currentEffect} class="bpop__desc" />
     </section>` : null}
-    <section class="bpop__sec">
+    ${hasNow && currentEffect !== baseEffect ? html`<section class="bpop__sec"><details class="bpop__rules">
+      <summary>${t('盟约效果')}</summary>
+      <${RichText} as="p" text=${baseEffect} class="bpop__desc" />
+    </details></section>` : !hasNow ? html`<section class="bpop__sec">
       <h4>${t('盟约效果')}</h4>
-      <${RichText} as="p" text=${b.descRaw || b.desc} class="bpop__desc" />
-    </section>
+      <${RichText} as="p" text=${baseEffect} class="bpop__desc" />
+    </section>` : null}
     <section class="bpop__sec">
       <h4>${t('成员')} <small>${memberHeadCount(members, countsHand)}/${members.length}</small></h4>
       ${harmony ? (harmonyBy.length
@@ -186,5 +192,6 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
         })}
       </div>
     </section>
+    </div>
   </div>`;
 }

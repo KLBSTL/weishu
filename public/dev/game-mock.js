@@ -15,8 +15,11 @@ import { store, emptyMatch, selectRoute } from '/js/store.js';
 import { net, NetError } from '/js/net.js';
 import { data } from '/js/data.js';
 import { installAudio } from '/js/audio.js';
-import { settingsStore } from '/js/ui/settings.js';
+import { installPaperFeedback } from '/js/ui/paperFeedback.js';
+import { settingsStore, PaperStyleHost } from '/js/ui/settings.js';
+import { AppearanceHost } from '/js/ui/appearancePanel.js';
 import { awayStore } from '/js/ui/matchChrome.js';
+import { initLang } from '/js/ui/lang.js';
 import { GAME_FILES } from '/js/ui/gameComponents.js';
 import { PHASE, GEO } from '/shared/constants.js';
 
@@ -348,18 +351,19 @@ function setPhase(phase, variant) {
 
 // m.result in the exact shape of server/match/results.js buildResult (title = config.titles record, stats.gold = spent)
 function buildResult(victory) {
+  const reportStress = VARIANTS.has('report-stress');
   const titles = (data.get('config')?.titles || []).filter((t) => victory || !t.onlyOnWin);
   const pickTitle = (i) => { const t = titles[[0, 3, 5, 2][i] % Math.max(1, titles.length)]; return t ? { id: t.id, name: t.name, picId: t.picId, text: t.text } : null; };
   return {
     victory, roundsPassed: victory ? 14 : 11, hiddenReached: false, hiddenCleared: false, reason: victory ? 'victory' : 'defeat',
     bossId: 'boss_5', hiddenBossId: 'boss_8', difficulty: 'HARD', modeId: 'mode_multi_hard', stageId: S.pub.stageId, durationMs: 52 * 60000,
-    players: S.pub.players.map((p, i) => ({
-      playerId: p.playerId, seat: p.seat, name: p.name, isBot: p.isBot, left: false, alive: i !== 3, victory, lp: [12, 12, 12, 0][i], bandId: p.bandId,
-      roundsPassed: i === 3 ? 9 : victory ? 14 : 11, eliminatedRound: i === 3 ? 10 : null, title: pickTitle(i),
-      lineup: shuffle(S.pool).slice(0, 8 + (i % 2)).map((c, k) => ({ id: k < 3 ? c.goldenId : c.chessId, golden: k < 3, tier: c.tier, row: 9 + (k % 4), col: 2 + k, items: [] })),
+    players: (VARIANTS.has('report-empty') ? [] : S.pub.players).map((p, i) => ({
+      playerId: p.playerId, seat: p.seat, name: reportStress ? ['沉默的罗德岛联合指挥官', 'Doctor_01234', p.name, p.name][i] : p.name, isBot: p.isBot, left: false, alive: i !== 3, victory, lp: [12, 12, 12, 0][i], bandId: p.bandId,
+      roundsPassed: i === 3 ? 9 : victory ? 14 : 11, eliminatedRound: i === 3 ? 10 : null, title: reportStress && i === 2 ? null : pickTitle(i),
+      lineup: reportStress && i === 1 ? [] : shuffle(S.pool).slice(0, 8 + (i % 2)).map((c, k) => ({ id: k < 3 ? c.goldenId : c.chessId, golden: k < 3, tier: c.tier, row: 9 + (k % 4), col: 2 + k, items: [] })),
       bonds: shuffle(data.list('bonds')).slice(0, 4).map((b, k) => ({ bondId: b.bondId, count: 3 - (k % 3), layers: [359, 136, 34, 12][k], active: k < 3, tier: k < 3 ? 1 : 0 })),
       stats: {
-        dmgDealt: [2310000, 1720000, 980000, 402000][i], kills: [412, 388, 301, 150][i], leaks: [3, 6, 9, 31][i], gold: [188, 164, 231, 90][i],
+        dmgDealt: reportStress ? 987654321012 : [2310000, 1720000, 980000, 402000][i], kills: [412, 388, 301, 150][i], leaks: [3, 6, 9, 31][i], gold: [188, 164, 231, 90][i],
         refreshes: [22, 18, 30, 8][i], merges: [7, 5, 9, 2][i], itemsEquipped: [9, 6, 11, 3][i], bossDamage: victory ? [912000, 610000, 240000, 0][i] : 0,
         activatedLayers: [541, 402, 377, 120][i], lpLost: [16, 19, 12, 24][i], perfectRounds: [11, 12, 9, 4][i],
       },
@@ -821,6 +825,7 @@ if (SHOT) bar.classList.add('hidden');
 
 // ---- boot ---------------------------------------------------------------------------------------------------------------------
 async function boot() {
+  await initLang();
   net.request = mockRequest;
   store.set({
     session: { entered: true },
@@ -836,9 +841,10 @@ async function boot() {
   await data.loadAll(GAME_FILES);
   installDeviceSupport();
   installAudio({ getManifest: () => data.get('assets'), subscribe: store.subscribe, getState: store.get, selectRoute, settings: settingsStore.get() });
+  installPaperFeedback();
   const phase = params.get('phase') || 'PREP';
   setPhase(PHASE[phase] || PHASE.PREP, params.get('variant') || '');
-  render(html`<div class="app-root"><div class="app-bg" aria-hidden="true"></div><${GameScreen} /><${ConnectionBanner} /><${ToastHost} /><${UiHosts} /><${GuideHost} /></div>`, document.getElementById('app'));
+  render(html`<div class="app-root"><${PaperStyleHost} inMatch=${true} /><div class="app-bg" aria-hidden="true"></div><${GameScreen} /><${AppearanceHost} /><${ConnectionBanner} /><${ToastHost} /><${UiHosts} /><${GuideHost} /></div>`, document.getElementById('app'));
   renderBar();
   store.subscribe(() => renderBar());
   globalThis.__MOCK__ = { store, S: () => S, setPhase, mutate: (fn) => { fn(S); refreshPrivate(); }, pushPublic: () => pushPublic(),

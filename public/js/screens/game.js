@@ -1407,7 +1407,9 @@ function MatchScreen() {
   const offBonds = modeOffBonds(getMode(pub?.modeId));
 
   return html`<div class=${cx('screen', 'gm', `gm--${mode}`, drag && 'is-dragging', collapsed && 'is-collapsed', (sp || hasPersonalChoice) && 'has-sp', pen && 'is-pen', readyWhy && 'has-readywhy')}
-      data-camera=${pen ? 'pen' : camKind}>
+      data-camera=${pen ? 'pen' : camKind}
+      data-detail-side=${resolved ? dSide : null} data-bond-place=${bondPop ? bpPlace : null}
+      data-bond-over=${bondPop && resolved && bpPlace === dSide ? 'true' : null}>
     <div class="gm__field" ref=${hostRef} onContextMenu=${(e) => e.preventDefault()}></div>
     ${viewKind === 'loading' ? html`<div class="gm__loading"><${Spinner} label="LOADING FIELD" /></div>` : null}
     <div class="gm__vignette" aria-hidden="true"></div>

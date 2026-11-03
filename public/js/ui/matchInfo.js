@@ -86,7 +86,7 @@ export function MatchBondRow({ title, micro, bonds, model }) {
         const off = !!state;
         const bannedN = model.perBond.get(b.bondId) || 0;
         return html`<${Tooltip} key=${b.bondId} text=${briefingBondTip(b.name, state, bannedN)}>
-          <div class=${cx('brief-bond', off && 'is-off', state === 'drawn' && 'is-incomplete', !off && bannedN > 0 && 'is-partial')} data-bond=${b.bondId}>
+          <div class=${cx('brief-bond', off && 'is-off', state === 'drawn' && 'is-incomplete', !off && bannedN > 0 && 'is-partial', (model.hard?.has(b.bondId) || model.soft?.has(b.bondId)) && 'has-ban-kind')} data-bond=${b.bondId}>
             <${BondDisc} name=${b.name} icon=${bondIconUrl(m, b.bondId)} active=${!off} disabled=${off} tier=${off ? 0 : (b.thresholds?.length || 1)}
               maxTier=${Math.max(1, b.thresholds?.length || 1)} size="md" />
             ${model.hard?.has(b.bondId) ? html`<span class="brief-bond__kind brief-bond__kind--hard">${t('硬禁')}</span>`

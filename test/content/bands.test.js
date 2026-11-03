@@ -474,13 +474,13 @@ test('玛恩纳 业务指标: each <卡西米尔> operator bought ⇒ +1 fund ne
   cover('band_mlynar');
 });
 
-test('贾维 hidden income: R1–3 +0, R4–6 +1, R7 onward +2; description unchanged', () => {
+test('贾维: no hidden income at the former R4/R7 stipend boundaries; pending income stays intact', () => {
   const { m, ps, at } = setup({ band: 'band_chiave' });
-  for (const [round, bonus] of [[1, 0], [3, 0], [4, 1], [6, 1], [7, 2], [15, 2]]) {
+  for (const round of [1, 3, 4, 6, 7, 15]) {
     at(round);
-    const ev = { round, income: 10, pending: 0 };
+    const ev = { round, income: 10, pending: 3 };
     m.dispatch(ps, 'onIncome', ev);
-    assert.equal(ev.income, 10 + bonus);
+    assert.deepEqual(ev, { round, income: 10, pending: 3 });
   }
   assert.equal(DATA.bands.band_chiave.desc.includes('资金'), false);
 });

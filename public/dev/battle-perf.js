@@ -46,6 +46,7 @@ perf.sample = (ms = 10000) => new Promise((resolve) => {
   let last = performance.now();
   const t0 = last;
   const r0 = { ...perf.runner.stats() };
+  const board0 = perf.view.stats().board3d?.frames || 0;
   const lt0 = longTasks.length;
   const step = (t) => {
     deltas.push(t - last);
@@ -61,7 +62,9 @@ perf.sample = (ms = 10000) => new Promise((resolve) => {
       longTasks: lt.length, longTaskMs: Math.round(lt.reduce((a, b) => a + b, 0)),
       ticks, simMs: round(r1.stepMs - r0.stepMs), simMsPerTick: ticks > 0 ? round((r1.stepMs - r0.stepMs) / ticks, 3) : null,
       viewCpuMs: v.cpuMs, renderMs: v.renderMs, units: v.units, lod: v.lod, particles: v.particles,
-      board: v.board3d?.on ? '3d' : '2d', done: !!perf.runner.state()?.done,
+      board: v.board3d?.on ? '3d' : '2d',
+      boardHz: v.board3d?.on ? round(((v.board3d.frames || 0) - board0) * 1000 / (t - t0), 1) : null,
+      done: !!perf.runner.state()?.done,
     });
   };
   requestAnimationFrame(step);
@@ -93,6 +96,7 @@ function report(spec, title, quality, s) {
     `卡顿帧占比（单帧 > 33.3 ms）：${s.over33}%`,
     `模拟单步：${s.simMsPerTick} ms（共 ${s.ticks} 步）`,
     `渲染 CPU：${s.viewCpuMs} ms；渲染提交：${s.renderMs} ms`,
+    `3D 环境绘制：${s.boardHz == null ? '未启用' : `${s.boardHz} Hz`}（单位与战斗模拟独立刷新）`,
     `场上单位：${s.units}；自适应负载档位：${s.lod}`,
     `长任务：${s.longTasks} 次，共 ${s.longTaskMs} ms`,
     `GPU：${d.gpu}`,
@@ -323,7 +327,7 @@ async function main() {
   };
 }
 
-main().catch((err) => {
+(q.has('suite') ? import('./battle-soak.js').then(module => module.startSoak(q)) : main()).catch((err) => {
   perf.error = String(err?.stack || err);
   console.error(err);
   const meta = document.getElementById('meta');

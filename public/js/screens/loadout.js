@@ -25,6 +25,7 @@
 import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, MicroLabel, Button, TierChip, TextField, Countdown, Spinner, confirmDialog, hasDeadline, Modal, Fragment } from '../ui/components.js';
 import { Img, RichText, UnitThumb } from '../ui/gameComponents.js';
+import { ArtButton } from '../ui/settings.js';
 import { chessAvatarUrl, chessPortraitUrl, subProfIconUrl, bondIconUrl, moduleTypeIconUrl } from '../ui/assetUrls.js';
 import { chessStatsBlock, traitText, chessTalents, GarrisonBlock } from '../ui/detailPanel.js';
 import { chessLoadout } from '../ui/gameLogic.js';
@@ -847,13 +848,13 @@ export function LoadoutButton({ from, size = 'md', variant = 'secondary', class:
   const off = Array.isArray(notOwned) ? notOwned.length : 0;
   // 0.2.0 自选编队: how many DIY slots the player filled
   const nDiy = diyCount(diy);
-  return html`<button type="button" class=${cx('btn', `btn--${variant}`, `btn--${size}`, 'lo-entry', cls)} data-testid="loadout-open"
-      onClick=${() => openLoadout(from)} title=${t('调整干员携带的技能与模组 · 干员持有')}>
-    <${Img} src=${localAsset('ui/outer', 'operator_preset')} class="lo-entry__icon" fallback=${html`<${Icon} name="edit" class="btn__icon" />`} />
-    <span class="btn__label">${label}</span>
+  const badge = html`
     ${n ? html`<span class="lo-entry__n num" aria-label=${t('{n} 名干员已调整', { n })}>${n}</span>` : null}
     ${off ? html`<span class="lo-entry__own" aria-label=${t('{off} 名干员未持有，由替补干员上场', { off })} title=${t('{off} 名干员未持有（由替补干员上场）', { off })}>${t('替补')} <b class="num">${off}</b></span>` : null}
-    ${nDiy ? html`<span class="lo-entry__own lo-entry__diy" aria-label=${t('{n} 个自选名额已选择', { n: nDiy })} title=${t('{n} 个自选名额已选择', { n: nDiy })}>${t('自选')} <b class="num">${nDiy}</b></span>` : null}
-  </button>`;
+    ${nDiy ? html`<span class="lo-entry__own lo-entry__diy" aria-label=${t('{n} 个自选名额已选择', { n: nDiy })} title=${t('{n} 个自选名额已选择', { n: nDiy })}>${t('自选')} <b class="num">${nDiy}</b></span>` : null}`;
+  return html`<${ArtButton} art="loadout" variant=${variant} size=${size}
+      iconSlot=${html`<${Img} src=${localAsset('ui/outer', 'operator_preset')} class="lo-entry__icon" fallback=${html`<${Icon} name="edit" class="btn__icon" />`} />`}
+      class=${cx('lo-entry', cls)} data-testid="loadout-open"
+      badge=${badge} onClick=${() => openLoadout(from)} title=${t('调整干员携带的技能与模组 · 干员持有')}>${label}<//>`;
 }
 import { AppearanceControls } from '../ui/appearanceControls.js';

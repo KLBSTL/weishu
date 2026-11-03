@@ -389,6 +389,7 @@ export const C2S = {
   'room.join': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.leave': {},
   'room.ready': { ready: isBool },
+  'room.avatar': { avatarId: (v) => v === null || isId(v) },
   'room.setDifficulty': { difficulty: (v) => DIFFICULTIES.includes(v) },
   'room.setStage': { stageId: (v) => v === null || isId(v) },
   'room.setBans': { banConfig: validBanConfig },

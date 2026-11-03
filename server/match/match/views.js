@@ -13,6 +13,7 @@ import { timelineAt } from '../fields.js';
 import { bossFieldPlacement } from '../finalAssault.js';
 import { battleProgress } from '../../sim/spec.js';
 import { chargeableLeak } from '../../../shared/ultimateBalance.js';
+import { cloneBanConfig } from '../../../shared/banConfig.js';
 
 /** A reported capsule numerator clamped to its denominator, else null (unknown — never a fabricated 0). */
 const finiteOrNull = (v, cap = Infinity) => {
@@ -76,7 +77,7 @@ export class MatchViews {
       factions: this.factions.slice(),
       disabledBonds: [...new Set([...this.disabledBonds, ...this.staticInactiveBonds])].sort(),
       drawnDisabledBonds: this.disabledBonds.slice(),
-      banConfig: { ...this.banConfig },
+      banConfig: cloneBanConfig(this.banConfig),
       hardBannedBonds: this.hardBannedBonds.slice(),
       softBannedBonds: this.softBannedBonds.slice(),
       addonBannedBonds: this.addonBannedBonds.slice(),

@@ -40,12 +40,15 @@ import { net, identity, NetError } from './net.js';
 import { store, useStore, emptyMatch, selectRoute, sessionResetNotice, isSpectating } from './store.js';
 import { data } from './data.js';
 import { GAME_FILES } from './ui/gameComponents.js';
+import { warmFieldResources } from './ui/fieldHost.js';
 import { TitleScreen, sanitizeName } from './screens/title.js';
 import { LobbyScreen, rememberRoom, parseRoomParam } from './screens/lobby.js';
 import { RoomScreen } from './screens/room.js';
 import { GameScreen } from './screens/game.js';
 import { installAudio } from './audio.js';
-import { settingsStore } from './ui/settings.js';
+import { installPaperFeedback } from './ui/paperFeedback.js';
+import { settingsStore, ArtUiHost, PaperStyleHost } from './ui/settings.js';
+import { AppearanceHost } from './ui/appearancePanel.js';
 import { GuideHost } from './ui/guide.js';
 import { installDeviceSupport } from './ui/device.js';
 import { LoadoutHost } from './screens/loadout.js';
@@ -265,7 +268,19 @@ function wireNet() {
  * data store shares each file's promise).
  */
 function warmGameData() {
-  const go = () => { data.loadAll(GAME_FILES).catch(() => {}); };
+  const go = async () => {
+    if (!store.get().room) return;
+    try {
+      await data.loadAll(GAME_FILES);
+      if (!store.get().room) return;
+      // Parse the renderer/vendors while waiting in the room, before the first field needs them.
+      // This creates no canvas or WebGL context; the actual field still owns those resources.
+      await warmFieldResources();
+      if (!store.get().room) return;
+      const { battleRunner } = await import('./battle/runner.js');
+      await battleRunner?.ensureSim();
+    } catch { /* optional warm-up: normal loaders retain their retry/fallback paths */ }
+  };
   if (typeof globalThis.requestIdleCallback === 'function') globalThis.requestIdleCallback(go, { timeout: 2500 });
   else setTimeout(go, 600);
 }
@@ -289,6 +304,9 @@ function App() {
   const [error, resetError] = useErrorBoundary((err) => console.error('[ui] screen crashed', err));
   const Screen = SCREENS[route] || LobbyScreen;
   return html`<div class="app-root">
+    <${ArtUiHost} />
+    <${PaperStyleHost} inMatch=${route === 'game'} />
+    <${AppearanceHost} />
     <div class="app-bg" aria-hidden="true"></div>
     ${error ? html`<${ScreenCrashed} error=${error} reset=${resetError} />` : html`<${Screen} key=${route} />`}
     <${ConnectionBanner} />
@@ -358,6 +376,7 @@ async function boot() {
   net.attachBrowserHooks();
   // Audio: unlock on first gesture, BGM follows the route / match phase (js/audio.js).
   installAudio({ getManifest: () => data.get('assets'), subscribe: store.subscribe, getState: store.get, selectRoute, settings: settingsStore.get() });
+  installPaperFeedback();
   data.load('assets').catch(() => {});
   // Warm the data cache in the background (missing files are tolerated).
   data.loadAll('config').catch(() => {});

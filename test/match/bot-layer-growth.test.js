@@ -96,6 +96,20 @@ test('spending growth uses actually spent funds at the last prep, rather than co
   assert.equal(growthProjection(gd, ps, chess('山', true), gd.bossRound, { acquisition: false }).gains.investShip, 6); m.dispose();
 });
 
+test('future spending forecasts do not invent Chiave income for humans or AI seats', () => {
+  const { m, ps, gd } = setup(); activate(ps, 'columbiaShip', 'investShip');
+  ps.funds = 0; ps.pendingFunds = 0; ps.round.spent = 0;
+  for (const isBot of [false, true]) for (const round of [3, 4, 6, 7]) {
+    ps.isBot = isBot; ps.bandId = 'band_bldsk';
+    const expected = growthProjection(gd, ps, chess('山'), round, { acquisition: false });
+    assert.ok(expected.gains.investShip > 0, 'known future spending still produces growth');
+    ps.bandId = 'band_chiave';
+    assert.deepEqual(growthProjection(gd, ps, chess('山'), round, { acquisition: false }), expected,
+      `same future income without a hidden band stipend: bot=${isBot}, R${round}`);
+  }
+  m.dispose();
+});
+
 test('a normal paid upgrade keeps a useful end-prep investment; free upgrades stay legal', () => {
   const { m, ps } = setup();
   give(m, ps, chess('星极').chessId, 'board', [10, 4]);

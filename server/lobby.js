@@ -100,8 +100,10 @@
 
 import { randomBytes, randomInt } from 'node:crypto';
 import { canSelectStage } from '../shared/stages.js';
+import { roomAvatars } from '../shared/roomAvatar.js';
+import { CUSTOM_ROOM_PORTRAITS } from '../shared/standbyArt.js';
 import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
-import { DEFAULT_BAN_CONFIG, banCandidates, normalizeBanConfig, validBanConfig } from '../shared/banConfig.js';
+import { DEFAULT_BAN_CONFIG, banCandidates, normalizeBanConfig, validBanConfig, cloneBanConfig, sameBanConfig } from '../shared/banConfig.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
@@ -133,7 +135,7 @@ const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
 
 /**
  * @typedef {{ seat: number, playerId: string, name: string, isBot: boolean, ready: boolean,
- *             connected: boolean, left: boolean, loadout?: Record<string, { skill: number, module: string|null }> | null,
+ *             connected: boolean, left: boolean, avatarId?: string|null, loadout?: Record<string, { skill: number, module: string|null }> | null,
  *             ops?: Readonly<Record<string, { potential: number, cultivate: number }>> | null,
  *             notOwned?: readonly string[] | null, diy?: Readonly<Record<string, DiyLoadout>> | null }} Seat
  * @typedef {{ charId: string, skillIndex: number, uniEquipId: string|null }} DiyLoadout
@@ -233,11 +235,11 @@ export class Room {
       mode: this.mode,
       difficulty: this.difficulty,
       stageId: this.stageId,
-      banConfig: { ...this.banConfig },
+      banConfig: cloneBanConfig(this.banConfig),
       aiPicksLast: this.aiPicksLast,
       inMatch: !!this.match,
       seats: this.seats.map((s) => (s
-        ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
+        ? { seat: s.seat, playerId: s.playerId, name: s.name, avatarId: s.avatarId || null, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
         : null)),
       spectators: this.spectators.map((s) => ({ playerId: s.playerId, name: s.name, connected: s.connected })),
     };
@@ -249,6 +251,7 @@ export class Lobby {
   /**
    * @param {{
    *   registry: import('./net.js').SessionRegistry,
+ *   portraits?: { has: (id: string) => boolean } | null,
    *   log?: { info: Function, warn: Function, error: Function, debug?: Function },
    *   MatchClass?: new (opts: object) => any,
    *   getData?: () => object,
@@ -257,8 +260,9 @@ export class Lobby {
    *   options?: Partial<typeof LOBBY_DEFAULTS>,
    * }} opts
    */
-  constructor({ registry, log = noopLog, MatchClass = DefaultMatch, getData = defaultGetData, now = Date.now, seedFn, options = {} }) {
+  constructor({ registry, portraits = null, log = noopLog, MatchClass = DefaultMatch, getData = defaultGetData, now = Date.now, seedFn, options = {} }) {
     this.registry = registry;
+    this.portraits = portraits;
     this.log = log;
     this.MatchClass = MatchClass;
     this.getData = getData;
@@ -343,6 +347,7 @@ export class Lobby {
       case 'room.join': return this.join(session, msg);
       case 'room.leave': return this.leave(session);
       case 'room.ready': return this.ready(session, msg);
+      case 'room.avatar': return this.avatar(session, msg);
       case 'room.setDifficulty': return this.setDifficulty(session, msg);
       case 'room.setStage': return this.setStage(session, msg);
       case 'room.setBans': return this.setBans(session, msg);
@@ -530,7 +535,7 @@ export class Lobby {
     this.dropReplay(room, session.playerId);
     if (room.difficulty !== difficulty) {
       room.difficulty = difficulty;
-      room.banConfig = normalizeBanConfig(room.banConfig, this.banLimits(room));
+      room.banConfig = normalizeBanConfig(room.banConfig, this.banLimits(room), this.banCandidates(room));
       if (!canSelectStage(this.safeData(), modeIdFor(room.mode, difficulty), room.stageId)) room.stageId = null;
       for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
       this.broadcastState(room);
@@ -538,9 +543,26 @@ export class Lobby {
     return OK;
   }
 
-  banLimits(room) {
+  avatar(session, { avatarId }) {
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (room.match) return fail(ERR.ROOM_STARTED);
+    const seat = room.seatOf(session.playerId);
+    if (!seat || seat.isBot) return fail(ERR.BAD_TARGET);
+    if (avatarId !== null && !roomAvatars(this.safeData().chess).some(r => r.charId === avatarId)
+      && !CUSTOM_ROOM_PORTRAITS.some(p => p.id === avatarId) && !this.portraits?.has(avatarId)) return fail(ERR.BAD_TARGET);
+    seat.avatarId = session.avatarId = avatarId;
+    this.broadcastState(room);
+    return OK;
+  }
+
+  banCandidates(room) {
     const data = this.safeData(), mode = data.config?.modes?.[modeIdFor(room.mode, room.difficulty)];
-    const c = banCandidates(data.bonds, mode?.inactiveBondIds);
+    return banCandidates(data.bonds, mode?.inactiveBondIds);
+  }
+
+  banLimits(room) {
+    const c = this.banCandidates(room);
     return { core: c.core.length, addon: c.addon.length };
   }
 
@@ -550,10 +572,11 @@ export class Lobby {
     if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
     if (room.match) return fail(ERR.ROOM_STARTED);
     if (!validBanConfig(banConfig)) return fail(ERR.BAD_MSG);
-    const checked = normalizeBanConfig(banConfig, this.banLimits(room));
-    if (Object.keys(checked).some(k => checked[k] !== banConfig[k])) return fail(ERR.BAD_TARGET);
+    const limits = this.banLimits(room), candidates = this.banCandidates(room);
+    if (!validBanConfig(banConfig, limits, candidates)) return fail(ERR.BAD_TARGET);
+    const checked = normalizeBanConfig(banConfig, limits, candidates);
     this.dropReplay(room, session.playerId);
-    if (Object.keys(checked).some(k => checked[k] !== room.banConfig[k])) {
+    if (!sameBanConfig(checked, room.banConfig)) {
       room.banConfig = checked;
       for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
       this.broadcastState(room);
@@ -775,7 +798,7 @@ export class Lobby {
         difficulty: room.difficulty,
         modeId: modeIdFor(room.mode, room.difficulty),
         stageId: room.stageId,
-        banConfig: { ...room.banConfig },
+        banConfig: cloneBanConfig(room.banConfig),
         // 「AI 队友最后选择」 (GitHub #338): fixed for the match
         aiPicksLast: room.mode !== 'solo' && room.aiPicksLast === true,
         seats,
@@ -1024,6 +1047,7 @@ export class Lobby {
   humanSeat(idx, session) {
     return {
       seat: idx, playerId: session.playerId, name: session.name, isBot: false, ready: false, connected: session.connected, left: false,
+      avatarId: session.avatarId || null,
       loadout: session.loadout || null,
       ops: session.ops || null,
       notOwned: session.notOwned || null,

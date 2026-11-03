@@ -36,7 +36,8 @@ describe('the settings entry of the lobby and the room', { skip: !ENABLED && 'se
   const settingsBeforeGuide = (page, screen, guideClass) => page.evaluate((s, g) => {
     const btn = document.querySelector(`${s} [data-testid="settings-btn"]`);
     const guide = document.querySelector(`${s} .${g}`);
-    return !!btn && !!guide && btn.nextElementSibling === guide && /设置/.test(btn.textContent) && btn.querySelector('svg.btn__icon') != null;
+    // The compact room toolbar uses an icon with the same accessible name; the lobby keeps the visible label.
+    return !!btn && !!guide && btn.nextElementSibling === guide && /设置/.test(btn.getAttribute('aria-label') || btn.textContent) && btn.querySelector('svg.btn__icon') != null;
   }, screen, guideClass);
   const modalText = (page) => page.evaluate(() => document.querySelector('.modal')?.textContent.replace(/\s+/g, ' ').trim() ?? null);
 
@@ -59,7 +60,7 @@ describe('the settings entry of the lobby and the room', { skip: !ENABLED && 'se
     await page.waitForSelector('.modal', { timeout: 5000 });
     const text = await modalText(page);
     assert.match(text, /设置/);
-    assert.match(text, /背景音乐/);
+    assert.match(text, /声音/);
     assert.match(text, /快捷键/);
     assert.doesNotMatch(text, /棋盘/, 'no board-style option (declined)');
     assert.doesNotMatch(text, /后台/, 'no background-music option (declined)');
@@ -72,9 +73,10 @@ describe('the settings entry of the lobby and the room', { skip: !ENABLED && 'se
     await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => /创建同盟/.test(b.textContent))?.click());
     await page.waitForSelector('.room-screen', { timeout: 15000 });
     await sleep(500);
-    assert.ok(await settingsBeforeGuide(page, '.room-screen .topbar__left', 'room-guide'), '设置 sits right before 玩法说明 in the room\'s top bar');
+    assert.ok(await settingsBeforeGuide(page, '.room-screen .topbar__right', 'room-guide'), '设置 sits right before 玩法说明 in the room\'s compact utility toolbar');
     await page.click('.room-screen [data-testid="settings-btn"]');
     await page.waitForSelector('.modal', { timeout: 5000 });
+    await page.click('#settings-tab-audio');
     assert.match(await modalText(page), /背景音乐/);
     await page.evaluate(() => [...document.querySelectorAll('.modal button')].find((b) => /完成/.test(b.textContent))?.click());
     await sleep(300);

@@ -493,7 +493,7 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
       <${Button} variant="amber" icon="close" class="dpanel__sell" onClick=${() => onSell(piece, si || c)}>${t('出售')}<span class="dsell num">+${sell}</span><//>
     </div>` : null;
   const out = CHESS_SECTIONS.map((k) => blocks[k]).filter(Boolean);
-  out.splice(2, 0, html`<${AppearanceControls} key=${`appearance:${body.charId}`} charId=${body.charId} manifest=${m} />`);
+  out.push(html`<${AppearanceControls} key=${`appearance:${body.charId}`} charId=${body.charId} manifest=${m} />`);
   // a merge-completing shop / reward card: where the elite goes (shopBar mergeHint), right under the header
   if (hint) out.splice(1, 0, html`<p key="merge" class="dhint dhint--merge"><${Icon} name="info" />${t('可晋升：{hint}', { hint })}</p>`);
   return out;

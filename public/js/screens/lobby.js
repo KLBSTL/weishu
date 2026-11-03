@@ -18,10 +18,13 @@ import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton } from '../ui/guide.js';
 import { openStats } from './stats.js';
 import { SettingsButton } from '../ui/settings.js';
+import { StandbyArt, StandbyAssistant } from '../ui/standbyArt.js';
+import { useStandby } from '../ui/standbyState.js';
 import { LoadoutButton } from './loadout.js';
 import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
-import { getConfig, getMode, getStage, useData } from '../data.js';
+import { data, getConfig, getMode, getStage, useData } from '../data.js';
+import { standbyPortraitUrl } from '../../../shared/standbyArt.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 
 /** Official mode texts (activity_table act2autochess.modeDataDict), fallback when config.json is absent. */
@@ -245,6 +248,8 @@ function DifficultyCard({ roomMode, difficulty, selected, onSelect }) {
 
 /** Lobby screen component. */
 export function LobbyScreen() {
+  const standby = useStandby();
+  useData('assets');
   const me = useStore((s) => s.me, shallowEqual);
   const conn = useStore((s) => s.connection, shallowEqual);
   useData('config');
@@ -309,6 +314,7 @@ export function LobbyScreen() {
   };
 
   return html`<div class="screen lobby-screen">
+    <${StandbyArt} />
     <header class="topbar">
       <div class="topbar__left">
         <${Button} variant="ghost" size="sm" icon="chevronLeft" onClick=${backToTitle} title=${t('返回标题')}>${t('返回')}<//>
@@ -334,7 +340,8 @@ export function LobbyScreen() {
       </div>
     </header>
 
-    <div class="lobby-body screen__scroll">
+    <div class=${`lobby-body screen__scroll${standbyPortraitUrl(data.get('assets'), standby.assistant) ? ' with-assistant' : ''}`}>
+      <${StandbyAssistant} />
       <section class="lobby-left">
         <div class="section-label"><span class="section-label__idx num">01</span>${t('模拟方式')}<${MicroLabel}>MODE<//></div>
         <div class="mode-cards">

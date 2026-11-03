@@ -14,17 +14,20 @@
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { SELECTABLE_DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SEATS, MAX_SPECTATORS } from '../../../shared/constants.js';
 import {
-  html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo,
+  html, Button, Icon, MicroLabel, PingPill, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog,
 } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { copyText } from '../ui/clipboard.js';
 import { GuideButton } from '../ui/guide.js';
 import { openStats } from './stats.js';
-import { SettingsButton } from '../ui/settings.js';
+import { SettingsButton, ArtButton } from '../ui/settings.js';
+import { StandbyArt } from '../ui/standbyArt.js';
+import { standbyStore, readRoomPortrait, rememberRoomPortrait } from '../ui/standbyState.js';
 import { LoadoutButton } from './loadout.js';
 import { BondLibraryButton } from '../ui/bondLibrary.js';
 import { net } from '../net.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating } from '../store.js';
+import { RoomCard } from '../ui/roomCard.js';
 import { difficultyInfo } from './lobby.js';
 import { StagePicker } from '../ui/stagePicker.js';
 import { BanConfigButton } from '../ui/banPicker.js';
@@ -102,62 +105,6 @@ export function inviteLink(code) {
  */
 export { copyText };
 
-function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick }) {
-  const coop = room.mode !== 'solo';
-  if (!seat) {
-    const canAdd = coop && facts.isHost;
-    return html`<article class="seat seat--empty" style=${`--seat-i:${index}`}>
-      <header class="seat__head"><span class="seat__no num">P${index + 1}</span><${MicroLabel}>SEAT ${String(index + 1).padStart(2, '0')}<//></header>
-      <div class="seat__art seat__art--empty">
-        <div class="seat__radar" aria-hidden="true"></div>
-        <span class="seat__wait">${t('等待博士加入')}</span>
-        <${MicroLabel}>AWAITING DOCTOR<//>
-      </div>
-      <footer class="seat__foot">
-        ${canAdd
-          ? html`<${Button} variant="secondary" size="sm" icon="robot" block=${true} loading=${busy === `add`} onClick=${onAddBot}>${t('添加 AI 队友')}<//>`
-          : html`<span class="seat__state t-dim">${t('空位')}</span>`}
-      </footer>
-    </article>`;
-  }
-  const isMe = seat.playerId === myId;
-  const isHostSeat = seat.playerId === room.hostId;
-  const offline = seat.connected === false && !seat.isBot;
-  // The host never needs to toggle ready: starting the match readies them (server rule).
-  const state = offline ? 'offline' : seat.ready || seat.isBot ? 'ready' : isHostSeat ? 'host' : 'waiting';
-  return html`<article class=${`seat brackets${isMe ? ' is-me' : ''}${isHostSeat ? ' is-host' : ''}${seat.isBot ? ' is-bot' : ''} is-${state}`}
-      style=${`--seat-i:${index}`}>
-    <header class="seat__head">
-      <span class="seat__no num">P${index + 1}</span>
-      <${MicroLabel}>SEAT ${String(index + 1).padStart(2, '0')}<//>
-      ${isHostSeat ? html`<span class="seat__host"><${Icon} name="crown" />${t('创建者')}</span>` : null}
-    </header>
-    <div class="seat__art">
-      <div class="seat__stripes" aria-hidden="true"></div>
-      <${AvatarFrame} size="xl" name=${seat.name} seat=${index} bot=${seat.isBot} self=${isMe} ready=${state === 'ready'} offline=${offline} />
-      ${seat.isBot ? html`<span class="seat__bot-label"><${Icon} name="robot" />${t('AI 队友')}</span>` : null}
-    </div>
-    <div class="seat__who">
-      <span class="seat__name">${seat.name || t('博士')}</span>
-      ${isMe ? html`<span class="seat__you">${t('你')}</span>` : null}
-    </div>
-    <${MicroLabel}>${seat.isBot ? 'AUTONOMOUS UNIT' : `DOCTOR #${doctorNo(seat.playerId)}`}<//>
-    <footer class="seat__foot">
-      <span class=${`seat__state seat__state--${state}`}>
-        ${state === 'ready' ? html`<${Icon} name="check" />${t('已就绪')}`
-          : state === 'offline' ? html`<${Icon} name="wifiOff" />${t('连接中断')}`
-          : state === 'host' ? html`<${Icon} name="crown" />${t('待命中')}`
-          : html`<${Icon} name="hourglass" />${t('准备中')}`}
-      </span>
-      ${seat.isBot && facts.isHost ? html`<${Tooltip} text=${t('移除该 AI 队友')}>
-        <${Button} variant="ghost" size="sm" square=${true} icon="close" loading=${busy === `rm${index}`} onClick=${() => onRemoveBot(index)} aria-label=${t('移除 AI 队友')} />
-      <//>` : null}
-      ${!seat.isBot && !isMe && facts.isHost ? html`<${Tooltip} text=${t('将该博士移出同盟')}>
-        <${Button} variant="ghost" size="sm" square=${true} icon="close" loading=${busy === `kick${index}`} onClick=${() => onKick(index, seat.name, seat.playerId)} aria-label=${t('移出该博士')} />
-      <//>` : null}
-    </footer>
-  </article>`;
-}
 
 /** 观战席: the room's spectators (host: ✕ frees a seat), and 入座 for a spectator while a player seat is free. */
 function SpectatorBar({ facts, myId, busy, onRemove, onSit }) {
@@ -224,6 +171,7 @@ function AiLastToggle({ option, busy, onToggle }) {
 
 /** Room screen component. */
 export function RoomScreen() {
+  const cardStyle = useStore(s => s.cards, Object.is, standbyStore);
   const room = useStore((s) => s.room);
   const me = useStore((s) => s.me, shallowEqual);
   const conn = useStore((s) => s.connection, shallowEqual);
@@ -231,6 +179,14 @@ export function RoomScreen() {
   const alive = useRef(true);
   const inFlight = useRef(false); // synchronous guard against double clicks (state updates are async)
   useEffect(() => () => { alive.current = false; }, []);
+  useEffect(() => {
+    const avatarId = readRoomPortrait(me.playerId);
+    standbyStore.set({ portrait: avatarId });
+    const mine = room?.seats?.find(s => s?.playerId === me.playerId);
+    if (conn.status === 'online' && mine && !room.inMatch && avatarId && mine.avatarId !== avatarId) {
+      net.request('room.avatar', { avatarId }).catch(() => {});
+    }
+  }, [room?.code, conn.status, me.playerId]);
 
   if (!room) return null;
   const online = conn.status === 'online';
@@ -244,7 +200,7 @@ export function RoomScreen() {
     if (!online) { toast(t('连接中断，请稍候重试'), 'warn'); return; }
     inFlight.current = true;
     setBusy(kind);
-    try { await fn(); } catch (err) { toastError(err); } finally {
+    try { await fn(); return true; } catch (err) { toastError(err); return false; } finally {
       inFlight.current = false;
       if (alive.current) setBusy(null);
     }
@@ -253,6 +209,9 @@ export function RoomScreen() {
   const toggleReady = () => run('ready', () => net.request('room.ready', { ready: !myReady }));
   const start = () => run('start', () => net.request('room.start', {}));
   const addBot = () => run('add', () => net.request('room.addBot', {}));
+  const setAvatar = avatarId => run('avatar', async () => {
+    await net.request('room.avatar', { avatarId }); rememberRoomPortrait(avatarId);
+  });
   const removeBot = (seat) => run(`rm${seat}`, () => net.request('room.removeBot', { seat }));
   // the host removes a human before the match (community report #17): asked first; the player may join again. The
   // confirmed player's id goes along: if they left and someone else took the seat meanwhile, the server refuses it.
@@ -303,33 +262,32 @@ export function RoomScreen() {
         ? html`<span class="t-mint">${t('已就绪 · 等待创建者开始模拟')}</span>`
         : html`<span class="t-lo">${t('准备就绪后，创建者即可开始模拟')}</span>`;
 
-  return html`<div class="screen room-screen">
-    <header class="topbar">
+  return html`<div class=${`screen room-screen${cardStyle === 'operator' ? ' room-screen--artcards' : ''}`}>
+    <${StandbyArt} />
+    <header class="topbar room-topbar">
       <div class="topbar__left">
-        <${Tooltip} text=${t('离开同盟')} placement="bottom">
-          <${Button} variant="danger" size="lg" square=${true} icon="exit" loading=${busy === 'leave'} onClick=${leave} aria-label=${t('离开同盟')} />
-        <//>
-        <div class="room-ping">
-          <${PingPill} ms=${conn.ping} online=${online} />
-          <${MicroLabel}>${t('当前延迟')}<//>
+        <${Button} variant="danger" size="sm" square=${true} icon="exit" loading=${busy === 'leave'} onClick=${leave} aria-label=${t('离开同盟')} />
+        <div class="room-heading"><${MicroLabel} tone="mint">${coop ? 'ALLIANCE LOBBY' : 'SOLO SIMULATION'}<//>
+          <h1 class="topbar__title">${coop ? t('同盟模拟') : t('独立模拟')}<${DifficultyTag} difficulty=${room.difficulty} /></h1>
         </div>
-        <${Button} variant="secondary" size="sm" icon="chart" class="stats-entry" onClick=${openStats} title=${t('统计数据')} aria-label=${t('统计数据')}>${t('统计')}<//>
-        <${SettingsButton} class="room-settings" variant="secondary" label=${t('设置')} />
-        <${GuideButton} class="room-guide" variant="secondary" label=${t('玩法说明')} />
-        <${BondLibraryButton} class="room-bond-library" />
-      </div>
-      <div class="topbar__center">
-        <${MicroLabel} tone="mint">${coop ? 'ALLIANCE LOBBY' : 'SOLO SIMULATION'}<//>
-        <h1 class="topbar__title">${coop ? t('同盟模拟') : t('独立模拟')}<span class="topbar__sep"></span><${DifficultyTag} difficulty=${room.difficulty} size="lg" /></h1>
+        <${PingPill} ms=${conn.ping} online=${online} />
       </div>
       <div class="topbar__right">
-        ${coop ? html`<${InviteBox} code=${room.code} name=${me.name} difficulty=${room.difficulty} />` : html`<div class="solo-note"><${MicroLabel}>SINGLE OPERATOR<//><span>${t('仅限 1 名博士')}</span></div>`}
+        ${coop ? html`<${InviteBox} code=${room.code} name=${me.name} difficulty=${room.difficulty} />` : null}
+        <${Button} variant="secondary" size="sm" square=${true} icon="chart" class="stats-entry" onClick=${openStats} title=${t('统计数据')} aria-label=${t('统计数据')} />
+        <${SettingsButton} class="room-settings" variant="secondary" label="" />
+        <${GuideButton} class="room-guide" variant="secondary" label="" />
       </div>
     </header>
+    <section class="room-config" aria-label=${t('模拟设置')}>
+      <div class="room-config__difficulty"><${DifficultyPicker} room=${room} isHost=${facts.isHost} busy=${busy} onPick=${setDifficulty} /></div>
+      <${StagePicker} compact=${true} room=${room} isHost=${facts.isHost} busy=${busy || !online} onPick=${setStage} />
+      <${AiLastToggle} option=${aiLastOption(room, me.playerId)} busy=${busy} onToggle=${setAiLast} />
+    </section>
 
     <main class=${`seats${coop ? '' : ' seats--solo'}`}>
-      ${facts.seats.map((s, i) => html`<${SeatCard} key=${s ? `p${s.playerId}` : `e${i}`} seat=${s} index=${i} room=${room} facts=${facts}
-        myId=${me.playerId} busy=${busy} onAddBot=${addBot} onRemoveBot=${removeBot} onKick=${kick} />`)}
+      ${facts.seats.map((s, i) => html`<${RoomCard} key=${s ? `p${s.playerId}` : `e${i}`} seat=${s} index=${i} room=${room} facts=${facts}
+        myId=${me.playerId} busy=${busy} onAddBot=${addBot} onRemoveBot=${removeBot} onKick=${kick} onAvatar=${setAvatar} />`)}
       ${coop ? null : html`<aside class="solo-brief brackets">
         <${MicroLabel} tone="mint">BRIEFING<//>
         <h2>${DIFFICULTY_NAMES[room.difficulty] ? t(DIFFICULTY_NAMES[room.difficulty]) : ''}<span class="num t-dim"> ${info.code}</span></h2>
@@ -343,37 +301,21 @@ export function RoomScreen() {
     </main>
     <${SpectatorBar} facts=${facts} myId=${me.playerId} busy=${busy} onRemove=${removeSpectator} onSit=${sit} />
 
-    <${StagePicker} room=${room} isHost=${facts.isHost} busy=${busy || !online} onPick=${setStage} />
     <footer class="room-bar">
-      <div class="room-bar__left">
-        <span class="room-bar__label">${t('模拟难度')}<${MicroLabel}>DIFFICULTY<//></span>
-        <div class="room-bar__opts">
-          <${DifficultyPicker} room=${room} isHost=${facts.isHost} busy=${busy} onPick=${setDifficulty} />
-          <${AiLastToggle} option=${aiLastOption(room, me.playerId)} busy=${busy} onToggle=${setAiLast} />
-        </div>
-      </div>
-      <div class="room-bar__center">
-        <div class="ready-count" hidden=${!coop}>
-          <span class="t-lo">${t('已就绪')}</span>
-          <b class="num">${facts.readyHumans}</b><span class="num t-dim">/${facts.humans.length}</span>
-          <span class="ready-count__icons" aria-hidden="true">
-            ${facts.humans.map((s) => html`<${Icon} key=${s.playerId} name="user" class=${facts.isReady(s) ? 'is-on' : ''} />`)}
-          </span>
-        </div>
-        <div class="room-bar__status">${statusLine}</div>
-      </div>
       <div class="room-bar__right">
         <${BanConfigButton} room=${room} isHost=${facts.isHost} busy=${busy || !online} onPick=${setBans} />
         <${LoadoutButton} from="room" size="lg" class="room-loadout" label=${t('干员调配')} />
-        ${facts.isHost
-          ? html`<${Tooltip} text=${facts.canStart ? null : t('仍有博士未准备就绪')}>
-              <${Button} variant="primary" size="xl" icon="play" loading=${busy === 'start'} disabled=${!facts.canStart || !online} onClick=${start}>${t('开始模拟')}<//>
-            <//>`
-          : facts.spectating
-            ? html`<${Button} variant="secondary" size="xl" icon="eye" disabled=${true}>${t('观战中')}<//>`
-          : html`<${Button} variant=${myReady ? 'primary' : 'secondary'} size="xl" icon=${myReady ? 'check' : 'hourglass'} active=${myReady}
+        <${BondLibraryButton} class="room-bond-library" size="lg" />
+        <div class="room-launch">
+          ${facts.isHost ? html`<${Tooltip} text=${facts.canStart ? null : t('仍有博士未准备就绪')}>
+            <${ArtButton} art="start" variant="primary" size="xl" icon="play" loading=${busy === 'start'} disabled=${!facts.canStart || !online} onClick=${start}
+              badge=${html`<span class="room-launch__ready">${coop ? html`${t('已就绪')} <b class="num">${facts.readyHumans}/${facts.humans.length}</b>` : t('独立模拟')}</span>`}>${t('开始模拟')}<//>
+          <//>` : facts.spectating ? html`<${Button} variant="secondary" size="xl" icon="eye" disabled=${true}>${t('观战中')}<//>`
+            : html`<${Button} variant=${myReady ? 'primary' : 'secondary'} size="xl" icon=${myReady ? 'check' : 'hourglass'} active=${myReady}
               loading=${busy === 'ready'} disabled=${!online || !facts.mine} onClick=${toggleReady}>${myReady ? t('已就绪') : t('准备就绪')}<//>`}
+        </div>
       </div>
+      <div class="room-launch__status" role="status">${statusLine}</div>
     </footer>
   </div>`;
 }

@@ -79,11 +79,11 @@ void main(void) {
 }`;
 
 const HL_STYLES = {
-  legal: { color: COLORS.legal, fill: 0.26, line: 0.9 },
-  illegal: { color: COLORS.illegal, fill: 0.32, line: 0.95 },
-  range: { color: COLORS.range, fill: 0.3, line: 0.85 },
-  rangeStand: { color: COLORS.rangeStand, fill: 0.3, line: 0.9 },
-  hover: { color: 0xffffff, fill: 0.14, line: 0.55 },
+  legal: { color: COLORS.legal, fill: 0.18, line: 0.95 },
+  illegal: { color: COLORS.illegal, fill: 0.24, line: 1 },
+  range: { color: COLORS.range, fill: 0.18, line: 1 },
+  rangeStand: { color: COLORS.rangeStand, fill: 0.16, line: 1 },
+  hover: { color: 0xffffff, fill: 0.1, line: 0.75 },
   target: { color: 0xffffff, fill: 0.22, line: 1 },
   deploy: { color: 0x9fd4ff, fill: 0.12, line: 0.45 },
 };

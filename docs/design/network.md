@@ -7,11 +7,37 @@ Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 candidates. `m.public` adds frozen `banConfig`, `hardBannedBonds`, `softBannedBonds`, `addonBannedBonds`; the existing
 combined drawn list remains for compatibility. See [opening filter specification](../ban-configuration-20261023.md).
 
+Manual mode adds `mode: 'manual'` and the exact `hardCoreIds`, `softCoreIds`, and `addonIds` arrays.
+Their lengths must match the counts. The server validates difficulty eligibility and disjoint core lists,
+prunes ineligible IDs on difficulty changes, and applies the submitted lists without random draws.
+
 ## 8. Network protocol (shared/protocol.js is normative)
 
 Transport: one WebSocket per tab at `/ws`, JSON text frames `{ t: '<type>', ...payload }`. Client requests may carry `rid` (request id); the server's direct reply echoes `rid` (`ok` or `error`). Server pushes have no `rid`. Max frame 64 KB inbound; rate limit 40 msgs/s per connection (excess dropped with `error RATE`).
 
 ### 8.1 Session & lobby
+
+Cosmetic portraits (2026-10-26): `room.avatar {avatarId:string|null}` updates only the requesting human seat before
+match start. IDs identify visible, non-elite, non-DIY NORMAL/PRESET operators (`shared/roomAvatar.js`) or an explicit
+cosmetic ID in `CUSTOM_ROOM_PORTRAITS` (2026-10-31: seven user-supplied posters) or an existing server-issued `upload_<48 hex>`
+card ID; URLs and unknown IDs are refused.
+`room.state.seats[].avatarId` is additive, retained on session/seat reconnect, and
+broadcast to teammates without unreadying anyone. It is not passed to the battle or recruitment pool. Browser
+selection is remembered locally per player identity, with the legacy browser preference as a migration fallback,
+and restored on joining another room. During a match the request is ROOM_STARTED.
+
+Uploaded cards (2026-10-29): `POST /api/room-portrait` takes an `image/png` binary body and
+`Authorization: Bearer <welcome token>` from a connected session. The existing token stays in the header, never a URL.
+Foreign Origin headers are refused; uploads during the caller's match return 409. The browser accepts PNG/JPEG/WebP
+sources up to 20 MiB, decodes and fits them within 768×1152, and re-encodes PNG without source metadata. The server
+enforces 4 MiB, RGB/RGBA non-interlaced 8-bit PNG, valid chunk CRCs, bounded dimensions and decompressed raster length;
+it removes ancillary metadata and returns `{avatarId}` derived from the normalized content. Per-session rate is
+1 upload/3 s with burst 3, one pending upload per session and at most 4 globally; disk quota is 256 images/128 MiB.
+Only the short ID goes through `room.avatar`; it preserves readiness. `GET/HEAD /portraits/<id>.png` serves known
+images with fixed `image/png`, nosniff, immutable caching and ETag/304, without requiring teammates' login tokens.
+Files persist in `user-data/portraits/` (or `startServer({portraitsDir})`), which must be retained on host upgrades.
+Authentication/type/size/rate/capacity failures return 401/415/413/429/507; clients retain their current card on failure.
+
 C→S: `hello {name, token?, version}` · `room.create {mode:'solo'|'coop', difficulty}` · `room.join {code}` · `room.leave` · `room.ready {ready}` · `room.setDifficulty {difficulty}` (host) · `room.setAiPicksLast {on}` (host, co-op, before the match — `ROOM_STARTED` during it, `BAD_TARGET` in a solo room; un-readies the other humans like a difficulty change; the match takes it as `opts.aiPicksLast`: humans draft before AI seats, off by default, no extra random draw) · `room.addBot` / `room.removeBot {seat}` (host) · `room.kick {seat, playerId}` (host, before the match: another human leaves the room and gets `room.closed {reason:'kicked'}`; may join again; `playerId` = the player the host confirmed, a seat that changed hands meanwhile → `BAD_TARGET`) · `room.start` (host) · `room.loadout {entries, ops?}` (§16: any time in the lobby / room and during INFO_CHECK, then `WRONG_PHASE`; heavy rate-limit bucket; the match exposes it as `m.private.loadout`; `ops` — 0.2.2 — the per-operator 潜能 / 练度 `{ [charId]: { potential?: 1–6, cultivate?: 0–3 } }` of the 干员调配 roster and the 自选 owned pool, ≤ 256, checked strictly with the entries, `m.private.ops`; absent = none set: every operator 潜能 6, 精英2 Lv.60) · `room.ownership {notOwned}` (0.2.0 补位, the 干员持有 tab: the base chess ids marked as not owned — ≤ 160 ids, kept leniently: anything but a droppable NORMAL chess is dropped; stored on the session and the seat, a match takes the seat's list when it starts and never changes it — during a match `ROOM_STARTED` 'stored for the next match'; heavy bucket; the match exposes it as `m.private.standIns`) · `room.diy {picks}` (0.2.0 自选编队: `{ [slotBaseId]: { charId, skillIndex?, uniEquipId? } | null }` for the four DIY slots — ≤ 8 entries, kept leniently: shared/protocol.js `checkDiyPicks` drops an illegal pick (an operator without a kit, another tier's prototype, a prototype off its locked skill, a module of another game mode (集成战略 / 生息演算), an owned operator's second slot, the same operator twice in a tier, an unknown slot), only malformed picks are `BAD_MSG`; stored on the session and the seat like the not-owned list, a match takes the seat's picks when it starts — during a match `ROOM_STARTED` 'stored for the next match'; heavy bucket; the match exposes them as `m.private.diy`) · `ping {c}`
 S→C: `welcome {playerId, token, name, serverNow}` · `room.state {code, hostId, mode, difficulty, aiPicksLast, seats:[{seat, playerId, name, isBot, ready, connected}|null ×4]}` · `room.closed {reason}` · `pong {c, s}` · `error {rid?, code, msg}` · `ok {rid}`
 

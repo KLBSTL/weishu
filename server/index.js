@@ -23,6 +23,7 @@
 // The server only auto-listens when this file is the process entry point.
 
 import http from 'node:http';
+import path from 'node:path';
 import { getData, loadData } from './data.js';
 import { ROOT, listenAddress, bindCandidates, serveDirs, makeLogger, parseTrustProxy } from './http/config.js';
 import { WS_MAX_PAYLOAD, createSessionStack, attachWebSocket } from './http/websocket.js';
@@ -31,6 +32,7 @@ import { createPackRegistry } from './packs.js';
 import { MIME, COMPRESSIBLE, acceptsGzip, parseRange } from './http/files.js';
 import { BUILD_INPUTS, computeBuildTag, buildTag, resetBuildTag } from './http/buildTag.js';
 import { createRequestHandler } from './http/routes.js';
+import { createPortraitStore, createPortraitHandler } from './http/portraits.js';
 import { answerClientError } from './http/common.js';
 import { lanUrls, displayHost, isProcessEntry, runMain } from './http/boot.js';
 
@@ -44,7 +46,7 @@ export {
  * Build and start the HTTP + WebSocket server.
  * @param {{
  *   port?: number, host?: string, quiet?: boolean, log?: object,
- *   publicDir?: string, dataDir?: string, sharedDir?: string, packsDir?: string,
+ *   publicDir?: string, dataDir?: string, sharedDir?: string, packsDir?: string, portraitsDir?: string,
  *   MatchClass?: Function, seedFn?: () => number,
  *   lobbyGraceMs?: number, reconnectWindowMs?: number, heartbeatMs?: number, helloTimeoutMs?: number,
  *   ratePerSec?: number, rateBurst?: number, maxConnections?: number, maxRooms?: number,
@@ -63,7 +65,8 @@ export async function startServer(opts = {}) {
 
   // The process-wide singleton serves the default data dir; a custom dir (tests) gets its own copy.
   const data = opts.dataDir ? loadData(dataDir, { log }) : getData({ dir: dataDir, log });
-  const { registry, lobby, network } = createSessionStack(opts, { data, log });
+  const portraits = await createPortraitStore(opts.portraitsDir || path.join(ROOT, 'user-data', 'portraits'));
+  const { registry, lobby, network } = createSessionStack(opts, { data, log, portraits });
   // content packs (docs/PACKS.md): scanned now — the start log names them — and again whenever their folders change
   const packs = createPackRegistry({ publicDir, dataDir, packsDir }, { log });
   packs.refresh(true);
@@ -73,7 +76,8 @@ export async function startServer(opts = {}) {
   resetBuildTag();
   buildTag();
 
-  const server = http.createServer(createRequestHandler({ serveStatic, health: { startedAt, network, registry, lobby }, log }));
+  const servePortraits = createPortraitHandler({ portraits, registry, lobby });
+  const server = http.createServer(createRequestHandler({ serveStatic, servePortraits, health: { startedAt, network, registry, lobby }, log }));
   server.on('clientError', answerClientError);
   const wss = attachWebSocket(server, { network, log });
 

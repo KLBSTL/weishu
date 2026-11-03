@@ -1,6 +1,7 @@
 // public/js/render/fx/limits.js — shared fx tunables used by more than one effect module.
 
-const MAX_PARTICLES = { high: 1400, medium: 800, low: 360 };
+// Decorative sprites share a bounded budget; projectile and damage-number pools are independent.
+const MAX_PARTICLES = { high: 900, medium: 540, low: 240 };
 
 const SKILL_GOLD = 0xffd45a;
 

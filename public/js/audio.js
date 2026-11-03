@@ -552,6 +552,11 @@ export class AudioManager {
     this.voiceLang = 'cn';    // settings 语音语言: 'cn' (audio.voice) | 'jp' (audio.voiceJp, falling back to audio.voice)
     this.startVoiceDone = false; // 行动出发 of this field (the first operator deployed says it)
     this.uiVoices = 0;
+    this.paperBuffers = new Map(); // six tiny synthesized pencil/paper cues; no download or second AudioContext
+    this.paperUiEnabled = false;
+    this.paperNodes = new Map();
+    this.paperVoices = 0;
+    this.paperTimes = { hover: -Infinity, press: -Infinity, action: -Infinity };
     this.wantBgm = null;      // desired key (kept while locked)
     this.bgm = null;          // { key, loopUrl, nodes: [{src, gain}], gain }
     this.bgmToken = 0;
@@ -889,9 +894,95 @@ export class AudioManager {
    */
   sfx(name, o = {}) {
     try {
+      // The paper theme replaces generic terminal clicks, including the explicit calls in the battlefield UI.
+      // Purchases, upgrades, battle sounds and voices keep their existing recorded cues.
+      const paper = { click: 'select', tab: 'select', back: 'back', error: 'error', confirm: 'confirm' }[name];
+      if (paper && this.paperUiEnabled) { this.paperUi(paper, o); return; }
       const url = this.getManifest()?.audio?.sfx?.ui?.[name];
       if (typeof url === 'string') this._play(url, { volume: o.volume ?? 0.9 });
     } catch { /* ignore */ }
+  }
+
+  /** Opt-in per current scene, without changing business sounds, BGM, voices or creating a context. */
+  setPaperUiEnabled(value) {
+    const enabled = value === true;
+    if (this.paperUiEnabled === enabled) return;
+    this.paperUiEnabled = enabled;
+    this.paperTimes = { hover: -Infinity, press: -Infinity, action: -Infinity };
+    if (!enabled) {
+      for (const [source, end] of this.paperNodes) {
+        try { source.stop?.(); } catch { /* ignore */ }
+        end();
+      }
+    }
+  }
+
+  /**
+   * Short, quiet graphite scratch + wooden tap. Reuses the unlocked SFX bus and its mute/volume controls.
+   * A hover never creates/resumes an AudioContext. Generic click callers and delegated feedback share a
+   * short action gate, so one DOM activation cannot play both the old click and its paper replacement.
+   * @param {'hover'|'press'|'select'|'confirm'|'back'|'error'} kind
+   * @param {{ volume?: number }} [o]
+   * @returns {boolean}
+   */
+  paperUi(kind, o = {}) {
+    const profiles = {
+      hover: [0.035, 1100, 0.07], press: [0.045, 210, 0.15], select: [0.075, 320, 0.17],
+      confirm: [0.105, 480, 0.18], back: [0.070, 190, 0.14], error: [0.100, 130, 0.16],
+    };
+    const profile = profiles[kind];
+    const ctx = this.ctx;
+    if (!this.paperUiEnabled || !profile || !ctx || ctx.state !== 'running' || !this.sfxGain || this.volumes.muted
+      || this.volumes.sfx <= 0 || this.win?.document?.hidden || this.paperVoices >= 3) return false;
+    const channel = kind === 'hover' ? 'hover' : kind === 'press' ? 'press' : 'action';
+    const at = ctx.currentTime;
+    if (at - this.paperTimes[channel] < (channel === 'hover' ? 0.14 : channel === 'press' ? 0.04 : 0.065)) return false;
+    try {
+      let buffer = this.paperBuffers.get(kind);
+      if (!buffer) {
+        const [duration, frequency, level] = profile;
+        const rate = ctx.sampleRate || 44100;
+        buffer = ctx.createBuffer(1, Math.ceil(duration * rate), rate);
+        const pcm = buffer.getChannelData(0);
+        let seed = 0x7158b + frequency, low = 0;
+        for (let i = 0; i < pcm.length; i++) {
+          // Fixed-seed friction rather than a looping sample or a bright electronic beep.
+          seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5;
+          const noise = (seed >>> 0) / 2147483648 - 1;
+          low = low * 0.72 + noise * 0.28;
+          const t = i / rate;
+          const edge = Math.min(1, i / (rate * 0.0015));
+          const fade = Math.max(0, 1 - i / pcm.length);
+          const scratch = (noise - low) * Math.exp(-t * (kind === 'hover' ? 95 : 48));
+          const tap = Math.sin(2 * Math.PI * (frequency * t - frequency * t * t * 2.6)) * Math.exp(-t * 68);
+          const second = kind === 'confirm' && t > 0.034
+            ? Math.sin(2 * Math.PI * frequency * 1.35 * (t - 0.034)) * Math.exp(-(t - 0.034) * 90) * 0.28 : 0;
+          pcm[i] = (scratch * (kind === 'hover' ? 0.9 : 0.5) + tap * (kind === 'hover' ? 0.06 : 0.65) + second)
+            * edge * fade * level;
+        }
+        this.paperBuffers.set(kind, buffer);
+      }
+      const source = ctx.createBufferSource();
+      const gain = ctx.createGain();
+      source.buffer = buffer;
+      gain.gain.value = Number.isFinite(o.volume) ? Math.max(0, Math.min(1, o.volume)) : 1;
+      source.connect(gain); gain.connect(this.sfxGain);
+      this.paperTimes[channel] = at;
+      this.paperVoices++;
+      let ended = false;
+      const end = () => {
+        if (ended) return;
+        ended = true;
+        this.paperVoices--;
+        this.paperNodes.delete(source);
+        try { source.disconnect(); gain.disconnect(); } catch { /* ignore */ }
+      };
+      this.paperNodes.set(source, end);
+      source.onended = end;
+      try { source.start(); } catch { end(); return false; }
+      setTimeout(end, buffer.duration * 1000 + 150);
+      return true;
+    } catch { return false; }
   }
 
   /** Battle sound by name (sfx.battle keys), limited like unit sounds. */

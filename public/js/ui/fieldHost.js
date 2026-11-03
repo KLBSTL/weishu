@@ -86,11 +86,14 @@ export function hudBands(kind, size, opts) {
   let safeTop = 0;
   let safeBottom = 0;
   let corner = 0;
+  let measuredBottom = 0;
   try {
     rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 100;
     // the HUD layer starts below the top safe-area inset and ends above the bottom one (css/devices.css .gm__hud)
     const hud = document.querySelector('.gm__hud')?.getBoundingClientRect();
     safeTop = Math.max(0, hud?.top || 0);
+    const dock = document.querySelector(folded ? '.shopbar-tab' : '.shopbar__row')?.getBoundingClientRect();
+    if (dock?.height > 0 && dock.top >= 0 && dock.top < h) measuredBottom = h - dock.top + 8;
     if (folded) {
       if (hud && hud.bottom > 0) safeBottom = Math.max(0, h - hud.bottom);
       corner = cornerBand(h);
@@ -101,7 +104,7 @@ export function hudBands(kind, size, opts) {
     : rem * HUD_REM.shopBarTop + HUD_REM.shopBarBorderPx;
   return {
     top: Math.min(h * 0.4, safeTop + rem * HUD_REM.bondStripBottom),
-    bottom: Math.min(h * 0.4, bottom),
+    bottom: measuredBottom ? Math.min(h * 0.58, Math.max(bottom, measuredBottom)) : Math.min(h * 0.4, bottom),
   };
 }
 
@@ -131,6 +134,13 @@ function renderPref() {
     if (q === 'fallback' || q === 'engine') return q;
   } catch { /* ignore */ }
   return globalThis.__SP_RENDER__ === 'fallback' ? 'fallback' : 'auto';
+}
+
+/** Share the normal engine's caches, respecting the explicit DOM-only renderer choice. */
+export async function warmFieldResources() {
+  if (renderPref() === 'fallback') return;
+  const engine = await import('../render/app.js');
+  await engine.preloadFieldResources();
 }
 
 function abortError(signal) {
