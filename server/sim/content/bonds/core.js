@@ -474,12 +474,6 @@ function devour(battle, pid, bb, members) {
 }
 
 function installEgir(battle, pid, bb, members) {
-  const snapshots = S.battleStore(battle, 'bond:startingLayers', () => new Map());
-  const snapshotKey = `${pid}|egirShip`;
-  if (!snapshots.has(snapshotKey)) snapshots.set(snapshotKey, S.bondLayers(battle, pid, 'egirShip'));
-  if (reached(battle, pid, 'egirShip', 6)) for (const u of members) {
-    S.passiveBuff(battle, u, 'bond:egir:six', { atkFlat: snapshots.get(snapshotKey) });
-  }
   // HP (every tier): a match-long buff put on the members when the battle is built, so each one is deployed with it
   // (Battle._deploy: full HP of the raised max HP) and the battle-start devour finds it — the community report's step 1,
   // 「第一步给所有鱼加盟约的血量」 (DESIGN §25.22.5: an elite 深巡, 2904 HP and DEF 655, loses 5000 − 655 = 4345 to a mark and

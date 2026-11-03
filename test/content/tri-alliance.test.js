@@ -56,16 +56,16 @@ test('D/E/F: 20/40 caps, dual expiry, live lifetime and initial SP snapshot, Nar
   }
 });
 
-test('G: independent 3/5/6 gates, base-add ledger, legal repeated origin paths and immutable starting snapshot',()=>{
+test('G: base-add ledger, legal repeated origin paths and no bonus at six members',()=>{
   for(const n of [3,5,6]){
     const h=field([rec('a'),rec('b'),rec('c',[],[],{stats:{atk:500,maxHp:1000000,def:0}})],{egirShip:state(n,100,[3,5,6])},{
       units:[{chessId:'a',row:10,col:2,dir:'RIGHT'},{chessId:'b',row:10,col:3,dir:'RIGHT'},{chessId:'c',row:10,col:4}],
       setup:b=>{b.addBuff(b.allyUnits[1],{key:'previous-devour',mods:{atkFlat:500},persist:true,allowDead:true});}});
-    const a=h.unit('a'),six=n===6?100:0;
+    const a=h.unit('a');
     // A marks B and C. B's already settled 500 is not globally deduplicated against C's 500.
-    close(a.findBuff('bond:egir:devour').mods.atkFlat,2000+six);
-    h.b.addBuff(a,{key:'double',mods:{atkPct:1}});close(a.s.atk,(3000+2*six)*2);
-    h.b.addLayers('p1','egirShip',500);h.step(2);close(a.findBuff('bond:egir:six')?.mods.atkFlat??0,six);
+    close(a.findBuff('bond:egir:devour').mods.atkFlat,2000);
+    h.b.addBuff(a,{key:'double',mods:{atkPct:1}});close(a.s.atk,6000);
+    h.b.addLayers('p1','egirShip',500);h.step(2);close(a.s.atk,6000);
     assert.equal(a.mem.egirDevourLedger.length,2);assert.deepEqual(h.b.errors,[]);
   }
 });
@@ -75,7 +75,7 @@ test('H/J: shared traits survive knock-out, clear non-KO source independently, d
     rec('s',undefined,[trait('skadi2')]),rec('c',undefined,[trait('clemnt')]),rec('receiver'),
     rec('ordinary',undefined,[trait('ulpia','a')])],{egirShip:state(3,600,[3,5,6])});
   const u=h.unit('u'),u2=h.unit('u2'),r=h.unit('receiver');
-  close(r.s.recoveryTakenMul,7);close(r.s.hpRegen,3000);close(r.s.spRecovery,7);close(r.s.atk,4000);
+  close(r.s.recoveryTakenMul,7);close(r.s.hpRegen,3000);close(r.s.spRecovery,7);close(r.s.atk,3000);
   r.hp-=100000;close(h.b.heal(null,r,100),700);close(h.b.heal(r,r,3000,{self:true,regen:true}),21000);
   h.b.addBuff(r,{key:'noheal',flags:{healFree:true}});close(h.b.heal(null,r,100),0);
   close(h.b.heal(r,r,100,{self:true,regen:true}),700);h.b.removeBuff(r,'noheal');
@@ -86,6 +86,16 @@ test('H/J: shared traits survive knock-out, clear non-KO source independently, d
   installAegirTraits(h.b);close(r.s.recoveryTakenMul,7);
   h.b.addLayers('p1','egirShip',10);h.step(2);close(r.s.recoveryTakenMul,7.1);
   checkInvariants(h.b);
+});
+
+test('Clementia: each complete three active layers grants 1% ATK',()=>{
+  for(const form of ['a','b']){
+    const h=field([rec('c',undefined,[trait('clemnt',form)]),rec('r')],{egirShip:state(3,2)});
+    const recipient=h.unit(form==='a'?'c':'r');
+    close(recipient.s.atk,1000);
+    h.b.addLayers('p1','egirShip',1);h.step(2);close(recipient.s.atk,1010);
+    h.b.addLayers('p1','egirShip',3);h.step(2);close(recipient.s.atk,1020);
+  }
 });
 
 test('H: Deepcolor conditional attack per-target at 49/50 percent, original and elite coefficient match',()=>{

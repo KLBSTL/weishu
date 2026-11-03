@@ -5,7 +5,7 @@ export function triAllianceEnglish(data) {
   const texts = {
     sarkazShip: '[3] Real skill activations grant own living fielded Sarkaz Operators 15 percentage points of ATK, capped per deployment at 60% + 1% per permanent stack. [6] After activation, grant the caster and each own living field unit in its current attack range one alliance shield, up to 3 without expiry. Each blocks one valid Physical/Arts instance. Primary Sarkaz hits add true damage equal to 10% current ATK per remaining alliance shield, with source damage bonuses and without consuming shields.',
     sargonShip: '[3] Each real skill activation grants own fielded Sargon recipients one independent +10% ATK/+10 ASPD stack, up to 20; each lasts 5 + 0.22 times live permanent stacks seconds. [6] Normal strategies raise the cap to 40 and add 0.01 times starting Sargon stacks natural SP per second to automatic-recovery skills. The snapshot stays fixed this battle. Narantuya retains 20 stacks and the original equipment sharing instead of the normal six-member effects.',
-    egirShip: '[3] Retain HP growth and battle-start devour. Devoured ATK is a base addition before ATK percentages; each marked target contributes its current effective base ATK exactly once, including previously settled devours. [5] Retain the original free-revival limit and ordering. [6] Own Aegir recipients gain starting Aegir stacks as extra base ATK before devour, once per battle; later stack growth does not change this addition.',
+    egirShip: '[3] Your Aegir Operators gain 35% + 1% per stack Max HP. At battle start they devour the allied Operator one tile ahead in order, dealing 5,000 Physical HP loss and gaining the target’s effective base ATK, Block Count, and Aegir stacks equal to its tier. Devoured ATK is added before percentage modifiers. [5] Up to three of your Aegir Operators revive for free on their first knock-out. Knock-outs from opening devours are processed after all opening devours resolve.',
   };
   for (const [id,text] of Object.entries(texts)) { const b=data.bonds[id]; add(b,text); add(data.effects[b.effectId],text); }
   for (const g of Object.values(data.garrisons)) {
@@ -15,7 +15,7 @@ export function triAllianceEnglish(data) {
     if (id.startsWith('garrison_aegir_udflow_')) add(g, `Against enemies strictly below 50% HP before impact, ${shared} attack at 150% ATK.${lifecycle}`);
     if (id.startsWith('garrison_aegir_ulpia_')) add(g, `Every 10 active Aegir stacks increase healing and legitimate HP regeneration received by ${shared} by 10%, linearly, once per restoration.${lifecycle}`);
     if (id.startsWith('garrison_aegir_skadi2_')) add(g, `Every 10 active Aegir stacks grant ${shared} 50 HP regeneration and 0.1 natural SP per second.${lifecycle}`);
-    if (id.startsWith('garrison_aegir_clemnt_')) add(g, `Every 2 active Aegir stacks grant ${shared} +1% ATK.${lifecycle}`);
+    if (id.startsWith('garrison_aegir_clemnt_')) add(g, `Every 3 active Aegir stacks grant ${shared} +1% ATK.${lifecycle}`);
     if (id.startsWith('garrison_07_')) add(g, `Every 3 active Aegir stacks grant this Operator +${n} ASPD, without an ATK bonus.`);
     if (id.startsWith('garrison_38_')) add(g, `Each enemy personally defeated grants ${n} stacks to each active Aegir and Raid Alliance independently.`);
     if (id.startsWith('garrison_131_')) add(g, `The first enemy or allied Operator personally knocked out this battle grants ${6*n} active Aegir stacks; cap ${6*n} per battle. Does not grant Arcane stacks.`);

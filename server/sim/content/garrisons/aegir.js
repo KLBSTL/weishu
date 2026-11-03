@@ -24,7 +24,7 @@ export function installAegirTraits(battle) {
       for (const code of GROUPS) {
         const key = `gar:aegir:${code}`;
         const enabled = active(u, code);
-        const k = Math.floor(L / (code === 'clemnt' ? 2 : 10));
+        const k = Math.floor(L / (code === 'clemnt' ? 3 : 10));
         const signature = `${enabled}|${k}`;
         const cache = u.mem.aegirTraitCache ??= {};
         if (cache[code] === signature) continue;

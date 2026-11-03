@@ -1,5 +1,11 @@
 # Golden results
 
+2026-11-03 Aegir revision: removing the six-member tier changes `bond-egirShip-high` and shifts the shared
+high-tier filler cursor for the following cases: emptyShip, indomShip, investShip, kazimierzShip, kjeragShip,
+lateranoShip, maniShip, miraShip, preciShip, raidShip, sargonShip, sarkazShip, siracusaShip, skillfulShip,
+soloShip, steadShip, swiftShip, victoriaShip, visiShip. Match digests change for `solo-NORMAL-2`,
+`solo-HARD-2`, `coop3-ABYSS-5` and `coop4-ABYSS-7`. Other families are unchanged.
+
 Three-alliance revision (2026-10-26): all 298 scenarios rebuilt and rechecked; 138 change and 160 stay unchanged.
 99 changed cases have an input-description/roster change caused by the new regular identity, tier/label changes,
 DIY exclusion or Aegir's added tier. Others use revised Sarkaz/Sargon/Aegir rules or their specified operators.
