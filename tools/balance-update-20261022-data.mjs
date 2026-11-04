@@ -75,8 +75,12 @@ export function finishBalanceUpdate(files) {
     shield_atk_ratio:.05,shield_base_hp_cap:.5,shield_hp_cap_per_stack:.005,rider_ratio:.15});
   Object.assign(files.bonds.columbiaShip.bb,{burst_atk_ratio:2,base_cooldown:8,burn_atk_ratio:.3,burn_duration:5});
   const later=files.bonds.lateranoShip;
-  const desc=later.effectDesc.split('\n')[0]+'\n<在场6名不同【拉特兰】干员>每实际消耗1发弹药，使拉特兰受益干员增加3个百分点攻击，上限90%+1%×拉特兰层数。';
-  Object.assign(later,{desc,descRaw:desc,effectDesc:desc,effectDescRaw:desc});
+  const ammoDesc=bonus=>`【3】拉特兰干员开启弹药技能时，获得的弹药量增加${bonus}，最终弹药数向下取整。`;
+  const attackDesc='\n【6】在场有6名不同的拉特兰干员时，拉特兰干员每实际消耗1发弹药，使拉特兰受益干员的攻击力增加3个百分点，上限为90%+1%×拉特兰层数。';
+  const desc=ammoDesc('5%+1.5%×拉特兰层数')+attackDesc;
+  const effectDesc=ammoDesc('{0:0.0%}')+attackDesc;
+  Object.assign(later,{desc,descRaw:desc,effectDesc,effectDescRaw:effectDesc});
+  later.effectDescParams.find(param=>param.index===0).format='0.0%';
   for(const params of [later.bb,...later.buffs.map(b=>b.bb)])Object.assign(params,{atk_per_consume:.03,max_atk_for_consume:.90,max_atk_per_stack:.01});
   const effect=files.effects[later.effectId];Object.assign(effect,{desc,descRaw:desc});
   Object.assign(effect.params,{atk_per_consume:.03,max_atk_for_consume:.90,max_atk_per_stack:.01});

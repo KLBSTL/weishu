@@ -79,6 +79,15 @@ describe('placeholders', () => {
     assert.equal(fillPlaceholders('x{0}', ['文本']), 'x文本');
     assert.equal(fillPlaceholders(null, []), '');
   });
+  test('Laterano shows the ammo formula in rules and the exact bonus in a match', () => {
+    const bond = load('bonds.json').lateranoShip;
+    const effect = load('effects.json')[bond.effectId];
+    for (const desc of [bond.desc, bond.descRaw, effect.desc, effect.descRaw]) {
+      assert.match(richTextPlain(desc), /5%\+1\.5%×拉特兰层数/);
+      assert.doesNotMatch(desc, /\{\d+:/);
+    }
+    assert.match(formatBondEffect(bond, 1), /6\.5%/);
+  });
   test('formatBondEffect resolves base + perStack × layers for every bond', () => {
     const bonds = load('bonds.json');
     const deput = bonds.deputShip;
