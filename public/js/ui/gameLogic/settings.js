@@ -14,14 +14,14 @@ import { ART_THEMES } from './artThemes.js';
 export const VOICE_LANGS = Object.freeze(['cn', 'jp']);
 
 /** keys: the in-match shortcuts' key map (ui/gameLogic/shortcuts.js; settings → 快捷键). voiceLang: VOICE_LANGS. */
-export const DEFAULT_SETTINGS = Object.freeze({ bgm: 0.6, sfx: 0.8, voice: 0.8, voiceLang: 'cn', muted: false, damageNumbers: true, officialDamageNumbers: false, ammoCount: false, artUiEnabled: false, artUiTheme: 'inkSeal', paperOutside: false, paperInside: false, quality: 'high', keys: DEFAULT_HOTKEYS });
+export const DEFAULT_SETTINGS = Object.freeze({ bgm: 0.6, sfx: 0.8, voice: 0.8, voiceLang: 'cn', muted: false, paperButtonSounds: false, damageNumbers: true, officialDamageNumbers: false, ammoCount: false, artUiEnabled: false, artUiTheme: 'inkSeal', paperOutside: false, paperInside: false, quality: 'high', keys: DEFAULT_HOTKEYS });
 const QUALITIES = ['high', 'medium', 'low'];
 
 /**
  * Sanitize persisted settings.
  * @param {any} raw
  * @returns {{ bgm: number, sfx: number, voice: number, voiceLang: 'cn'|'jp', muted: boolean, damageNumbers: boolean, quality: 'high'|'medium'|'low',
- *   artUiEnabled: boolean, artUiTheme: string, paperOutside: boolean, paperInside: boolean,
+ *   artUiEnabled: boolean, artUiTheme: string, paperOutside: boolean, paperInside: boolean, paperButtonSounds: boolean,
  *   keys: Record<'refresh'|'freeze'|'levelUp'|'retreat'|'sell'|'ready', string> }}
  */
 export function sanitizeSettings(raw) {
@@ -33,6 +33,7 @@ export function sanitizeSettings(raw) {
     voice: vol(r.voice, DEFAULT_SETTINGS.voice),
     voiceLang: VOICE_LANGS.includes(r.voiceLang) ? r.voiceLang : DEFAULT_SETTINGS.voiceLang,
     muted: typeof r.muted === 'boolean' ? r.muted : DEFAULT_SETTINGS.muted,
+    paperButtonSounds: r.paperButtonSounds === true,
     damageNumbers: typeof r.damageNumbers === 'boolean' ? r.damageNumbers : DEFAULT_SETTINGS.damageNumbers,
     officialDamageNumbers: typeof r.officialDamageNumbers === 'boolean' ? r.officialDamageNumbers : DEFAULT_SETTINGS.officialDamageNumbers,
     ammoCount: typeof r.ammoCount === 'boolean' ? r.ammoCount : DEFAULT_SETTINGS.ammoCount,

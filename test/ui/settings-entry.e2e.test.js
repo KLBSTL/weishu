@@ -78,6 +78,23 @@ describe('the settings entry of the lobby and the room', { skip: !ENABLED && 'se
     await page.waitForSelector('.modal', { timeout: 5000 });
     await page.click('#settings-tab-audio');
     assert.match(await modalText(page), /背景音乐/);
+    const pageSound = '[role="switch"][aria-label="卡牌按键音效"]';
+    assert.equal(await page.$eval(pageSound, el => el.getAttribute('aria-checked')), 'false');
+    await page.click(pageSound);
+    await page.waitForFunction(async () => (await import('/js/audio.js')).audio.paperUiEnabled);
+    assert.equal(await page.$eval(pageSound, el => el.getAttribute('aria-checked')), 'true');
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.settings')).paperButtonSounds), true);
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.paperStyle), 'off');
+    await page.click('#settings-tab-display');
+    await page.waitForFunction(async () => (await import('/js/audio.js')).audio.paperNodes.size === 1);
+    const cueDuration = await page.evaluate(async () => {
+      const { audio } = await import('/js/audio.js');
+      return (await audio.paperBuffer.promise)?.duration;
+    });
+    assert.equal(cueDuration, 0.148);
+    await page.click('#settings-tab-audio');
+    await page.click(pageSound);
+    await page.waitForFunction(async () => !(await import('/js/audio.js')).audio.paperUiEnabled);
     await page.evaluate(() => [...document.querySelectorAll('.modal button')].find((b) => /完成/.test(b.textContent))?.click());
     await sleep(300);
     assert.equal(await modalText(page), null, '完成 closes it');

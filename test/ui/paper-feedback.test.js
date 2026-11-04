@@ -2,7 +2,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { AudioManager } from '../../public/js/audio.js';
-import { installPaperFeedback, paperControl, applyPaperPresentation, setPaperFeedbackActive } from '../../public/js/ui/paperFeedback.js';
+import { installPaperFeedback, paperControl, applyPaperPresentation } from '../../public/js/ui/paperFeedback.js';
 import { sanitizeSettings, menuArtActive } from '../../public/js/ui/gameLogic/settings.js';
 
 function host() {
@@ -38,23 +38,32 @@ function audioFixture(paper = true) {
     constructor() { made.contexts++; this.state = 'running'; this.currentTime = 0; this.sampleRate = 24000; }
     createBuffer(channels, frames, rate) {
       const pcm = new Float32Array(frames);
-      const buffer = { duration: frames / rate, getChannelData: () => pcm };
+      const buffer = { duration: frames / rate, getChannelData: () => pcm, copyToChannel: samples => pcm.set(samples) };
       made.buffers.push(buffer); return buffer;
     }
     createBufferSource() { const source = new Node(); source.start = () => made.sources.push(source); return source; }
     createGain() { const gain = new Node(); gain.gain = { value: 1 }; return gain; }
   }
   const win = { document: { hidden: false }, AudioContext: Context };
-  const manager = new AudioManager({ win, getManifest: () => ({ audio: { sfx: { ui: { click: '/old-click', buy: '/buy' } } } }) });
+  const manager = new AudioManager({ win, getManifest: () => ({ audio: { sfx: { ui: { click: '/old-click', buy: '/buy', pick: '/pick' } } } }) });
+  const recording = Float32Array.from({ length: 12000 }, (_, i) => 0.3 * Math.sin(i / 6) * Math.exp(-i / 2400));
+  manager._buffer = async url => {
+    assert.equal(url, '/pick');
+    return { length: recording.length, sampleRate: 24000, numberOfChannels: 1, getChannelData: () => recording };
+  };
   if (paper) manager.setPaperUiEnabled(true);
   return { made, win, manager, unlock() { manager.ctx = new Context(); manager.sfxGain = new Node(); } };
 }
+
+const flushAudio = () => new Promise(resolve => setImmediate(resolve));
 
 describe('paper feedback input lifecycle', () => {
   test('installs only once; mouse press/release observes controls without consuming their event', async () => {
     const doc = host(), win = host(), calls = [];
     let now = 0;
-    const dispose = installPaperFeedback({ doc, win, player: { paperUi: kind => calls.push(kind) }, clock: () => now, active: true });
+    const player = { paperUi: () => calls.push('card') };
+    const dispose = installPaperFeedback({ doc, win, player, clock: () => now });
+    applyPaperPresentation({ paperOutside: true, paperButtonSounds: true }, false, { doc, player });
     assert.equal(installPaperFeedback({ doc, win }), dispose);
     assert.equal(doc.count('pointerdown'), 1);
     const control = button(['btn--primary']);
@@ -66,7 +75,7 @@ describe('paper feedback input lifecycle', () => {
     assert.ok(control.classList.contains('paper-release'));
     doc.fire('click', { target: control, button: 0 });
     await Promise.resolve();
-    assert.deepEqual(calls, ['press', 'confirm']);
+    assert.deepEqual(calls, ['card']);
     dispose();
     assert.equal(doc.count('click'), 0);
     assert.equal(control.classList.contains('paper-release'), false);
@@ -74,14 +83,15 @@ describe('paper feedback input lifecycle', () => {
 
   test('cancel, pointer leaving and blur clear pressed state; text/range/disabled controls stay silent', () => {
     const doc = host(), win = host(), calls = [];
-    const dispose = installPaperFeedback({ doc, win, player: { paperUi: kind => calls.push(kind) }, active: true });
+    const player = { paperUi: () => calls.push('card') };
+    const dispose = installPaperFeedback({ doc, win, player });
+    applyPaperPresentation({ paperOutside: true, paperButtonSounds: true }, false, { doc, player });
     const control = button();
     for (const type of ['pointercancel', 'pointerout', 'blur']) {
       doc.fire('pointerdown', { target: control, pointerId: 1, button: 0 });
       (type === 'blur' ? win : doc).fire(type, { target: control, relatedTarget: null });
       assert.equal(control.classList.contains('paper-pressed'), false, type);
     }
-    const count = calls.length;
     for (const disabled of [button(), button()]) {
       disabled.disabled = true;
       doc.fire('pointerdown', { target: disabled, button: 0 });
@@ -94,22 +104,28 @@ describe('paper feedback input lifecycle', () => {
     doc.fire('keydown', { target: textOrRange, key: ' ' });
     doc.fire('pointerdown', { target: textOrRange, button: 0 });
     doc.fire('pointerdown', { target: control, button: 2 });
-    assert.equal(calls.length, count);
+    assert.deepEqual(calls, []);
     dispose();
   });
 
-  test('touch has no hover sound; Enter/Space repeats do not retrigger pressure or activate feedback', async () => {
+  test('touch hover and repeated keys stay silent; a keyboard activation plays once', async () => {
     const doc = host(), win = host(), calls = [];
-    const dispose = installPaperFeedback({ doc, win, player: { paperUi: kind => calls.push(kind) }, active: true });
+    const player = { paperUi: () => calls.push('card') };
+    const dispose = installPaperFeedback({ doc, win, player });
+    applyPaperPresentation({ paperOutside: true, paperButtonSounds: true }, false, { doc, player });
     const control = button();
     doc.fire('pointerover', { target: control, pointerType: 'touch' });
     doc.fire('keydown', { target: control, key: 'Enter' });
     doc.fire('keydown', { target: control, key: 'Enter', repeat: true });
     doc.fire('click', { target: control, detail: 0 });
     await Promise.resolve();
-    assert.deepEqual(calls, ['press']);
+    assert.deepEqual(calls, []);
     doc.fire('focusout', { target: control });
     assert.equal(control.classList.contains('paper-pressed'), false);
+    doc.fire('keydown', { target: control, key: 'Enter' });
+    doc.fire('click', { target: control, detail: 0 });
+    await Promise.resolve();
+    assert.deepEqual(calls, ['card']);
     doc.fire('keydown', { target: control, key: ' ' });
     doc.hidden = true; doc.fire('visibilitychange');
     assert.equal(control.classList.contains('paper-pressed'), false);
@@ -119,13 +135,13 @@ describe('paper feedback input lifecycle', () => {
   test('explicit handler sound runs before delegated fallback, which AudioManager deduplicates', async () => {
     const f = audioFixture(); f.unlock();
     const doc = host(), win = host(), control = button();
-    const dispose = installPaperFeedback({ doc, win, player: f.manager, active: true });
+    const dispose = installPaperFeedback({ doc, win, player: f.manager });
+    applyPaperPresentation({ paperButtonSounds: true }, false, { doc, player: f.manager });
     doc.fire('click', { target: control });
     f.manager.sfx('back'); // existing handler, after capture but before the microtask
-    await Promise.resolve();
+    await flushAudio();
     assert.equal(f.made.sources.length, 1);
-    assert.ok(f.manager.paperBuffers.has('back'));
-    assert.equal(f.manager.paperBuffers.has('select'), false);
+    assert.equal(f.made.buffers.length, 1);
     f.made.sources.forEach(source => source.onended()); dispose();
   });
 });
@@ -155,7 +171,7 @@ describe('paper scene opt-in', () => {
     }
     assert.equal(menuArtActive(sanitizeSettings({ artUiTheme: 'pencilPaper', paperOutside: true, artUiEnabled: false }), false), false);
   });
-  test('all four preference combinations select only their own scene and do not follow illustrated-art selection', () => {
+  test('scene motion and button sound preferences are independent of each other and illustrated art', () => {
     const links = Array.from({ length: 4 }, () => ({ media: 'not all' }));
     const theme = button(), scheme = button();
     const doc = { documentElement: { dataset: {}, style: {} },
@@ -164,11 +180,11 @@ describe('paper scene opt-in', () => {
     let enabled = null;
     const player = { setPaperUiEnabled(value) { enabled = value; } };
     for (const paperOutside of [false, true]) for (const paperInside of [false, true]) {
-      const s = sanitizeSettings({ paperOutside, paperInside, artUiEnabled: true, artUiTheme: 'pencilPaper' });
-      for (const inMatch of [false, true]) {
+      for (const paperButtonSounds of [false, true]) for (const inMatch of [false, true]) {
+        const s = sanitizeSettings({ paperOutside, paperInside, paperButtonSounds, artUiEnabled: true, artUiTheme: 'pencilPaper' });
         const expected = inMatch ? paperInside : paperOutside;
         assert.equal(applyPaperPresentation(s, inMatch, { doc, player }), expected);
-        assert.equal(enabled, expected);
+        assert.equal(enabled, paperButtonSounds);
         assert.ok(links.every(link => link.media === (expected ? 'all' : 'not all')));
         assert.equal(doc.documentElement.dataset.paperStyle, expected ? 'on' : 'off');
         assert.equal(doc.documentElement.style.colorScheme, expected ? 'light' : 'dark');
@@ -176,13 +192,16 @@ describe('paper scene opt-in', () => {
         assert.equal(scheme.getAttribute('content'), expected ? 'light' : 'dark');
       }
     }
-    assert.equal(applyPaperPresentation(sanitizeSettings({ artUiEnabled: true, artUiTheme: 'pencilPaper' }), false, { doc, player }), false);
+    const oldProfile = sanitizeSettings({ paperOutside: true, artUiEnabled: true, artUiTheme: 'pencilPaper' });
+    assert.equal(applyPaperPresentation(oldProfile, false, { doc, player }), true);
+    assert.equal(enabled, false);
+    assert.equal(sanitizeSettings({ paperButtonSounds: 'true' }).paperButtonSounds, false);
   });
 
-  test('default-off input is inert; disabling during a press clears feedback, timers and queued sound', async () => {
+  test('motion and sound work independently; disabling clears their pending feedback', async () => {
     const doc = host(), win = host(), calls = [], control = button();
     doc.querySelectorAll = () => [control];
-    const player = { paperUi: kind => calls.push(kind), setPaperUiEnabled() {} };
+    const player = { paperUi: () => calls.push('card'), setPaperUiEnabled() {} };
     const dispose = installPaperFeedback({ doc, win, player });
     doc.fire('pointerover', { target: control, pointerType: 'mouse' });
     doc.fire('pointerdown', { target: control, button: 0, pointerId: 1 });
@@ -190,29 +209,37 @@ describe('paper scene opt-in', () => {
     await Promise.resolve();
     assert.deepEqual(calls, []);
     assert.equal(control.getAttribute('data-paper-ui'), null);
-    setPaperFeedbackActive(true, { doc, player });
+    applyPaperPresentation({ paperOutside: true }, false, { doc, player });
     doc.fire('pointerdown', { target: control, button: 0, pointerId: 1 });
     assert.ok(control.classList.contains('paper-pressed'));
     doc.fire('click', { target: control });
-    setPaperFeedbackActive(false, { doc, player });
+    await Promise.resolve();
+    assert.deepEqual(calls, []);
+    applyPaperPresentation({ paperButtonSounds: true }, false, { doc, player });
+    doc.fire('click', { target: control });
+    await Promise.resolve();
+    assert.deepEqual(calls, ['card']);
+    doc.fire('click', { target: control });
+    applyPaperPresentation({}, false, { doc, player });
     await new Promise(resolve => setTimeout(resolve, 65));
-    assert.deepEqual(calls, ['press'], 'queued activation is dropped after the setting changes');
+    assert.deepEqual(calls, ['card'], 'queued activation is dropped after the setting changes');
     assert.equal(control.classList.contains('paper-pressed'), false);
     assert.equal(control.classList.contains('paper-release'), false);
     assert.equal(control.getAttribute('data-paper-ui'), null);
     dispose();
   });
 
-  test('audio defaults to legacy recorded clicks, switches only while active and stops paper voices on disable', () => {
+  test('audio defaults to legacy recorded clicks, switches only while active and stops card voices on disable', async () => {
     const f = audioFixture(false); f.unlock();
     const recorded = [];
     f.manager._play = url => recorded.push(url);
     assert.equal(f.manager.paperUiEnabled, false);
     f.manager.sfx('click');
     assert.deepEqual(recorded, ['/old-click']);
-    assert.equal(f.manager.paperUi('press'), false);
+    assert.equal(f.manager.paperUi(), false);
     f.manager.setPaperUiEnabled(true);
     f.manager.sfx('click');
+    await flushAudio();
     assert.equal(f.made.sources.length, 1);
     assert.equal(f.manager.paperVoices, 1);
     f.manager.setPaperUiEnabled(false);
@@ -224,9 +251,9 @@ describe('paper scene opt-in', () => {
 });
 
 describe('paper SFX audio bus', () => {
-  test('hover before unlock is silent and does not create a context; mute/hidden/suspended/SFX zero are respected', () => {
+  test('button sounds before unlock are silent and do not create a context; mute/hidden/suspended/SFX zero are respected', () => {
     const f = audioFixture();
-    assert.equal(f.manager.paperUi('hover'), false);
+    assert.equal(f.manager.paperUi(), false);
     assert.equal(f.made.contexts, 0);
     f.unlock();
     for (const mode of ['mute', 'zero', 'hidden', 'suspended']) {
@@ -234,40 +261,59 @@ describe('paper SFX audio bus', () => {
       f.manager.volumes.sfx = mode === 'zero' ? 0 : 0.8;
       f.win.document.hidden = mode === 'hidden';
       f.manager.ctx.state = mode === 'suspended' ? 'suspended' : 'running';
-      assert.equal(f.manager.paperUi('press'), false, mode);
+      assert.equal(f.manager.paperUi(), false, mode);
     }
     assert.equal(f.made.sources.length, 0);
   });
 
-  test('bounded short cues are distinct, cached, throttled and connected through the existing SFX gain', () => {
+  test('button sounds share a short, cached card sample through the existing SFX gain', async () => {
     const f = audioFixture(); f.unlock();
-    for (const kind of ['hover', 'press', 'select', 'confirm', 'back', 'error']) {
+    for (const kind of ['click', 'confirm', 'back', 'error']) {
       f.manager.ctx.currentTime += 0.2;
-      assert.equal(f.manager.paperUi(kind), true, kind);
+      f.manager.sfx(kind);
+      assert.equal(f.manager.paperUi(), false, `${kind} cooldown`);
+      await flushAudio();
       const source = f.made.sources.at(-1);
       assert.equal(source.to.to, f.manager.sfxGain);
-      assert.ok(source.buffer.duration <= 0.1051);
-      assert.ok(source.buffer.getChannelData(0).every(x => Number.isFinite(x) && Math.abs(x) < 0.4));
-      assert.equal(f.manager.paperUi(kind), false, `${kind} cooldown`);
+      assert.equal(source.buffer.duration, 0.148);
+      const pcm = source.buffer.getChannelData(0);
+      assert.ok(pcm.every(x => Number.isFinite(x) && Math.abs(x) < 0.4));
+      assert.ok(pcm.some(x => Math.abs(x) > 0.02), kind);
+      assert.equal(Math.abs(pcm[0]), 0);
+      assert.equal(Math.abs(pcm.at(-1)), 0);
       source.onended();
     }
     assert.equal(f.manager.paperVoices, 0);
-    assert.equal(f.made.buffers.length, 6);
-    assert.equal(new Set(f.made.buffers.map(buffer => Array.from(buffer.getChannelData(0).slice(0, 24)).join(','))).size, 6);
-    f.manager.ctx.currentTime += 0.2; f.manager.paperUi('select');
-    assert.equal(f.made.buffers.length, 6, 'no repeated sample allocation');
-    f.made.sources.at(-1).onended();
+    assert.equal(f.made.sources.length, 4);
+    assert.equal(f.made.buffers.length, 1);
   });
 
-  test('generic click is replaced without loading its old sample; business sounds retain their path', () => {
+  test('generic click is replaced without loading its old sample; business sounds retain their path', async () => {
     const f = audioFixture(); f.unlock();
     const recorded = [];
     f.manager._play = url => recorded.push(url);
     f.manager.sfx('click');
+    await flushAudio();
     assert.equal(f.made.sources.length, 1);
     assert.deepEqual(recorded, []);
     f.manager.sfx('buy');
     assert.deepEqual(recorded, ['/buy']);
     f.made.sources.at(-1).onended();
+  });
+
+  test('disabling the option drops a pending click; an unavailable card asset falls back to the original', async () => {
+    const f = audioFixture(false); f.unlock();
+    f.manager._buffer = async () => null;
+    const recorded = [];
+    f.manager._play = url => recorded.push(url);
+    f.manager.setPaperUiEnabled(true);
+    f.manager.sfx('click');
+    f.manager.setPaperUiEnabled(false);
+    await flushAudio();
+    assert.deepEqual(recorded, []);
+    f.manager.setPaperUiEnabled(true);
+    f.manager.sfx('click');
+    await flushAudio();
+    assert.deepEqual(recorded, ['/old-click']);
   });
 });

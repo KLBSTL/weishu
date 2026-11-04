@@ -9,12 +9,13 @@ colored-pencil hatching. Lobby, room, settings, operator management, guide, stat
 share the same surfaces while retaining their existing responsive layouts and live translated text. Static SVG grain,
 hatching and architecture do not add a rendering loop or a battlefield filter. The delegated paper feedback layer adds
 pointer/keyboard lift, pressure and release, with cancellation, disabled controls and reduced-motion handling.
-Generic UI sounds use bounded, cached paper/graphite buffers through the existing SFX bus, mute/volume and
-visibility policy; recorded purchasing, battle and voice cues remain separate. No gameplay data changes.
+Settings → Display controls the paper skin and button motion independently outside and inside a match.
+Both switches default to off. The optional pencil-paper button atlas uses live labels while that skin is off.
 
-Settings → Display controls the paper skin independently outside and inside a match. Both switches default
-to off, including for saved preferences from before the split. Each switch also controls paper motion and
-paper UI sounds for its scene. The optional pencil-paper button atlas uses live labels while that skin is off.
+Settings → Sound has a separate card button sound switch for both scenes. Original UI sounds are the default,
+including for older saved preferences. The optional button cue uses a short, lowered and filtered excerpt from
+the existing card-pick recording. It plays on activation and follows the existing SFX volume, mute and visibility
+settings. Recorded purchasing, battle and voice cues remain separate.
 
 Standby appearance (2026-10-29, entry revised 2026-11-02): Settings → Appearance opens the separate editor;
 the lobby and room no longer expose its direct toolbar entry or an inline editing area.

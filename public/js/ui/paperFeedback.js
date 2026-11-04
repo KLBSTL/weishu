@@ -1,21 +1,14 @@
-// A single delegated paper/graphite feedback layer. It observes controls; it never changes their actions.
+// Delegated paper motion and optional card sounds.
 import { audio } from '../audio.js';
 import { paperStyleActive } from './gameLogic/settings.js';
 
 const CONTROL = 'button,[role="button"],[role="tab"],[role="radio"],[role="switch"],summary';
 const installations = new WeakMap();
 
-/** Toggle the existing listener layer and its synthesized sounds together; off never creates feedback classes. */
-export function setPaperFeedbackActive(value, options = {}) {
-  const doc = options.doc ?? (typeof document === 'undefined' ? null : document);
-  const player = options.player ?? audio;
-  player.setPaperUiEnabled?.(value === true);
-  installations.get(doc)?.setActive(value === true);
-}
-
 /** Shared by the real router and the explicitly in-match dev harness. No settings/UI module dependency. */
 export function applyPaperPresentation(settings, inMatch, options = {}) {
   const active = paperStyleActive(settings, inMatch);
+  const sound = settings?.paperButtonSounds === true;
   const doc = options.doc ?? (typeof document === 'undefined' ? null : document);
   if (!doc) return active;
   for (const link of doc.querySelectorAll?.('link[data-paper-style]') || []) link.media = active ? 'all' : 'not all';
@@ -27,7 +20,9 @@ export function applyPaperPresentation(settings, inMatch, options = {}) {
   }
   doc.querySelector?.('meta[name="theme-color"]')?.setAttribute('content', active ? '#f8f2e7' : '#0c0f0e');
   doc.querySelector?.('meta[name="color-scheme"]')?.setAttribute('content', active ? 'light' : 'dark');
-  setPaperFeedbackActive(active, options);
+  const player = options.player ?? audio;
+  player.setPaperUiEnabled?.(sound);
+  installations.get(doc)?.setActive(active, sound);
   return active;
 }
 
@@ -40,18 +35,10 @@ export function paperControl(target) {
   return control;
 }
 
-export function paperAction(control) {
-  const explicit = control?.getAttribute?.('data-paper-feedback');
-  if (['select', 'confirm', 'back', 'error'].includes(explicit)) return explicit;
-  if (control?.classList?.contains('btn--danger')) return 'error';
-  if (control?.classList?.contains('btn--primary')) return 'confirm';
-  return 'select';
-}
-
 /**
  * Installed once by main.js after installAudio(). Returns an idempotent cleanup for tests/hot reload.
  * Dependencies are optional so pointer/keyboard cancellation can be tested without a browser or audio hardware.
- * @param {{ doc?: any, win?: any, player?: any, clock?: ()=>number, active?: boolean }} [options]
+ * @param {{ doc?: any, win?: any, player?: any, clock?: ()=>number }} [options]
  */
 export function installPaperFeedback(options = {}) {
   const win = options.win ?? (typeof window === 'undefined' ? null : window);
@@ -67,9 +54,10 @@ export function installPaperFeedback(options = {}) {
   let hovered = null;
   let repeatTarget = null;
   let disposed = false;
-  let active = options.active === true;
-  const listen = (host, type, fn) => {
-    const gated = event => { if (active) fn(event); };
+  let motion = false;
+  let sound = false;
+  const listen = (host, type, fn, needsMotion = true) => {
+    const gated = event => { if (motion || (!needsMotion && sound)) fn(event); };
     host?.addEventListener?.(type, gated, true);
     listeners.push([host, type, gated]);
   };
@@ -108,7 +96,6 @@ export function installPaperFeedback(options = {}) {
     control.classList.remove('paper-release');
     control.classList.add('paper-pressed');
     pressed = { control, pointerId, key, at: clock() };
-    player.paperUi('press');
   };
   const reset = () => {
     clearPress();
@@ -127,7 +114,6 @@ export function installPaperFeedback(options = {}) {
     if (!control || control.contains(event.relatedTarget)) return;
     hovered?.classList.remove('paper-hover'); hovered = control; mark(control);
     control.classList.add('paper-hover');
-    player.paperUi('hover');
   });
   listen(doc, 'pointerout', event => {
     const control = paperControl(event.target);
@@ -149,39 +135,41 @@ export function installPaperFeedback(options = {}) {
   });
   listen(doc, 'pointercancel', clearPress);
   listen(doc, 'focusin', event => { const control = paperControl(event.target); if (control) mark(control); });
-  listen(doc, 'focusout', () => { repeatTarget = null; if (pressed?.key) clearPress(); });
+  listen(doc, 'focusout', () => { repeatTarget = null; if (pressed?.key) clearPress(); }, false);
   listen(doc, 'keydown', event => {
     if (event.altKey || event.ctrlKey || event.metaKey || !['Enter', ' '].includes(event.key)) return;
     const control = paperControl(event.target);
     if (event.repeat) { repeatTarget = control; return; }
     repeatTarget = null;
-    if (control) begin(control, null, event.key);
-  });
+    if (control && motion) begin(control, null, event.key);
+  }, false);
   listen(doc, 'keyup', event => {
     repeatTarget = null;
     if (pressed?.key === event.key) release(pressed.control);
-  });
+  }, false);
   listen(doc, 'click', event => {
     if (event.button != null && event.button !== 0) return;
     const control = paperControl(event.target);
     if (!control) return;
     if (event.detail === 0 && repeatTarget === control) return;
-    mark(control);
-    if (!timers.has(control)) release(control);
+    if (motion) {
+      mark(control);
+      if (!timers.has(control)) release(control);
+    }
     // Explicit click/tab/back/error handlers run first. AudioManager's action gate then suppresses this fallback.
-    defer(() => { if (active && !disposed && !event.defaultPrevented) player.paperUi(paperAction(control)); });
-  });
-  listen(win, 'blur', reset);
-  listen(doc, 'visibilitychange', () => { if (doc.hidden) reset(); });
+    if (sound) defer(() => { if (sound && !disposed && !event.defaultPrevented) player.paperUi(); });
+  }, false);
+  listen(win, 'blur', reset, false);
+  listen(doc, 'visibilitychange', () => { if (doc.hidden) reset(); }, false);
   const dispose = () => {
     if (disposed) return;
     disposed = true; reset();
     for (const [host, type, fn] of listeners) host?.removeEventListener?.(type, fn, true);
     installations.delete(doc);
   };
-  dispose.setActive = value => {
-    active = value === true;
-    if (!active) {
+  dispose.setActive = (showMotion, playSound) => {
+    if ((motion && !showMotion) || (sound && !playSound)) repeatTarget = null;
+    if (motion && !showMotion) {
       reset();
       for (const control of doc.querySelectorAll?.('[data-paper-ui]') || []) {
         control.classList.remove('paper-hover', 'paper-pressed', 'paper-release');
@@ -189,6 +177,8 @@ export function installPaperFeedback(options = {}) {
         control.removeAttribute('data-paper-motion');
       }
     }
+    motion = showMotion;
+    sound = playSound;
   };
   installations.set(doc, dispose);
   return dispose;

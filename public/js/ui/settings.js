@@ -47,12 +47,12 @@ export function updateSettings(patch) {
 /** Preact hook: current settings. */
 export const useSettings = () => useStore((s) => s, Object.is, settingsStore);
 
-/** Applies only the current scene's opt-in skin, synchronously before paint; menu-art preferences stay separate. */
+/** Applies the current scene's skin and the separate button sound setting before paint. */
 export function PaperStyleHost({ inMatch = false }) {
   const s = useSettings();
   useLayoutEffect(() => {
     applyPaperPresentation(s, inMatch);
-  }, [inMatch, s.paperOutside, s.paperInside]);
+  }, [inMatch, s.paperOutside, s.paperInside, s.paperButtonSounds]);
   return null;
 }
 
@@ -341,6 +341,9 @@ export function SettingsModal({ open, onClose }) {
       </div>
       <${Slider} label=${t('音效')} micro="SFX" icon="signal" value=${s.sfx}
         onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
+      <${Toggle} label=${t('卡牌按键音效')} micro="CARD SOUNDS" value=${s.paperButtonSounds}
+        onChange=${(v) => updateSettings({ paperButtonSounds: v })} />
+      <p class="set-hint">${t('关闭时使用原版按键音效。')}</p>
       <${Toggle} label=${t('静音')} micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
       ` : null}
       ${tab === 'controls' ? html`<${HotkeySection} keys=${s.keys} touchUi=${touchUi} />
