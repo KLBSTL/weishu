@@ -35,6 +35,7 @@ import { createRequestHandler } from './http/routes.js';
 import { createPortraitStore, createPortraitHandler } from './http/portraits.js';
 import { answerClientError } from './http/common.js';
 import { lanUrls, displayHost, isProcessEntry, runMain } from './http/boot.js';
+import { startDesktopPet } from './desktop/bridge.js';
 
 // The public API of this module (tests and tools import it from here); the code lives in ./http/.
 export {
@@ -47,7 +48,7 @@ export {
  * @param {{
  *   port?: number, host?: string, quiet?: boolean, log?: object,
  *   publicDir?: string, dataDir?: string, sharedDir?: string, packsDir?: string, portraitsDir?: string,
- *   MatchClass?: Function, seedFn?: () => number,
+ *   MatchClass?: Function, seedFn?: () => number, desktopPet?: Parameters<typeof startDesktopPet>[0],
  *   lobbyGraceMs?: number, reconnectWindowMs?: number, heartbeatMs?: number, helloTimeoutMs?: number,
  *   ratePerSec?: number, rateBurst?: number, maxConnections?: number, maxRooms?: number,
  *   maxConnectionsPerAddr?: number, maxRoomsPerAddr?: number, maxMatchesPerAddr?: number, resyncMinGapMs?: number,
@@ -119,6 +120,23 @@ export async function startServer(opts = {}) {
   const addr = server.address();
   const actualPort = typeof addr === 'object' && addr ? addr.port : port;
   const url = `http://${displayHost(boundHost)}:${actualPort}`;
+  const desktopConfig = opts.desktopPet ?? (process.env.SP_DSH_PET === '1' ? {
+    base: process.env.SP_DSH_PET_BASE,
+    pet: process.env.SP_DSH_PET_ID,
+    runtimeFile: process.env.SP_DSH_PET_RUNTIME_FILE,
+    headless: process.env.SP_DSH_PET_HEADLESS === '1',
+    port: Number(process.env.SP_DSH_PET_PORT || 3087),
+  } : null);
+  if (desktopConfig) {
+    try {
+      const localGame = new URL(url);
+      localGame.hostname = boundHost === '::' || boundHost === '0.0.0.0' ? '127.0.0.1' : localGame.hostname;
+      lobby.desktopPet = await startDesktopPet({ ...desktopConfig, gameUrl: localGame.origin, log });
+      log.info(`[desktop] dsh-pet bridge at ${lobby.desktopPet.origin}`);
+    } catch (e) {
+      log.warn(`[desktop] bridge could not start: ${e.message}`);
+    }
+  }
 
   let closing = null;
   async function close() {
@@ -126,6 +144,7 @@ export async function startServer(opts = {}) {
     closing = (async () => {
       try { lobby.shutdown('shutdown'); } catch (e) { log.error('[shutdown] lobby', e); }
       network.close();
+      await lobby.desktopPet?.close();
       await new Promise((resolve) => {
         server.close(() => resolve());
         server.closeIdleConnections?.();

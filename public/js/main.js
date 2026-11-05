@@ -91,6 +91,11 @@ let matchAt = 0;
 let restoreTimer = null;
 let joinTimer = null;
 let joinInFlight = false;
+const spectatorRoom = parseRoomParam(location.search, 'spectate');
+const spectatorParams = new URLSearchParams(location.search);
+const spectatorSeat = spectatorParams.get('seat');
+const spectatorMatch = spectatorParams.get('match');
+let lastAutoWatch = '';
 
 function clearPendingJoin() {
   store.patch('ui', { pendingJoin: null });
@@ -111,7 +116,10 @@ function schedulePendingJoin() {
     }
     joinInFlight = true;
     try {
-      await net.request('room.join', { code });
+      if (spectatorRoom) await net.request('room.spectate', {
+        code, ephemeral: true, ...(spectatorMatch && { matchId: spectatorMatch }),
+      });
+      else await net.request('room.join', { code });
     } catch (err) {
       toastError(err);
     } finally {
@@ -154,7 +162,11 @@ function onWelcome(msg) {
   store.set({ me: { playerId: msg.playerId ?? null, name, token: typeof msg.token === 'string' ? msg.token : null } });
   welcomeAt = Date.now();
 
-  if (prevId != null && prevId !== msg.playerId) {
+  if (spectatorRoom) {
+    backToLobby();
+    lastAutoWatch = '';
+    store.patch('ui', { pendingJoin: spectatorRoom });
+  } else if (prevId != null && prevId !== msg.playerId) {
     // A brand-new server session (the server restarted — crashed / killed, so no room.closed arrived — or this session
     // expired on it): whatever we showed before is gone — back to the lobby cleanly and say why.
     const notice = sessionResetNotice(prev, msg.playerId);
@@ -191,7 +203,7 @@ function onRoomState(msg) {
   // A (new) match starts: forget the previous match's state so stale results never show.
   if (room.inMatch && !(prevRoom && prevRoom.inMatch && prevRoom.code === room.code)) store.set({ match: emptyMatch() });
   store.set({ room });
-  if (room.mode === 'coop' && typeof room.code === 'string') rememberRoom(room.code);
+  if (!spectatorRoom && room.mode === 'coop' && typeof room.code === 'string') rememberRoom(room.code);
   maybeFinishRestore();
 }
 
@@ -222,7 +234,29 @@ function wireNet() {
     const known = Object.hasOwn(CLOSE_REASON, String(msg.reason)) ? CLOSE_REASON[msg.reason] : null;
     toast(known ? t(known) : typeof msg.reason === 'string' && msg.reason.length < 60 ? t('同盟已关闭：{reason}', { reason: msg.reason }) : t('同盟已关闭'), 'warn');
   });
-  net.on('m.public', (msg) => { matchAt = Date.now(); store.patch('match', { public: payload(msg) }); maybeFinishRestore(); });
+  net.on('m.public', (msg) => {
+    matchAt = Date.now();
+    store.patch('match', { public: payload(msg) });
+    maybeFinishRestore();
+    if (!spectatorRoom || spectatorSeat == null || !isSpectating(store.get().room, store.get().me.playerId)) return;
+    if (spectatorMatch && msg.teammateChat?.matchId !== spectatorMatch) {
+      if (lastAutoWatch !== 'expired') {
+        lastAutoWatch = 'expired';
+        net.request('room.leave').catch(() => {});
+      }
+      return;
+    }
+    const target = msg.players?.find(p => String(p.seat) === spectatorSeat && p.alive);
+    if (!target) return;
+    const fieldId = target.fieldId ?? (!msg.fields?.length ? `n:${target.playerId}` : null);
+    if (!fieldId) return;
+    const key = JSON.stringify([target.playerId, fieldId, msg.phase]);
+    if (key === lastAutoWatch) return;
+    lastAutoWatch = key;
+    net.request('g.watch', { fieldId, playerId: target.playerId }).catch(() => {
+      if (lastAutoWatch === key) lastAutoWatch = '';
+    });
+  });
   net.on('m.private', (msg) => { matchAt = Date.now(); store.patch('match', { private: payload(msg) }); });
   net.on('m.field', (msg) => store.patch('match', { field: payload(msg) }));
   net.on('m.result', (msg) => {
@@ -250,6 +284,17 @@ function wireNet() {
   });
   net.on('m.emote', (msg) => {
     store.set((s) => ({ emotes: [...s.emotes.slice(-(EMOTE_KEEP - 1)), { seq: ++seq, playerId: msg.playerId, id: msg.id, at: Date.now() }] }));
+  });
+  net.on('m.teammateChat', (msg) => {
+    const match = store.get().match;
+    if (match.public?.teammateChat?.matchId !== msg.matchId) return;
+    const turns = match.teammateChat;
+    const exists = !msg.goal && turns.some(turn => turn.requestId === msg.requestId);
+    const merged = exists
+      ? turns.map(turn => turn.requestId === msg.requestId ? msg : turn)
+      : [...turns.filter(turn => turn.requestId !== msg.requestId), msg];
+    const recent = merged.filter(turn => turn.state !== 'streaming').slice(-4);
+    store.patch('match', { teammateChat: merged.filter(turn => turn.state === 'streaming' || recent.includes(turn)) });
   });
 
   // Entering (title → lobby) while already online also needs the deep-link join.
@@ -359,9 +404,9 @@ async function boot() {
   // Pick this tab's reconnect token (asks other live tabs; ≤150 ms) while fonts load.
   const identityReady = identity.init();
 
-  const pendingJoin = parseRoomParam(location.search);
-  const savedName = sanitizeName(identity.loadName());
-  const entered = identity.wasEntered() && !!savedName;
+  const pendingJoin = spectatorRoom ?? parseRoomParam(location.search);
+  const savedName = spectatorRoom ? 'DSH Pet' : sanitizeName(identity.loadName());
+  const entered = !!spectatorRoom || (identity.wasEntered() && !!savedName);
   store.set((s) => ({
     me: { ...s.me, name: savedName },
     session: { entered },
@@ -369,10 +414,12 @@ async function boot() {
   }));
 
   wireNet();
-  installStatsRecorder(store); // follows the match on screen, so a 放弃模拟 can be recorded (ui/stats.js)
-  installLoadoutSync({ net });
-  installOwnershipSync({ net });
-  installDiySync({ net });
+  if (!spectatorRoom) {
+    installStatsRecorder(store); // follows the match on screen, so a 放弃模拟 can be recorded (ui/stats.js)
+    installLoadoutSync({ net });
+    installOwnershipSync({ net });
+    installDiySync({ net });
+  }
   net.attachBrowserHooks();
   // Audio: unlock on first gesture, BGM follows the route / match phase (js/audio.js).
   installAudio({ getManifest: () => data.get('assets'), subscribe: store.subscribe, getState: store.get, selectRoute, settings: settingsStore.get() });
@@ -399,6 +446,10 @@ async function boot() {
     setTimeout(() => splash.remove(), 300);
   }
   globalThis.__SP__ = { store, net, data, version: 1 };
+  // Explicit localhost-only diagnostics; normal play does not load or run the sampler.
+  if (['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname) && new URLSearchParams(location.search).get('profile') === '1') {
+    import('../dev/live-profile.js').then(({ installLiveProfile }) => installLiveProfile({ store, net })).catch(err => console.warn('[profile]', err));
+  }
   // A page keeps the modules it imported at load time for its whole lifetime, so a deploy cannot reach an open tab
   // (ui/buildGuard.js): watch `/healthz.build`. Outside a match the page reloads itself; during a match the guard says
   // so instead (the connection banner offers 刷新页面) and reloads once the match — settlement screen included — is over,

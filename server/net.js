@@ -120,6 +120,7 @@ export class Session {
     this.diy = null;
     /** @type {string} client address of the latest connection (logging) */
     this.addr = '?';
+    this.desktopLocal = false;
     /** @type {string | null} per-network limit key of the latest connection (null = not limited), see clientAddress */
     this.limitKey = null;
     /**
@@ -480,6 +481,7 @@ class Connection {
   constructor(ws, addr, now, opts) {
     this.ws = ws;
     this.ip = addr.ip;
+    this.desktopLocal = false;
     /** @type {string | null} per-network limit key (see clientAddress) */
     this.key = addr.key;
     this.openedAt = now;
@@ -558,6 +560,9 @@ export class Network {
   handleConnection(ws, req) {
     if (this.closed) { try { ws.close(CLOSE.SHUTDOWN, 'server shutdown'); } catch { /* ignore */ } return; }
     const conn = new Connection(ws, clientAddress(req, this.opts.trustProxy), this.now(), this.opts);
+    const loopback = ['127.0.0.1', '::1'];
+    conn.desktopLocal = !!req && loopback.includes(normalizeIp(req.socket?.remoteAddress)) && loopback.includes(conn.ip)
+      && !req.headers.forwarded && !req.headers['x-forwarded-for'] && !req.headers['x-real-ip'];
     this.conns.set(ws, conn);
     if (conn.key) this.connsPerKey.set(conn.key, (this.connsPerKey.get(conn.key) || 0) + 1);
     ws.on('message', (data, isBinary) => {
@@ -663,6 +668,7 @@ export class Network {
     session.name = name;
     session.lastSeen = now;
     session.addr = conn.ip;
+    session.desktopLocal = conn.desktopLocal;
     session.limitKey = conn.key;
 
     let extra = null;

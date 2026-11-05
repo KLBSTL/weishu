@@ -1,0 +1,9 @@
+{
+  "name": "weishu-desktop-pet-runtime",
+  "private": true,
+  "version": "0.1.0",
+  "dependencies": {
+    "dsh-pet": "0.4.1",
+    "undici": "7.30.1"
+  }
+}

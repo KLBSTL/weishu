@@ -533,6 +533,7 @@ export class MatchBoss {
       }
     }
     this._syncTeamLp();
+    this.teammateChat?.recordBoss(hidden, victory);
     this.deadline = 0;
     this.overtimeAt = 0;
     this.markPublic();

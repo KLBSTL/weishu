@@ -108,6 +108,7 @@ import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, check
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
 import { Match as DefaultMatch } from './match/Match.js';
+import { deepSeekChatClient, deepSeekClient } from './match/deepseek.js';
 import { KITTED_CHARS } from './sim/content/kits/index.js';
 
 /** Room code alphabet: uppercase letters without I and O (and no digits, so no 0/1). */
@@ -133,8 +134,15 @@ const OK = Object.freeze({ ok: true });
 const fail = (code, detail) => (detail ? { error: code, detail } : { error: code });
 const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
 
+function deepSeekProvider() {
+  const key = process.env.DEEPSEEK_API_KEY;
+  const base = process.env.DEEPSEEK_API_BASE;
+  if (process.env.SP_DEEPSEEK_TEAMMATE !== '1' || !key || (base && !base.startsWith('https://'))) return null;
+  return { key, base, model: process.env.DEEPSEEK_MODEL };
+}
+
 /**
- * @typedef {{ seat: number, playerId: string, name: string, isBot: boolean, ready: boolean,
+ * @typedef {{ seat: number, playerId: string, name: string, isBot: boolean, deepSeek?: boolean, ready: boolean,
  *             connected: boolean, left: boolean, avatarId?: string|null, loadout?: Record<string, { skill: number, module: string|null }> | null,
  *             ops?: Readonly<Record<string, { potential: number, cultivate: number }>> | null,
  *             notOwned?: readonly string[] | null, diy?: Readonly<Record<string, DiyLoadout>> | null }} Seat
@@ -237,9 +245,11 @@ export class Room {
       stageId: this.stageId,
       banConfig: cloneBanConfig(this.banConfig),
       aiPicksLast: this.aiPicksLast,
+      ...(deepSeekProvider() && { deepSeekAvailable: true }),
       inMatch: !!this.match,
       seats: this.seats.map((s) => (s
-        ? { seat: s.seat, playerId: s.playerId, name: s.name, avatarId: s.avatarId || null, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
+        ? { seat: s.seat, playerId: s.playerId, name: s.name, avatarId: s.avatarId || null, isBot: s.isBot,
+          ...(s.deepSeek && { deepSeek: true }), ready: s.ready, connected: s.connected && !s.left }
         : null)),
       spectators: this.spectators.map((s) => ({ playerId: s.playerId, name: s.name, connected: s.connected })),
     };
@@ -352,7 +362,7 @@ export class Lobby {
       case 'room.setStage': return this.setStage(session, msg);
       case 'room.setBans': return this.setBans(session, msg);
       case 'room.setAiPicksLast': return this.setAiPicksLast(session, msg);
-      case 'room.addBot': return this.addBot(session);
+      case 'room.addBot': return this.addBot(session, msg);
       case 'room.removeBot': return this.removeBot(session, msg);
       case 'room.kick': return this.kick(session, msg);
       case 'room.start': return this.start(session);
@@ -376,6 +386,10 @@ export class Lobby {
     if (!room) return;
     const player = room.seatOf(session.playerId);
     const seat = player || room.spectatorOf(session.playerId);
+    if (!player && seat?.ephemeral) {
+      this.removeMember(room, session.playerId);
+      return;
+    }
     seat.connected = false;
     // a spectator's seat is kept like a player's (nothing to tell the match: it plays no field)
     if (room.match) { if (player) this.callMatch(room, 'onDisconnect', session.playerId); } else this.startGrace(room, seat);
@@ -472,10 +486,11 @@ export class Lobby {
    * room.spectate: one of a co-op room's MAX_SPECTATORS spectator seats, in its lobby or during its match (header). In a
    * running match the match registers the spectator and resends what it may see (Match.addSpectator).
    */
-  spectate(session, { code }) {
+  spectate(session, { code, ephemeral = false, matchId }) {
     const norm = String(code).trim().toUpperCase();
     const room = norm.length === ROOM_CODE_LEN ? this.rooms.get(norm) : undefined;
     if (!room) return fail(ERR.ROOM_NOT_FOUND);
+    if (matchId && room.match?.teammateChat?.identity.matchId !== matchId) return fail(ERR.WRONG_PHASE);
     const cur = this.roomOf(session);
     if (cur === room) {
       if (!room.spectatorOf(session.playerId)) return fail(ERR.ALREADY, 'seated as a player');
@@ -486,7 +501,7 @@ export class Lobby {
     if (room.mode === 'solo') return fail(ERR.ROOM_FULL, 'solo room');
     if (room.spectators.length >= MAX_SPECTATORS) return fail(ERR.ROOM_FULL, 'no free spectator seat');
     if (cur) this.removeMember(cur, session.playerId);
-    room.spectators.push({ playerId: session.playerId, name: session.name, connected: session.connected });
+    room.spectators.push({ playerId: session.playerId, name: session.name, connected: session.connected, ephemeral });
     session.roomCode = room.code;
     session.notice = null;
     session.pendingResult = null;
@@ -616,7 +631,7 @@ export class Lobby {
     return OK;
   }
 
-  addBot(session) {
+  addBot(session, { deepSeek = false } = {}) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
     if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
@@ -625,11 +640,12 @@ export class Lobby {
     if (room.mode === 'solo') return fail(ERR.ROOM_FULL, 'solo rooms cannot have AI teammates');
     const idx = room.freeSeat();
     if (idx < 0) return fail(ERR.ROOM_FULL);
+    if (deepSeek && (!deepSeekProvider() || room.seats.some(s => s?.deepSeek))) return fail(ERR.BAD_TARGET);
     const used = new Set(room.seats.filter((s) => s && s.isBot).map((s) => s.name));
     const name = BOT_NAMES.find((n) => !used.has(n)) || `AI·${idx + 1}`;
     let playerId;
     do playerId = 'ai_' + randomBytes(4).toString('hex'); while (room.seatOf(playerId));
-    room.seats[idx] = { seat: idx, playerId, name, isBot: true, ready: true, connected: true, left: false };
+    room.seats[idx] = { seat: idx, playerId, name, isBot: true, deepSeek, ready: true, connected: true, left: false };
     this.broadcastState(room);
     return OK;
   }
@@ -690,7 +706,7 @@ export class Lobby {
       this.limitWarn(`match limit (${this.opts.maxMatchesPerAddr}) reached for ${session.addr}`);
       return fail(ERR.RATE, 'too many running matches from your network');
     }
-    return this.startMatch(room, key);
+    return this.startMatch(room, key, session.desktopLocal);
   }
 
   /**
@@ -774,7 +790,7 @@ export class Lobby {
   // ---------------------------------------------------------------------------------------------------
 
   /** @param {Room} room @param {string | null} [key] per-network limit key of the starter */
-  startMatch(room, key = null) {
+  startMatch(room, key = null, desktopLocal = false) {
     const host = room.seatOf(room.hostId);
     if (host) host.ready = true;
     const seats = room.seats.filter(Boolean).map((s) => ({
@@ -792,6 +808,14 @@ export class Lobby {
     let seed = 0;
     try { seed = this.seedFn() >>> 0; } catch { seed = randomInt(2 ** 32); }
     try {
+      const deepSeekSeat = room.mode !== 'solo' && room.seats.find(s => s?.isBot && s.deepSeek);
+      const provider = deepSeekSeat && deepSeekProvider();
+      const getChatOptions = () => this.desktopPet?.getChatOptions?.();
+      const deepSeek = provider
+        ? { seat: deepSeekSeat.seat, apply: true, usePrepDeadline: true, chatTimeoutMs: 20000,
+          getChatOptions, choose: deepSeekClient(provider),
+          chat: deepSeekChatClient({ ...provider, getChatOptions, getPersona: () => this.desktopPet?.getPersona?.() }) }
+        : undefined;
       const match = new this.MatchClass({
         roomCode: room.code,
         mode: room.mode,
@@ -802,6 +826,8 @@ export class Lobby {
         // 「AI 队友最后选择」 (GitHub #338): fixed for the match
         aiPicksLast: room.mode !== 'solo' && room.aiPicksLast === true,
         seats,
+        deepSeek,
+        chatPlayerId: room.hostId,
         // the spectator seats (header): watched like eliminated players, never players
         spectators: room.spectators.map((s) => s.playerId),
         seed,
@@ -815,6 +841,7 @@ export class Lobby {
         onEnd: (summary) => this.onMatchEnd(room, ctx, summary),
       });
       ctx.match = match;
+      match.desktopPetEnabled = !!this.desktopPet;
       room.match = match;
       room.matchCtx = ctx;
       room.matchKey = key;
@@ -823,6 +850,7 @@ export class Lobby {
       this.log.info(`[lobby] ${room.code} match #${room.matchCount} starting (${room.mode}/${room.difficulty}, ${seats.length} seats, seed ${seed})`);
       this.broadcastState(room);
       match.start();
+      if (desktopLocal && match.teammateChat) this.desktopPet?.bind(room, match.teammateChat);
     } catch (e) {
       this.log.error(`[lobby] ${room.code} match failed to start`, e);
       if (room.matchCtx === ctx) { room.match = null; room.matchCtx = null; room.matchKey = null; }
@@ -976,6 +1004,16 @@ export class Lobby {
     }
     // a spectator only watches (header): nothing else of it ever reaches the match
     if (msg.t !== 'g.watch' && room.spectatorOf(session.playerId)) return fail(ERR.SPECTATOR);
+    if (msg.t === 'g.desktopPet') {
+      if (!this.desktopPet || !session.desktopLocal) return fail(ERR.BAD_TARGET);
+      const chat = room.match.teammateChat;
+      const player = room.match.players?.get(session.playerId);
+      if (!chat || !player || !chat.authorized(player, msg.matchId, msg.seat)) return fail(ERR.BAD_TARGET);
+      const url = this.desktopPet.bind(room, chat);
+      if (!url) return fail(ERR.WRONG_PHASE);
+      sendSession(session, { t: 'm.desktopPet', ...chat.identity, url });
+      return OK;
+    }
     let res;
     try {
       res = room.match.handle(session.playerId, msg);

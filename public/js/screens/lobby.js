@@ -153,9 +153,9 @@ export function codeArg(arg, field) {
  * @param {string} search e.g. location.search
  * @returns {string|null}
  */
-export function parseRoomParam(search) {
+export function parseRoomParam(search, key = 'room') {
   try {
-    const raw = new URLSearchParams(search || '').get('room');
+    const raw = new URLSearchParams(search || '').get(key);
     if (!raw) return null;
     const code = raw.trim().toUpperCase();
     if (!/^[A-Z0-9]+$/.test(code)) return null;

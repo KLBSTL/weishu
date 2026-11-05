@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>卫戍聊天</title>
+<style>
+  :root { color-scheme: dark; font: 16px system-ui, sans-serif; background: #181d22; color: #eef3f7; }
+  body { margin: 1rem auto; padding: 0 1rem; max-width: 38rem; }
+  h1 { font-size: 1.45rem; margin-bottom: .5rem; }
+  p { margin: .5rem 0; }
+  #status, #note { color: #b9c7d2; }
+  #turns { min-height: 8rem; max-height: 48vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+  article { padding: .6rem .8rem; margin: .5rem 0; background: #283139; border-radius: .4rem; }
+  form, nav { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .6rem; }
+  input, button { font: inherit; padding: .45rem .65rem; }
+  input { flex: 1 1 12rem; min-width: 0; }
+  #error { color: #ffd69c; }
+</style>
+<h1>卫戍聊天</h1>
+<p id="status" role="status">正在连接卫戍…</p>
+<p id="note">提问与必要的局面摘要会发送给模型服务。</p>
+<div id="turns" role="log"></div>
+<nav aria-label="对局操作">
+  <button id="watch" type="button" disabled>打开观战小窗</button>
+  <button id="preview" type="button">预览桌宠动画</button>
+  <button data-goal="anti-air" type="button" disabled>补对空</button>
+  <button data-goal="protect-lp" type="button" disabled>先保血</button>
+</nav>
+<form>
+  <input id="question" aria-label="问问 AI 队友" placeholder="问问 AI 队友" maxlength="280" autocomplete="off" required disabled>
+  <button id="send" type="submit" disabled>发送问题</button>
+  <button id="cancel" type="button" disabled>取消回复</button>
+</form>
+<p id="error" role="status"></p>
+<script type="module" src="/chat.js"></script>
+</html>

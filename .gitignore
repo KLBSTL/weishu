@@ -1,19 +1,18 @@
 # --- dependencies & generated client libs -------------------------------------------------------
-# Install from the lockfile; full Releases carry production dependencies.
+# Production packages are tracked deliberately in this fork; keep new development packages ignored.
 node_modules/
 # a local npm cache (npm_config_cache=./.npm-cache, npm ci --cache .npm-cache — GitHub #258)
 .npm-cache/
-public/vendor/
+# public/vendor is committed for clone-ready startup (refresh with npm run vendor).
 
-# --- game assets ship in the full Release, not the source tree; preserve NOTICE.md --------------
-public/assets/
-public/fonts/
+# --- this fork distributes downloaded game assets and fonts; preserve NOTICE.md -----------------
 # tools/local-extract/extract.py → public/assets/local/** and this per-machine manifest
 # (optional: the client and the tests work without it; docs/DEPLOY.md §6 lists what falls back)
 data/local-assets.json
 public/assets/local/
 # download caches, upstream tables, ledgers, reports, setup state
 .cache/
+user-data/portraits/
 
 # --- Python (optional local-client extraction) ----------------------------------------------------
 .venv*/
@@ -29,6 +28,8 @@ packs/index.json
 test/e2e/out/
 logs/
 *.log
+tools/__pycache__/
+test/tools/__pycache__/
 
 # --- per-machine config (scripts/install-service-windows.ps1) ------------------------------------
 scripts/service.env.cmd
@@ -43,3 +44,10 @@ desktop.ini
 .idea/
 .vscode/
 .claude/
+
+# Private desktop configuration and credentials
+api_key.txt
+*.key
+desktop-pet/node_modules/
+desktop-pet/state/
+desktop-pet/validation-state/

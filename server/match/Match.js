@@ -183,6 +183,7 @@ import {STABLE_BOT_PROFILE} from './botPolicy.js';
 import { RealScheduler } from './scheduler.js';
 import { SharedPool, drawDisabledBonds } from './pool.js';
 import { PlayerState } from './PlayerState.js';
+import { TeammateChat } from './teammateChat.js';
 import { EffectDispatcher, getDefaultRegistry } from './effectsMeta.js';
 import { setupMatchWaves } from './waves.js';
 import { GAME_SPEED, HEADLESS_SLICE_MS } from './fields.js';
@@ -261,6 +262,13 @@ export class Match {
     this.botRehearsal = Number.isInteger(opts.botRehearsal) && opts.botRehearsal >= 0 ? Math.min(opts.botRehearsal, 8) : BOT_REHEARSAL_DEFAULT;
     /** Experimental multi-step PREP planner; the tested heuristic remains the default. */
     this.botPlanner = ['beam','team'].includes(opts.botPlanner) ? opts.botPlanner : STABLE_BOT_PROFILE.planner;
+    this.deepSeek = opts.deepSeek;
+    this.deepSeekPending = null;
+    this._deepSeekWait = null;
+    const chatPlayer = !this.isSolo && opts.seats.find(s => !s.isBot && (!opts.chatPlayerId || s.playerId === opts.chatPlayerId));
+    this.teammateChat = chatPlayer && typeof opts.deepSeek?.chat === 'function'
+      && opts.seats.some(s => s.isBot && s.seat === opts.deepSeek.seat)
+      ? new TeammateChat(this, opts.deepSeek, chatPlayer.playerId) : null;
     /** Independent ordinary-battle ablations; never enables experimental economic/model planning. */
     this.botTactics = opts.botTactics ?? STABLE_BOT_PROFILE.tactics;
     if (!['legacy','risk','roster','combined'].includes(this.botTactics)) throw new TypeError('BOT_TACTICS');

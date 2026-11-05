@@ -5,6 +5,7 @@
 
 import { PHASE } from '../../../shared/constants.js';
 import { botPrepBeginSteps, botPrepEndSteps } from '../bot.js';
+import { deepSeekPrep } from '../deepseek.js';
 import { DELAYS } from './common.js';
 
 export class MatchPrep {
@@ -43,16 +44,30 @@ export class MatchPrep {
   scheduleBotPrep(ps, i = 0) {
     const round = this.round;
     const token = (ps._botPrepToken = (ps._botPrepToken || 0) + 1);
-    const valid = () => this.phase === PHASE.PREP && this.round === round && ps.alive && !ps.ready && ps.botControlled && ps._botPrepToken === token;
+    if (this._deepSeekWait?.seat === ps.seat) this._deepSeekWait.stop('superseded');
+    const valid = () => !this.disposed && this.phase === PHASE.PREP && this.round === round && ps.alive && !ps.ready && ps.botControlled && ps._botPrepToken === token;
     const bounded = Number.isFinite(this.botSliceMs);
     const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    let prepStarted;
     /** Step a generator until done or the slice budget is used; `then(value)` once it is done (null on an error). */
-    const drive = (gen, label, then) => {
+    const drive = (gen, label, then, input) => {
       const t0 = now();
-      let r = null;
+      let r;
       try {
         do {
-          r = gen.next();
+          r = gen.next(input);
+          input = undefined;
+          if (!r.done && r.value?.deepSeekRequest) {
+            const wait = { seat: ps.seat, stop: r.value.stop };
+            this._deepSeekWait = wait;
+            const pending = r.value.deepSeekRequest.then((response) => {
+              if (this._deepSeekWait === wait) this._deepSeekWait = null;
+              if (valid()) drive(gen, label, then, response);
+              else gen.return();
+            });
+            this.deepSeekPending = pending;
+            return;
+          }
           if (!r.done && r.value?.rehearsal) {
             const job = r.value.rehearsal;
             const subtask = () => {
@@ -74,7 +89,7 @@ export class MatchPrep {
         return;
       }
       if (r.done) { then(r.value); return; }
-      this.later(0, () => { if (valid()) drive(gen, label, then); });
+      this.later(0, () => { if (valid()) drive(gen, label, then); else gen.return(); });
     };
     const ready = () => {
       if (!ps.ready) {
@@ -82,6 +97,7 @@ export class MatchPrep {
         ps.resolveTemp();
         ps.setReady(true);
       }
+      if (ps.ready) this.opts.observeBotPrep?.({ round, seat: ps.seat, elapsedMs: Math.round(now() - prepStarted) });
     };
     const end = (job) => {
       let gen = null;
@@ -91,7 +107,15 @@ export class MatchPrep {
     };
     this.later(this.scaled(DELAYS.BOT_ACTION + i * DELAYS.BOT_STAGGER), () => {
       if (!valid()) return;
-      drive(botPrepBeginSteps(this, ps), '', (job) => {
+      prepStarted = now();
+      const match = this;
+      function* begin() {
+        try { yield* deepSeekPrep(match, ps, valid); }
+        catch { /* Optional planning failures leave the stable prep available. */ }
+        match.teammateChat?.closeGoalWindow(ps);
+        return yield* botPrepBeginSteps(match, ps);
+      }
+      drive(begin(), '', (job) => {
         if (!job) { end(null); return; }
         const slice = () => {
           if (!valid()) return;
@@ -109,7 +133,9 @@ export class MatchPrep {
 
   onReadyChanged(ps) {
     this.markPublic();
-    void ps;
+    if (!ps.isBot && ps.ready && this.order.every(p => p.isBot || p.left || !p.alive || p.ready)) {
+      this._deepSeekWait?.stop('ready');
+    }
     this.maybeEndPrep();
   }
 
@@ -144,10 +170,12 @@ export class MatchPrep {
 
   endPrep() {
     if (this.phase !== PHASE.PREP) return;
+    this._deepSeekWait?.stop('expired');
     this.setDeadline(0);
     const alive = this.alivePlayers();
     for (const ps of alive) this.dispatch(ps, 'onPrepEnd', { round: this.round });
     for (const ps of alive) ps.endPrep();
+    this.teammateChat?.closeGoals();
     const r = this.round;
     if (r === this.gd.bossRound) {
       this.hiddenLayerSum = alive.reduce((s, p) => s + p.activatedLayers(), 0);

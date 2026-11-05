@@ -835,7 +835,8 @@ export function createIdentity(deps = {}) {
 }
 
 /** Browser identity singleton (main.js awaits `identity.init()` before connecting). */
-export const identity = createIdentity();
+const ephemeralViewer = new URLSearchParams(globalThis.location?.search).has('spectate');
+export const identity = createIdentity(ephemeralViewer ? { local: null, session: null, channel: null } : {});
 
 /** Browser connection singleton (created lazily-safe: nothing touches the network until connect()). */
 export const net = new Net({ getToken: () => identity.getToken() });

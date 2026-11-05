@@ -208,7 +208,7 @@ export function RoomScreen() {
 
   const toggleReady = () => run('ready', () => net.request('room.ready', { ready: !myReady }));
   const start = () => run('start', () => net.request('room.start', {}));
-  const addBot = () => run('add', () => net.request('room.addBot', {}));
+  const addBot = (deepSeek) => run('add', () => net.request('room.addBot', { deepSeek }));
   const setAvatar = avatarId => run('avatar', async () => {
     await net.request('room.avatar', { avatarId }); rememberRoomPortrait(avatarId);
   });

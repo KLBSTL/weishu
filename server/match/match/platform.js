@@ -82,6 +82,7 @@ export class MatchPlatform {
     if (!ps || ps.isBot || this.disposed) return;
     this.guard(() => {
       ps.connected = false;
+      this.teammateChat?.stop(playerId);
       // a paused solo battle resumes (the server takes the field over; nobody is left to resume it)
       this._resume();
       if (this.clientCombat) this._authorityLost(ps, 'disconnect');
@@ -112,6 +113,7 @@ export class MatchPlatform {
       if (!ps.spectator) {
         ps._lastPriv = null;
         this._sendPrivate(ps, true);
+        this.teammateChat?.replay(ps);
       }
       if (this.clientCombat) this._resendBattle(ps);
       else if (!this.fields.length && this._follows(ps)) this._followScout(ps, { keep: true });
@@ -131,6 +133,7 @@ export class MatchPlatform {
     this.guard(() => {
       ps.left = true;
       ps.connected = false;
+      this.teammateChat?.stop(playerId);
       ps.autoplay = false;
       this.watchers.delete(playerId);
       if (this.ended) return;
@@ -200,6 +203,8 @@ export class MatchPlatform {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this._deepSeekWait?.stop('expired');
+    this.teammateChat?.stop();
     if (this.runner) { try { this.runner.stop(); } catch { /* ignore */ } }
     this._stopClientCombat();
     for (const h of this._timers) { try { this.sched.clearTimeout(h); } catch { /* ignore */ } }

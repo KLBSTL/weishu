@@ -66,6 +66,7 @@ import { fontJobs, buildFonts } from './assets/fonts.mjs';
 import { skelParserAvailable } from './assets/skel.mjs';
 import { attachSkinCatalogue } from './assets/skin-catalogue.mjs';
 import { attachBoardArt } from './assets/board-art.mjs';
+import { attachStandbyArt } from './assets/standby-art.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ASSETS = join(ROOT, 'public', 'assets');
@@ -404,6 +405,7 @@ async function main() {
   tidyManifest(body);
   attachSkinCatalogue(body, ROOT, resolved.files);
   attachBoardArt(body, ROOT, resolved.files);
+  attachStandbyArt(body, ROOT, resolved.files);
   const fontFaces = {};
   for (const [name, f] of Object.entries(fonts.files)) fontFaces[name] = f;
   body.fonts = opts.addOnly && current?.fonts ? current.fonts

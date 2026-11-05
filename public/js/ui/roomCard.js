@@ -13,6 +13,7 @@ export function RoomCard({ seat, index, room, facts, myId, busy, onAddBot, onRem
   useData('chess', 'assets');
   const standby = useStandby();
   const [picker, setPicker] = useState(false);
+  const [botPicker, setBotPicker] = useState(false);
   const [query, setQuery] = useState('');
   const [uploading, setUploading] = useState(false);
   const mine = seat?.playerId === myId;
@@ -38,6 +39,12 @@ export function RoomCard({ seat, index, room, facts, myId, busy, onAddBot, onRem
     || chessPortraitUrl(data.get('assets'), rec) || chessAvatarUrl(data.get('assets'), rec);
   const head = chessAvatarUrl(data.get('assets'), rec);
   const editablePortrait = mine && Object.hasOwn(seat || {}, 'avatarId');
+  const canInvite = room.mode !== 'solo' && facts.isHost && !busy && !room.inMatch;
+  const deepSeekTaken = room.seats?.some(s => s?.deepSeek);
+  const addBot = (deepSeek) => {
+    setBotPicker(false);
+    onAddBot(deepSeek);
+  };
   const fallback = html`<${AvatarFrame} size="xl" name=${seat?.name || ''} seat=${index} bot=${seat?.isBot} self=${mine} />`;
   return html`<article class=${`seat doctor-card is-${state}${standby.cards === 'operator' ? ' doctor-card--operator' : ''}${display?.kind === 'poster' ? ' doctor-card--poster' : ''}${mine ? ' is-me' : ''}${host ? ' is-host' : ''}${seat?.isBot ? ' is-bot' : ''}${!seat ? ' seat--empty' : ''}`}
       style=${`--seat-i:${index};--card-focus:${frame[0]};--card-scale:${frame[1]};--card-tone:${frame[2]}`}>
@@ -49,13 +56,14 @@ export function RoomCard({ seat, index, room, facts, myId, busy, onAddBot, onRem
     <header class="seat__head">
       <span class="seat__no num">P${index + 1}</span><${MicroLabel}>${`SEAT ${String(index + 1).padStart(2, '0')}`}<//>
       ${host ? html`<span class="doctor-card__crown" title=${t('创建者')}><${Icon} name="crown" /></span>` : null}
-      ${seat?.isBot ? html`<span class="doctor-card__identity">AI</span>` : mine ? html`<span class="doctor-card__identity">${t('你')}</span>` : null}
+      ${seat?.isBot ? html`<span class="doctor-card__identity">${seat.deepSeek ? 'DeepSeek' : 'AI'}</span>` : mine ? html`<span class="doctor-card__identity">${t('你')}</span>` : null}
     </header>
     <div class="doctor-card__portrait">
       <span class="doctor-card__sprig doctor-card__sprig--left" aria-hidden="true"></span>
       <span class="doctor-card__sprig doctor-card__sprig--right" aria-hidden="true"></span>
-      ${!seat ? html`<button class="doctor-card__invite" disabled=${room.mode === 'solo' || !facts.isHost || !!busy}
-          onClick=${onAddBot} aria-label=${t('添加 AI 队友')}><${Icon} name="plus" /><span>${t('添加 AI 队友')}</span></button>`
+      ${!seat ? html`<button class="doctor-card__invite" disabled=${!canInvite}
+          onClick=${() => room.deepSeekAvailable ? setBotPicker(true) : addBot(false)}
+          aria-label=${t('添加 AI 队友')}><${Icon} name="plus" /><span>${t('添加 AI 队友')}</span></button>`
         : html`<button class="doctor-card__portrait-button" disabled=${!editablePortrait || !!busy || room.inMatch} data-testid=${mine ? 'room-avatar-open' : undefined}
             aria-label=${mine ? t('选择卡面肖像') : seat.name} onClick=${() => setPicker(true)} title=${mine ? t('选择卡面肖像') : undefined}>
           <picture class="doctor-card__picture">${!full ? html`<source media="(max-width:1100px)" srcSet=${head || undefined} />` : null}
@@ -82,6 +90,11 @@ export function RoomCard({ seat, index, room, facts, myId, busy, onAddBot, onRem
       <//>` : null}
     </footer>
   </article>
+    <${Modal} open=${botPicker && !seat && canInvite} onClose=${() => setBotPicker(false)} title=${t('添加 AI 队友')} width="min(360px, calc(100vw - 24px))">
+      <${Button} onClick=${() => addBot(false)}>${t('本地 AI')}<//>
+      <${Button} disabled=${deepSeekTaken} onClick=${() => addBot(true)}>DeepSeek<//>
+      ${deepSeekTaken ? html`<p>${t('房间已有一名 DeepSeek 队友。')}</p>` : null}
+    <//>
     <${Modal} open=${picker} onClose=${() => setPicker(false)} title=${t('选择卡面肖像')} micro="DOCTOR PORTRAIT" width="min(740px,calc(100vw - 24px))" class="room-avatar-picker"
       actions=${html`<${Button} onClick=${async () => { if (await onAvatar(null)) setPicker(false); }}>${t('使用默认卡面')}<//>
         <${Button} onClick=${() => setPicker(false)}>${t('关闭')}<//>`}>

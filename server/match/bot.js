@@ -1350,7 +1350,7 @@ export function createRehearsal(m, ps, chosen, plans) {
  * the board, takes the battle input and restores the board exactly before the next yield — a bot prep dropped between
  * two steps (the prep ended) never leaves a rehearsal layout on the board.
  */
-export function* createRehearsalSteps(m, ps, chosen, plans, { allowSingle = false } = {}) {
+export function* createRehearsalSteps(m, ps, chosen, plans, { allowSingle = false, reportFlyingLeaks = false } = {}) {
   const group = m.wave ? null : bossWaveOf(m, ps);
   const wave = m.wave || group?.wave;
   const boss = !!group;
@@ -1466,6 +1466,7 @@ export function* createRehearsalSteps(m, ps, chosen, plans, { allowSingle = fals
               const score = boss ? bossRehearsalScore(battle, ps.playerId) - i * 0.01 : survivalObjective
                 ? risk.score - i * .01 : -leaks * 1000 + (pp.killed || 0) + Math.min(8, growth * .035) - i * 0.01;
               job.metrics.push({ candidate: i, type: cands[i].tactical || 'layout', roster: (cands[i].chosen || chosen).map(p => p.uid), score, time: battle.time, bossDamage: pp.bossDamage || 0, cleared: boss && battle.sharedBoss?.hp <= 0, leaks, errors: battle.errorCount || 0,
+                ...(reportFlyingLeaks ? { flyingLeaks: (pp.leaked || []).filter(l => l && l.counted !== false && m.gd.enemy(l.enemyKey)?.isFlyEnemy).length } : {}),
                 killed: pp.killed || 0, damage: pp.damageDealt || 0, survivors: (pp.unitsEnd || []).filter(u => u.alive).length,
                 ...(!boss ? { potentialLpLoss: risk.potentialLpLoss, payableLeaks: risk.payableLeaks, operatorSurvival: risk.operatorSurvival, operatorHp: risk.operatorHp } : {}),
                 ...(boss ? { lp: battle._botTeamLp, hitCaps: battle._botHitCaps } : {}) });
@@ -1560,11 +1561,11 @@ export function prepFeatures(m, ps) {
 /** Production action ranking only narrows the branching factor; actual legality is enforced by PlayerState. */
 export function* planPrepSteps(m, ps, opts = {}) {
   const rootOwned = new Set(ps.allChess().map(p => p.uid));
-  const { cache = true, ...searchOpts } = opts;
+  const { cache = true, actionTypes, preferAction, ...searchOpts } = opts;
   const values = new Map(); let evaluations = 0, cacheHits = 0;
   const rank = (branch, player, actions) => {
     const ctx = context(branch, player), n = player.allChess().length;
-    const scored = actions.map(a => {
+    const scored = actions.filter(a => !actionTypes || actionTypes.includes(a.type)).map(a => {
       let score = -Infinity;
       if (a.type === 'buy' || a.type === 'reward') score = buyScore(branch, player, a.id, ctx);
       if (a.type === 'level' && n >= Math.min(6, player.deployCap)) score = player.shop.level < LEVEL_TARGET[Math.min(15,m.round + 1)] ? 32 : 4;
@@ -1573,7 +1574,7 @@ export function* planPrepSteps(m, ps, opts = {}) {
         const p = player.allChess().find(x => x.uid === a.uid), deployed = [...player.board.values()].some(x => x.uid === a.uid);
         if (!deployed && p && !ctx.keep.has(branch.gd.baseIdOf(p.id)) && (ctx.copies.get(branch.gd.baseIdOf(p.id)) || 0) <= 1) score = 3;
       }
-      return { a, score };
+      return { a, score: preferAction?.(a) ? score + 1000 : score };
     });
     return scored.filter(x => Number.isFinite(x.score)).sort((a,b) => b.score - a.score).map(x => x.a);
   };
@@ -1689,25 +1690,46 @@ export function* planTeamPrepSteps(m,ps,{cancelled=()=>false}={}) {
 
 /** Offline teacher: finish the existing policy, then evaluate one real layout with the shared Battle engine. */
 export function evaluatePrepPath(m, ps, { path = [], seed = deriveSeed(m.seed, `prep-teacher:${m.round}:${ps.seat}`) } = {}) {
+  return runSteps(evaluatePrepPathSteps(m, ps, { path, seed }));
+}
+
+export function* evaluatePrepPathSteps(m, ps, { path = [], seed = deriveSeed(m.seed, `prep-teacher:${m.round}:${ps.seat}`), preview = false } = {}) {
   const branch = forkPrep(m, ps, { seed });
   try {
-    branch.m.botPlanner = 'beam'; branch.m.botRehearsal = m.botRehearsal;
+    branch.m.botPlanner = preview ? 'off' : 'beam';
+    branch.m.botRehearsal = preview ? 1 : m.botRehearsal;
     for (const action of path) {
       const result = applyPrepAction(branch.m, branch.ps, action);
       if (!result?.ok) return { error: result?.error || 'ILLEGAL_PATH' };
     }
     // Both Stop and alternatives receive the same baseline continuation, with independently sampled future shops.
-    const continuation = botPrepBegin(branch.m, branch.ps);
-    if (continuation) continuation.run();
-    botPrepEnd(branch.m, branch.ps, continuation);
+    const continuation = yield* botPrepBeginSteps(branch.m, branch.ps);
+    while (continuation && !continuation.run(5)) yield;
+    yield* botPrepEndSteps(branch.m, branch.ps, continuation);
     branch.m.botRehearsal = 1;
     const chosen = [...branch.ps.board.values()].filter(p => p.kind === 'chess');
     const plan = new Map([...branch.ps.board].filter(([,p]) => p.kind === 'chess').map(([key,p]) => [p.uid,key]));
     plan.dirs = new Map(chosen.map(p => [p.uid,p.dir]));
-    const job = runSteps(createRehearsalSteps(branch.m, branch.ps, chosen, [plan], { allowSingle: true }));
+    const job = yield* createRehearsalSteps(branch.m, branch.ps, chosen, [plan], { allowSingle: true, reportFlyingLeaks: preview });
     if (!job) return { error: 'NO_TEACHER_BATTLE' };
-    job.run();
+    while (!job.run(5)) yield;
     const metric = job.metrics[0];
+    if (preview && metric && !metric.errors && !branch.m.errorCount && !branch.m.dispatcher.errors) {
+      const gd = branch.ps.gd;
+      const keptFunds = gd.leftoverKeptBands.includes(branch.ps.bandId) ? previewPrep(gd, branch.ps, { round: m.round }).funds : 0;
+      return {
+        fundsAfterPrep: branch.ps.funds,
+        carryFunds: keptFunds,
+        pendingFunds: branch.ps.pendingFunds,
+        shopLevel: branch.ps.shop.level,
+        antiAirDeployed: chosen.filter(p => hitsFly(chessRec(branch.m, p.id, branch.ps))).length,
+        deployedPurchasedUnit: path[0]?.type === 'buy'
+          ? chosen.some(p => branch.ps.gd.baseIdOf(p.id) === branch.ps.gd.baseIdOf(path[0].id)) : undefined,
+        leaks: metric.leaks, flyingLeaks: metric.flyingLeaks, preRescueLpLoss: metric.potentialLpLoss,
+        ...(m.wave ? {} : { bossDamage: Math.round(metric.bossDamage), bossTeamLp: Math.max(0, metric.lp), bossCleared: metric.cleared }),
+        simulatedSeconds: Math.round(metric.time),
+      };
+    }
     return metric && !metric.errors && !branch.m.errorCount && !branch.m.dispatcher.errors
       ? { ...metric, kind: m.wave ? 'normal' : 'boss-window', objective: 'survival-v2', continuationLayouts: m.botRehearsal,
         rules: prepRuleHash(ps.gd || m.gd) } : { error: 'TEACHER_FAILED' };

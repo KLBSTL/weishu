@@ -39,6 +39,8 @@ export class MatchIntents {
         : this.pickCard(ps, msg.idx);
       case 'g.ready': return ps.setReady(!!msg.ready);
       case 'g.emote': return this.emote(ps, msg.id);
+      case 'g.teammateChat': return this.teammateChat?.ask(ps, msg) ?? fail(ERR.BAD_TARGET);
+      case 'g.teammateChatCancel': return this.teammateChat?.cancel(ps, msg) ?? fail(ERR.BAD_TARGET);
       // playerId: the player tapped (a shared field names two) — the watch preference (item 56)
       case 'g.watch': return this.watch(ps, msg.fieldId, msg.playerId ?? null);
       case 'g.autoplay': return this.setAutoplay(ps, !!msg.on);

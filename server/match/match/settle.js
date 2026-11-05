@@ -9,6 +9,7 @@ import { buildResult } from '../results.js';
 import { FLOW_TICKER_PRIORITY, DELAYS } from './common.js';
 import { msg } from '../../../shared/i18n.js';
 import { chargeableLeak } from '../../../shared/ultimateBalance.js';
+import { rememberDeepSeekBattle } from '../deepseek.js';
 
 export class MatchSettle {
   settle(plan, uniteResult) {
@@ -38,9 +39,15 @@ export class MatchSettle {
       const r = this.lastResults.get(ps.playerId) || { leaked: [], perfect: true, coins: 0, layerGains: {}, killed: 0, damageDealt: 0 };
       const counted = (r.leaked || []).filter((l) => l && l.counted !== false).length;
       const payable = (r.leaked || []).filter(chargeableLeak).length;
-      const loss = uniteRan && plan.leakers.includes(ps) ? Math.min(cap, survivors.get(ps.playerId) || 0) : Math.min(cap, payable);
+      const afterUniteLeaks = uniteRan && plan.leakers.includes(ps) ? Math.max(0, survivors.get(ps.playerId) || 0) : undefined;
+      const loss = Math.min(cap, afterUniteLeaks ?? payable);
       if (this.uniteResultView) this.uniteResultView.losses[ps.playerId] = loss;
       ps.lp -= loss;
+      rememberDeepSeekBattle(this, ps, counted, loss);
+      this.teammateChat?.recordNormal(ps, r, counted, loss, {
+        payableLeaks: payable, afterUniteLeaks,
+        uniteRole: afterUniteLeaks != null ? 'leaker' : uniteRan && plan.helpers.includes(ps) ? 'helper' : undefined,
+      });
       ps.stats.lpLost += loss;
       ps.stats.leaks += counted;
       ps.stats.kills += Number(r.killed) || 0;
@@ -119,6 +126,9 @@ export class MatchSettle {
   finish({ victory, hiddenCleared = false, reason = 'defeat' }) {
     if (this.ended || this.disposed) return;
     this.ended = true;
+    this._deepSeekWait?.stop('expired');
+    this.teammateChat?.stop();
+    this.teammateChat?.closeGoals();
     if (this.runner) { try { this.runner.stop(); } catch { /* ignore */ } this.runner = null; }
     this._stopClientCombat();
     this.cancel(this._phaseTimer);
