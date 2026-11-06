@@ -26,6 +26,7 @@ export class MatchPrep {
     // solo / single-human matches: untimed (soloUntimed); co-op: the round's prepTime
     const secs = this.soloUntimed ? null : this.gd.prepTime(this.round);
     this.setDeadline(secs, () => this.prepDeadline());
+    this._deepSeekAt = this.deadline ? this.sched.now() + (this.deadline - this.sched.now()) * .7 : Infinity;
     let i = 0;
     for (const ps of alive) if (ps.botControlled) this.scheduleBotPrep(ps, i++);
     this.markPublic();
@@ -45,6 +46,7 @@ export class MatchPrep {
     const round = this.round;
     const token = (ps._botPrepToken = (ps._botPrepToken || 0) + 1);
     if (this._deepSeekWait?.seat === ps.seat) this._deepSeekWait.stop('superseded');
+    if (this._deepSeekGate?.seat === ps.seat) this._deepSeekGate = null;
     const valid = () => !this.disposed && this.phase === PHASE.PREP && this.round === round && ps.alive && !ps.ready && ps.botControlled && ps._botPrepToken === token;
     const bounded = Number.isFinite(this.botSliceMs);
     const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -60,11 +62,19 @@ export class MatchPrep {
           if (!r.done && r.value?.deepSeekRequest) {
             const wait = { seat: ps.seat, stop: r.value.stop };
             this._deepSeekWait = wait;
-            const pending = r.value.deepSeekRequest.then((response) => {
+            let resumed = false;
+            const resume = response => {
+              if (resumed) return;
+              resumed = true;
               if (this._deepSeekWait === wait) this._deepSeekWait = null;
-              if (valid()) drive(gen, label, then, response);
+              if (valid() && !['expired', 'superseded'].includes(response.status)) drive(gen, label, then, response);
               else gen.return();
+            };
+            r.value.onStop?.(resume);
+            if (Number.isFinite(r.value.budgetMs)) this.later(r.value.budgetMs, () => {
+              if (this._deepSeekWait === wait) wait.stop('timeout');
             });
+            const pending = r.value.deepSeekRequest.then(resume);
             this.deepSeekPending = pending;
             return;
           }
@@ -105,7 +115,7 @@ export class MatchPrep {
       if (!gen) { ready(); return; }
       drive(gen, '', ready);
     };
-    this.later(this.scaled(DELAYS.BOT_ACTION + i * DELAYS.BOT_STAGGER), () => {
+    const start = () => {
       if (!valid()) return;
       prepStarted = now();
       const match = this;
@@ -128,14 +138,29 @@ export class MatchPrep {
         if (bounded) this.later(0, slice);
         else slice();
       });
-    });
+    };
+    if (this.deepSeek?.seat === ps.seat && ps.isBot) {
+      const remaining = this.deadline ? Math.max(0, this.deadline - this.sched.now()) : Infinity;
+      this._deepSeekGate = { seat: ps.seat, round, token, valid, start,
+        at: this._deepSeekAt ?? (this.deadline ? this.sched.now() + remaining * .7 : Infinity) };
+      if (Number.isFinite(remaining)) this.later(Math.max(0, this._deepSeekGate.at - this.sched.now()), () => this.maybeStartDeepSeekPrep());
+      this.maybeStartDeepSeekPrep();
+    } else this.later(this.scaled(DELAYS.BOT_ACTION + i * DELAYS.BOT_STAGGER), start);
   }
 
-  onReadyChanged(ps) {
+  maybeStartDeepSeekPrep() {
+    const gate = this._deepSeekGate;
+    if (!gate) return;
+    if (!gate.valid()) { this._deepSeekGate = null; return; }
+    const othersReady = this.order.every(p => p.seat === gate.seat || p.left || !p.alive || p.ready);
+    if (!othersReady && this.sched.now() < gate.at) return;
+    this._deepSeekGate = null;
+    gate.start();
+  }
+
+  onReadyChanged(_ps) {
     this.markPublic();
-    if (!ps.isBot && ps.ready && this.order.every(p => p.isBot || p.left || !p.alive || p.ready)) {
-      this._deepSeekWait?.stop('ready');
-    }
+    this.maybeStartDeepSeekPrep();
     this.maybeEndPrep();
   }
 
@@ -171,6 +196,7 @@ export class MatchPrep {
   endPrep() {
     if (this.phase !== PHASE.PREP) return;
     this._deepSeekWait?.stop('expired');
+    this._deepSeekGate = null;
     this.setDeadline(0);
     const alive = this.alivePlayers();
     for (const ps of alive) this.dispatch(ps, 'onPrepEnd', { round: this.round });

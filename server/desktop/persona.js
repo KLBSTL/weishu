@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { dirname, basename, join } from 'node:path';
+import { companionLibrary } from '../companion/library.js';
 
 export const MAX_CARD_BYTES = 8 * 1024 * 1024;
 export const MAX_PERSONA_BODY_BYTES = Math.ceil(MAX_CARD_BYTES / 3) * 4 + 1024;
@@ -12,7 +13,8 @@ function normalize(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('角色卡内容无效');
   const data = raw.data ?? raw;
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('角色卡内容无效');
-  const card = {};
+  // Retain standard/community metadata; execution and prompt projection remain separate.
+  const card = structuredClone(data);
   for (const key of ['name', 'description', 'personality', 'scenario', 'system_prompt',
     'post_history_instructions', 'mes_example', 'first_mes']) {
     if (data[key] !== undefined && typeof data[key] !== 'string') throw new Error('角色卡字段格式无效');
@@ -20,7 +22,7 @@ function normalize(raw) {
   }
   if (!card.description && !card.personality && !card.scenario && !card.mes_example && !card.first_mes) throw new Error('角色卡缺少性格或说话示例');
   if (!card.name) card.name = '自定义人设';
-  if (card.name.length > 80 || Object.values(card).join('').length > 32000) throw new Error('角色卡正文过长，请精简到 32000 字以内');
+  if (card.name.length > 80 || ['description', 'personality', 'scenario', 'system_prompt', 'post_history_instructions', 'mes_example', 'first_mes'].reduce((n, key) => n + card[key].length, 0) > 32000) throw new Error('角色卡正文过长，请精简到 32000 字以内');
   const depth = raw.data?.extensions?.depth_prompt?.prompt ?? data.extensions?.depth_prompt?.prompt ?? data.depth_prompt;
   if (typeof depth === 'string') card.depth_prompt = depth.slice(0, 4000);
   const book = data.character_book;
@@ -29,10 +31,10 @@ function normalize(raw) {
     let chars = 0;
     const keys = values => Array.isArray(values)
       ? values.filter(value => typeof value === 'string').slice(0, 32).map(value => value.slice(0, 160)) : [];
-    card.character_book = { entries: book.entries.map((entry, index) => {
+    card.character_book = { ...structuredClone(book), entries: book.entries.map((entry, index) => {
       if (!entry || typeof entry.content !== 'string') throw new Error('角色卡世界书条目格式无效');
       chars += entry.content.length;
-      return { content: entry.content, keys: keys(entry.keys), secondary_keys: keys(entry.secondary_keys),
+      return { ...structuredClone(entry), content: entry.content, keys: keys(entry.keys ?? entry.key), secondary_keys: keys(entry.secondary_keys ?? entry.keysecondary),
         enabled: entry.enabled !== false && entry.disable !== true, constant: entry.constant === true,
         selective: entry.selective === true,
         insertion_order: Number.isFinite(Number(entry.insertion_order)) ? Number(entry.insertion_order) : index };
@@ -77,6 +79,10 @@ export function parsePersona(bytes) {
 /** Both the standalone host and the game read the latest atomically saved choice. */
 export function readSelectedPersona(file, log = console) {
   try {
+    if (basename(file) === 'stronghold-persona.json' && existsSync(join(dirname(file), 'companion-library.json'))) {
+      const bound = companionLibrary(dirname(file)).card('main');
+      return bound ? normalize(bound) : null;
+    }
     const raw = JSON.parse(readFileSync(file, 'utf8'));
     return raw === null ? null : normalize(raw);
   } catch (error) {

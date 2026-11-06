@@ -1,13 +1,15 @@
 import http from 'node:http';
 import { randomBytes } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { PHASE } from '../../shared/constants.js';
+import { readConversationSettings } from './conversation.js';
 import { validateC2S } from '../../shared/protocol.js';
 import { createPersonaStore, MAX_CARD_BYTES } from './persona.js';
 import { readChatOptions } from './chat-options.js';
+import { chatProfile } from '../match/replyStyle.js';
 
 const LABEL = '卫戍聊天';
 const WATCH_LABEL = '卫戍观战';
@@ -83,6 +85,7 @@ export async function startDesktopPet({
   let stopped = false;
   let timer;
   let pending;
+  let connectionWrite = Promise.resolve();
 
   async function upstreamToken() {
     try {
@@ -159,7 +162,7 @@ export async function startDesktopPet({
     const native = Date.now() < nativeUntil;
     if (native && lock) await release();
     if (!current(pair) || stopped) return;
-    const frames = chat.turns.filter(turn => turn.state === 'complete' && turn.text
+    const frames = chat.turns.filter(turn => ['complete', 'error'].includes(turn.state) && turn.delivery !== 'native' && turn.text
       && pair.seen.get(turn.requestId) !== turn);
     const frame = frames[0];
     if (!native && Date.now() < pair.retryAfter) { petStatus = 'paused'; return; }
@@ -180,7 +183,7 @@ export async function startDesktopPet({
     if (!current(pair) || stopped) return;
     const locked = native ? query : { ...query, lock: lock.id };
     if (frame) {
-      const duration = Math.min(12000, Math.max(5000, frame.text.length * 95));
+      const duration = readChatOptions().bubbleSeconds * 1000;
       const result = await call('/broadcast', { query: locked, method: 'POST', body: { text: frame.text, duration, anim: false } });
       if (!result.ok) {
         lost(pair, result.reason, result.cause);
@@ -309,9 +312,12 @@ export async function startDesktopPet({
       const { chat } = pair;
       const lastAnswer = chat.turns.findLast(turn => turn.state === 'complete' && turn.question && !turn.goal);
       return send(200, { pet, active, matchId: chat.identity.matchId, phase: chat.match.phase,
-        pending: !!chat.active, lastAnswerId: lastAnswer?.requestId ?? null });
+        pending: !!chat.active, progress: chat.active?.progress, activeRequestId: chat.active?.frame.requestId,
+        budgetMs: chat.active?.extendedBudget ? chatProfile('', chat.active.chatOptions).extendedTimeoutMs : undefined,
+        lastTurn: chat.turns.findLast(turn => turn.question && !turn.goal), turns: chat.turns,
+        lastAnswerId: lastAnswer?.requestId ?? null });
     }
-    if (req.url !== '/pet/ask' || req.method !== 'POST') return send(405, {});
+    if (!['/pet/ask', '/pet/cancel', '/pet/context', '/pet/open-source'].includes(req.url) || req.method !== 'POST') return send(405, {});
     if (!active) return send(409, { error: 'WRONG_PHASE' });
     const { chat } = pair;
     const player = chat.match.players.get(chat.playerId);
@@ -319,11 +325,19 @@ export async function startDesktopPet({
     if (!current(pair) || !player || !chat.authorized(player, chat.identity.matchId, chat.identity.seat)) {
       return send(403, { error: 'OFFLINE' });
     }
-    const intent = { t: 'g.teammateChat', ...chat.identity, requestId: randomBytes(16).toString('hex'),
+    if (req.url === '/pet/open-source') {
+      const url = chat.turns.flatMap(turn => turn.sources || []).find(source => source.url === body?.url)?.url;
+      if (!url || !/^https:\/\//u.test(url)) return send(400, { error: 'BAD_SOURCE' });
+      launch(url); return send(200, { ok: true });
+    }
+    if (req.url === '/pet/context') return send(200, chat.facts(player, String(body?.question || '').slice(0, 280)));
+    if (req.url === '/pet/cancel') return send(200, chat.cancel(player, { ...chat.identity, requestId: body?.requestId }));
+    const intent = { t: 'g.teammateChat', ...chat.identity, requestId: body?.requestId || randomBytes(16).toString('hex'),
       text: body?.text, ...(body?.goal && { goal: body.goal }) };
     if (body?.matchId !== chat.identity.matchId || validateC2S(intent)) return send(400, { error: 'BAD_MSG' });
     const result = chat.ask(player, intent);
-    return send(result.error ? 409 : 200, result);
+    if (result.ok && body?.delivery === 'native' && chat.active?.frame.requestId === intent.requestId) chat.active.frame.delivery = 'native';
+    return send(result.error ? 409 : 200, { ...result, requestId: intent.requestId });
   }
 
   await new Promise((resolve, reject) => {
@@ -337,18 +351,29 @@ export async function startDesktopPet({
     origin,
     getPersona: personas.get,
     getChatOptions: () => readChatOptions(join(dirname(runtimeFile), 'stronghold-chat-options.json')),
+    getConversationSettings: provider => readConversationSettings(runtimeFile, provider),
     bind(room, chat) {
       if (room.match !== chat.match || chat.match.phase === PHASE.RESULT) return null;
       if (current(binding) && binding.chat === chat) binding.retryAfter = 0;
       else binding = { room, chat, token: randomBytes(24).toString('base64url'),
         seen: new Map(chat.turns.map(turn => [turn.requestId, turn])), retryAfter: 0, bubbleUntil: 0 };
+      connectionWrite = (async () => {
+        await mkdir(dirname(runtimeFile), { recursive: true });
+        const path = join(dirname(runtimeFile), 'stronghold-pet.key');
+        try { await writeFile(path, randomBytes(32).toString('base64url'), { flag: 'wx' }); } catch (e) { if (e.code !== 'EEXIST') throw e; }
+        const token = (await readFile(path, 'utf8')).trim();
+        if (!stopped && current(binding) && binding.chat === chat) await writeFile(join(dirname(runtimeFile), 'stronghold-connection.json'), JSON.stringify({ origin, pet, token, matchId: chat.identity.matchId }));
+      })().catch(() => log.warn('[desktop] Could not register local game conversation.'));
       return chatUrl(binding);
     },
     async close() {
       stopped = true;
       clearTimeout(timer);
       await pending;
+      await connectionWrite;
       await release();
+      const connection = join(dirname(runtimeFile), 'stronghold-connection.json');
+      try { if (JSON.parse(await readFile(connection, 'utf8')).origin === origin) await rm(connection); } catch { /* already closed */ }
       if (menu) await call('/menu/item', { query: { owner }, method: 'DELETE' });
       await new Promise(resolve => server.close(resolve));
     },

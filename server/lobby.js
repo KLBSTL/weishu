@@ -812,9 +812,11 @@ export class Lobby {
       const provider = deepSeekSeat && deepSeekProvider();
       const getChatOptions = () => this.desktopPet?.getChatOptions?.();
       const deepSeek = provider
-        ? { seat: deepSeekSeat.seat, apply: true, usePrepDeadline: true, chatTimeoutMs: 20000,
+        ? { seat: deepSeekSeat.seat, apply: true, usePrepDeadline: true,
+          getPersona: () => this.desktopPet?.getPersona?.(),
           getChatOptions, choose: deepSeekClient(provider),
-          chat: deepSeekChatClient({ ...provider, getChatOptions, getPersona: () => this.desktopPet?.getPersona?.() }) }
+          chat: deepSeekChatClient({ ...provider, getChatOptions, getPersona: () => this.desktopPet?.getPersona?.(),
+            getSettings: () => this.desktopPet?.getConversationSettings?.(provider) }) }
         : undefined;
       const match = new this.MatchClass({
         roomCode: room.code,

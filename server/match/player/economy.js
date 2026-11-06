@@ -5,6 +5,7 @@
 // the player state).
 
 import { ERR, layerGainRoom } from '../../../shared/constants.js';
+import { recordChatEvent } from '../chatContext.js';
 import { freeSlot } from '../board.js';
 import { OK, fail } from './common.js';
 
@@ -175,6 +176,7 @@ export class PlayerEconomy {
     this.m.dispatch(this, 'onBuy', { piece, slot, price, kind: slot.kind });
     this._afterSpend(price, 'buy');
     this.recompute();
+    recordChatEvent(this, { action: 'buy', id: slot.id, kind: slot.kind, price, funds: this.funds });
     return OK;
   }
 
@@ -192,6 +194,7 @@ export class PlayerEconomy {
     this.round.refreshes++;
     this.m.dispatch(this, 'onRefresh', { slots: this.shop.slots, free, price });
     this._afterSpend(price, 'refresh');
+    recordChatEvent(this, { action: 'refresh', price, free, funds: this.funds });
     this.dirty();
     return OK;
   }
@@ -216,6 +219,7 @@ export class PlayerEconomy {
     this.m.tickerFor('SHOP_LEVEL', [this.name, String(this.shop.level)], { playerId: this.playerId, param: String(this.shop.level) });
     this.m.dispatch(this, 'onLevelUp', { level: this.shop.level, price });
     this._afterSpend(price, 'levelUp');
+    recordChatEvent(this, { action: 'levelUp', level: this.shop.level, price, funds: this.funds });
     this.dirty();
     return OK;
   }
@@ -243,6 +247,7 @@ export class PlayerEconomy {
     const gain = Number.isFinite(ev.gain) ? Math.max(0, Math.trunc(ev.gain)) : 1;
     this.addFunds(gain, { reason: 'sell' });
     this.stats.sells++;
+    recordChatEvent(this, { action: 'sell', id: piece.id, gain, funds: this.funds });
     this.round.sells++;
     this.checkItemMerges();
     this.recompute();

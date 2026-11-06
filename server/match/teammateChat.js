@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { ERR, PHASE } from '../../shared/constants.js';
 import { msg, wireMessage } from '../../shared/i18n.js';
 import { OK, fail } from './match/common.js';
-import { DEFAULT_CHAT_OPTIONS, UNLIMITED_CHAT_OPTIONS, replyText } from './replyStyle.js';
+import { DEFAULT_CHAT_OPTIONS, UNLIMITED_CHAT_OPTIONS, chatProfile, replyText } from './replyStyle.js';
+import { liveChatFacts } from './chatContext.js';
+import { normalizeAiFailure } from '../desktop/ai-request.js';
 
 const DETAIL_ROUNDS = 3;
 const KEEP_TURNS = 4;
@@ -20,32 +22,17 @@ function lineup(player) {
     (kind === 'chess' ? player.gd.chess(id) : player.gd.item(id))?.name || id);
 }
 
-function wavePreview(match, player) {
-  return match.nextEnemiesFor(player).filter(e => e.source === 'wave' || e.boss).slice(0, 12).map(e => ({
-    name: match.gd.enemy(e.enemyKey)?.name || e.enemyKey, count: e.count, gate: e.gate, flies: e.fly,
-  }));
-}
-
-function ruleCards(match, question) {
-  const query = question.toLowerCase();
-  const matches = (...names) => names.some(name => name && query.includes(name.toLowerCase()));
-  const chess = Object.values(match.data.chess || {}).filter(c => c.visible !== false && !c.isGolden
-    && matches(c.name, c.appellation, c.chessId)).slice(0, 4).map(c => ({
-    name: c.name, tier: c.tier, canHitFly: !!c.canHitFly && !['none', 'heal'].includes(c.attackKind),
-    skill: c.skill?.name, skillDescription: c.skill?.desc?.slice(0, 280),
-  }));
-  const bonds = Object.values(match.data.bonds || {}).filter(b => matches(b.bondId, b.name?.length > 1 && b.name)).slice(0, 4)
-    .map(b => ({ name: b.name, thresholds: b.thresholds, description: (b.effectDesc || b.desc || '').slice(0, 280) }));
-  return { normalLpCap: match.gd.lpCapPerRound, chess, bonds };
-}
 
 export class TeammateChat {
-  constructor(match, { seat, chat, chatTimeoutMs = 12000, getChatOptions }, playerId) {
+  constructor(match, { seat, chat, chatTimeoutMs, getChatOptions, getPersona }, playerId) {
     this.match = match;
     this.identity = { matchId: randomUUID(), seat };
     this.playerId = playerId;
     this.stream = chat;
     this.getChatOptions = getChatOptions;
+    this.getPersona = getPersona;
+    this.transactions = [];
+    this.historyStartsAtRound = match.round;
     this.timeoutMs = chatTimeoutMs;
     this.battles = [];
     this.choices = [];
@@ -110,6 +97,15 @@ export class TeammateChat {
     this.decisions.set(round, { round, status, source, choice, committed, candidates });
   }
 
+  recordTransaction(player, event) {
+    if (this.match._botPlanningBranch || this.match.players.get(player.playerId) !== player) return;
+    const unit = (event.kind === 'item' ? this.match.gd.item(event.id) : this.match.gd.chess(event.id))?.name;
+    this.transactions.push({ seq: this.transactions.length + 1, round: this.match.round, phase: this.match.phase,
+      seat: player.seat, at: Date.now(), ...event, ...(unit && { unit }) });
+  }
+
+  facts(player, question) { return liveChatFacts(this, player, question); }
+
   recordChoice(action, rehearsal) {
     const { round, gd } = this.match;
     this.choices.push({ round, action: action.type, unit: gd.chess(action.id)?.name ?? gd.item(action.id)?.name,
@@ -158,7 +154,9 @@ export class TeammateChat {
     const old = [...this.goals.values()].find(goal => goal.requestId === requestId);
     if (old) { this.send(this.playerId, old.frame); return OK; }
     const player = match.order.find(p => p.seat === this.identity.seat);
-    const canPlan = [PHASE.ROUND_START, PHASE.SP_DRAFT, PHASE.PREP].includes(match.phase) && !player.ready
+    const reopen = match.phase === PHASE.PREP && (player.ready || this.closedGoalRound === match.round)
+      && (!match.deadline || match.deadline - match.sched.now() > 5000);
+    const canPlan = reopen || [PHASE.ROUND_START, PHASE.SP_DRAFT, PHASE.PREP].includes(match.phase) && !player.ready
       && this.closedGoalRound !== match.round;
     const next = canPlan ? match.round : match.round + 1;
     const round = explicitRound ?? next;
@@ -171,7 +169,11 @@ export class TeammateChat {
     if (previous) this.publishGoal(previous, 'superseded', msg('第 {round} 轮的协作目标已被替换。', { round }));
     this.goals.set(round, goal);
     this.publishGoal(goal, 'accepted', msg('已收到。我会在第 {round} 轮尝试这个目标。', { round }));
-    if (canPlan && match.phase === PHASE.PREP) match._deepSeekWait?.stop('goal');
+    if (reopen) {
+      this.closedGoalRound = 0;
+      player.setReady(false);
+      match.scheduleBotPrep(player, 0);
+    } else if (canPlan && match.phase === PHASE.PREP) match._deepSeekWait?.stop('goal');
     return OK;
   }
 
@@ -228,47 +230,40 @@ export class TeammateChat {
     }
     const now = performance.now();
     if (this.active || now - this.lastStarted < 1000) return fail(ERR.RATE);
-    const prior = this.dialogue.at(-1);
-    const focusRound = targetRound ?? (!/刚才那(?:一)?轮/u.test(question)
-      && /那(?:一)?轮|that round/iu.test(question) ? prior?.round : null) ?? null; // i18n-ignore: follow-up grammar
-    const fromRound = focusRound ?? (/整局|全局|总结|whole match|summary/iu.test(question) ? 1 : Math.max(1, match.round - 6)); // i18n-ignore: chat grammar
-    const focused = row => focusRound == null || row.round === focusRound;
-    const inWindow = row => row.round >= fromRound && focused(row);
-    const battles = this.battleMemory(fromRound, focusRound).filter(focused);
-    const aboutTeammate = /你自己|你[这那]边|^你(?:刚才(?:那(?:一)?轮)?|上(?:一)?轮|这轮|本轮)?(?:打得|守得|漏了|掉血)|^(?:how did you (?:do|hold)|did you (?:leak|lose))/iu.test(question); // i18n-ignore: fallback subject
-    const subjectSeat = aboutTeammate ? seat : player.seat;
-    const relevant = battles.filter(e => e.kind !== 'normal' || e.seat === subjectSeat);
-    const latest = relevant.at(-1);
-    const ai = match.order.find(p => p.seat === seat);
-    const includeCurrent = focusRound == null || focusRound >= match.round;
-    const facts = {
-      round: match.round, phase: match.phase, stage: match.stageId, difficulty: match.difficulty,
-      requestedRound: focusRound, lastSettledRound: this.battles.at(-1)?.round ?? null, playerSeat: player.seat, aiSeat: seat,
-      currentBoss: includeCurrent && match.bossPool && (match.phase === PHASE.FINAL_ASSAULT || match.phase === PHASE.HIDDEN_CORE)
-        ? this.bossFacts(match.phase === PHASE.HIDDEN_CORE) : null,
-      current: match.order.map(p => ({ seat: p.seat, lp: Math.max(0, p.lp), alive: p.alive,
-        ...(includeCurrent && { band: p.gd.band(p.bandId)?.name, shopLevel: p.shop.level, lineup: lineup(p) }) })),
-      ...(includeCurrent && { wavePreview: wavePreview(match, player), aiWavePreview: ai?.alive ? wavePreview(match, ai) : [] }),
-      battles, aiChoices: this.choices.filter(inWindow), aiDecisions: [...this.decisions.values()].filter(inWindow),
-      cooperation: this.turns.filter(turn => turn.goal && focused(turn.goal)).map(turn => turn.goal), rules: ruleCards(match, question),
-    };
+    const facts = this.facts(player, question);
+    const focusRound = facts.requestedRound;
     const dialogue = this.dialogue.slice();
     const request = {
       playerId: player.playerId,
-      frame: { ...this.identity, requestId, question, round: match.round, referenceRound: focusRound ?? latest?.round ?? match.round },
+      frame: { ...this.identity, requestId, question, round: match.round, referenceRound: focusRound ?? match.round },
       controller: new AbortController(), text: '', timer: null, lastDelta: -Infinity,
-      rawText: '', chatOptions: this.getChatOptions ? (this.getChatOptions() ?? DEFAULT_CHAT_OPTIONS) : UNLIMITED_CHAT_OPTIONS,
+      rawText: '', factRound: facts.round, started: performance.now(), persona: JSON.stringify(this.getPersona?.()),
+      chatOptions: chatProfile(question, this.getChatOptions ? (this.getChatOptions() ?? DEFAULT_CHAT_OPTIONS) : UNLIMITED_CHAT_OPTIONS).options,
     };
     this.lastStarted = now;
     this.active = request;
     this.send(request.playerId, { ...request.frame, state: 'streaming', text: '' });
-    const fallback = () => this.finish(request, 'complete', wireMessage(this.fallback(latest, subjectSeat, focusRound, facts.round)));
-    request.timer = setTimeout(fallback, this.timeoutMs);
+    const failed = error => {
+      const visible = normalizeAiFailure(error, error, request.controller.signal, (level, text) => this.match.log[level]?.(text));
+      this.finish(request, 'error', { text: visible.message, reason: 'provider', sources: request.sources || [] });
+    };
+    request.timer = setTimeout(() => this.finish(request, 'error', { text: '回复等待超时，可以重试或取消。', reason: 'timeout' }),
+      this.timeoutMs ?? chatProfile(question, request.chatOptions).timeoutMs);
     request.timer.unref?.();
     Promise.resolve().then(async () => {
       if (this.active !== request) return;
-      await this.stream({ question, facts, dialogue, chatOptions: request.chatOptions }, request.controller.signal, (delta) => {
+      const result = await this.stream({ question, facts, dialogue, getFacts: async () => this.facts(player, question),
+        chatOptions: request.chatOptions }, request.controller.signal, (delta, meta = {}) => {
         if (this.active !== request) return false;
+        if (meta.progress) request.progress = meta.progress;
+        if (meta.extendedBudget) {
+          request.extendedBudget = true;
+          clearTimeout(request.timer);
+          request.timer = setTimeout(() => this.finish(request, 'error', { text: '回复等待超时，可以重试。', reason: 'timeout' }),
+            Math.max(0, request.started + chatProfile(question, request.chatOptions).extendedTimeoutMs - performance.now()));
+          request.timer.unref?.();
+          if (request.chatOptions.mode === 'daily') request.chatOptions = { ...request.chatOptions, maxChars: Math.max(300, request.chatOptions.maxChars) };
+        }
         request.rawText += delta.slice(0, MAX_REPLY - request.rawText.length);
         request.text = replyText(request.rawText, request.chatOptions);
         const now = performance.now();
@@ -278,23 +273,14 @@ export class TeammateChat {
         }
         return request.rawText.length < MAX_REPLY;
       });
-      if (request.text.trim()) this.finish(request, 'complete', { text: request.text.trim() });
-      else fallback();
-    }).catch(fallback);
+      if (this.getPersona && JSON.stringify(this.getPersona()) !== request.persona) {
+        this.finish(request, 'cancelled', { text: '已切换人设，请重新提问。' });
+      } else if (request.text.trim()) this.finish(request, 'complete', { text: request.text.trim(), sources: result?.sources || [] });
+      else failed(new Error('Standalone AI returned no text.'));
+    }).catch(failed);
     return OK;
   }
 
-  fallback(battle, seat, targetRound, round) {
-    if (seat === this.identity.seat && battle?.kind === 'normal') return msg('我刚看了下，第 {round} 轮我这边漏了 {leaks} 个，掉了 {loss} 点血。',
-      { round: battle.round, leaks: battle.leaks, loss: battle.lpLoss });
-    if (battle?.kind === 'normal') return msg('我刚看了下，第 {round} 轮你漏了 {leaks} 个，掉了 {loss} 点血。',
-      { round: battle.round, leaks: battle.leaks, loss: battle.lpLoss });
-    if (seat === this.identity.seat && battle) return msg('我看了下，第 {round} 轮我打了领袖 {damage} 点伤害。',
-      { round: battle.round, damage: battle.damage.find(p => p.seat === seat)?.damage ?? 0 });
-    if (battle) return msg('我看了下，第 {round} 轮你打了领袖 {damage} 点伤害。',
-      { round: battle.round, damage: battle.damage.find(p => p.seat === seat)?.damage ?? 0 });
-    return msg('第 {round} 轮的结果我还没看到，等结算了再聊。', { round: targetRound ?? round });
-  }
 
   authorized(player, matchId, seat) {
     return player.playerId === this.playerId && player.connected && !player.left
@@ -316,8 +302,11 @@ export class TeammateChat {
     this.active = null;
     clearTimeout(request.timer);
     request.controller.abort();
-    const frame = { ...request.frame, state, ...body };
-    if (request.chatOptions.mode === 'daily') {
+    const frame = { ...request.frame, state, complex: request.extendedBudget || chatProfile(request.frame.question).complex, ...body };
+    if (state === 'complete' && this.match.round !== request.factRound) {
+      frame.text = `你刚问第 ${request.factRound} 轮时：` + frame.text;
+    }
+    if (state === 'complete' && request.chatOptions.mode === 'daily') {
       frame.text = replyText(frame.text, request.chatOptions);
       // The fallback translation must not expand a capped literal response again on the client.
       delete frame.msgid; delete frame.params;

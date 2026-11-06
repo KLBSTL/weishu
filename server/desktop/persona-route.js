@@ -1,6 +1,9 @@
 import { homedir } from 'node:os';
-import { join } from 'node:path';
-import { createPersonaStore, MAX_PERSONA_BODY_BYTES } from './persona.js';
+import { join, dirname } from 'node:path';
+import { companionLibrary } from '../companion/library.js';
+import { createPersonaStore, parsePersona, MAX_PERSONA_BODY_BYTES } from './persona.js';
+import { cancelConversation } from './conversation.js';
+import { noteConversationActivity } from './idle-chat.js';
 
 /** The HTTP plugin also reads the standalone listener's bounded replay stream. */
 export async function readPersonaBody(req) {
@@ -29,7 +32,16 @@ export function createPersonaRoute(file, log = console) {
       return result(400, { error: '请选择有效的 JSON 或 PNG 角色卡' });
     }
     try {
-      const card = await personas.select(body.reset === true ? null : Buffer.from(body.file, 'base64'));
+      const bytes = body.reset === true ? null : Buffer.from(body.file, 'base64');
+      const card = bytes ? parsePersona(bytes) : null;
+      const library = companionLibrary(dirname(file));
+      if (card) await library.importCard(card, bytes, body.pet || 'main');
+      else await library.update(undefined, data => {
+        const actor = library.actor(body.pet || 'main', data); actor.assetId = null; actor.overrides = {}; actor.name = '默认人物'; actor.speaker = null; actor.embeddedBook = null;
+      });
+      if (!body.pet || body.pet === 'main') await personas.select(bytes);
+      noteConversationActivity();
+      await cancelConversation('SP_PERSONA_CHANGED');
       return result(200, { name: card?.name ?? '默认肥鱼' });
     } catch (error) {
       log.warn('[desktop] Persona selection failed');

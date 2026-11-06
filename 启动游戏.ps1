@@ -5,9 +5,11 @@ param([switch]$DesktopPet, [switch]$DshPetHeadless, [string]$DshPetBase, [string
 if (Invoke-PowerShell7Launcher -ScriptPath $PSCommandPath -Parameters $PSBoundParameters) { return }
 
 $ErrorActionPreference = 'Stop'
+Initialize-StrongholdNetwork
 $repoPath = $PSScriptRoot
 $nodePath = (Get-Command node -ErrorAction Stop).Source
-if (-not (Test-Path -LiteralPath (Join-Path $repoPath 'node_modules/ws/package.json'))) {
+if (-not (Test-Path -LiteralPath (Join-Path $repoPath 'node_modules/ws/package.json')) -or
+    -not (Test-Path -LiteralPath (Join-Path $repoPath 'node_modules/undici/package.json'))) {
     Push-Location -LiteralPath $repoPath
     try {
         & npm.cmd ci --omit=dev --no-audit --no-fund

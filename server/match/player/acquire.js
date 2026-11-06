@@ -7,6 +7,7 @@
 
 import { pieceDir, parseDir, mergeTile } from '../board.js';
 import { MAX_OFFER_SLOTS } from './common.js';
+import { recordChatEvent } from '../chatContext.js';
 
 export class PlayerAcquire {
   /** Normal copies of a base chess currently owned (board/hand/temp). */
@@ -59,6 +60,7 @@ export class PlayerAcquire {
     }
     this.recompute();
     if (!silent) this.m.dispatch(this, 'onGain', { piece: owned, kind: 'chess', source });
+    if (source !== 'buy') recordChatEvent(this, { action: 'gain', id: chessId, source });
     this.recompute();
     return owned;
   }
@@ -134,6 +136,7 @@ export class PlayerAcquire {
     const shown = rec ? this.fieldRecord(rec) || rec : null;
     this.m.tickerFor('GOLDEN_CHAR', [this.name, shown ? shown.name : goldenId], { playerId: this.playerId });
     this.m.dispatch(this, 'onMerge', { kind: 'chess', piece: elite, baseId, consumed: consumed.map((l) => l.piece.uid), area: where });
+    recordChatEvent(this, { action: 'merge', id: elite.id, kind: 'chess', source: 'combine' });
     return elite;
   }
 
@@ -296,6 +299,7 @@ export class PlayerAcquire {
     }
     this.recompute();
     if (!silent) this.m.dispatch(this, 'onGain', { piece, kind: 'item', source });
+    if (source !== 'buy') recordChatEvent(this, { action: 'gain', id: itemId, acquiredId: piece.id, kind: 'item', source });
     return piece;
   }
 
@@ -320,6 +324,7 @@ export class PlayerAcquire {
     }
     this.stats.itemMerges++;
     this.m.dispatch(this, 'onMerge', { kind: 'item', piece: golden, itemId, consumed: consumed.map((l) => l.piece.uid) });
+    recordChatEvent(this, { action: 'merge', id: golden.id, kind: 'item', source: 'combine' });
     return golden;
   }
 

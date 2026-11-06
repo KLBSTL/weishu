@@ -4,7 +4,10 @@ import { resolve } from 'node:path';
 function hostAgent(options) {
   try {
     // Resolve the installed standalone host's transport dependency, not the game package's dependencies.
-    const { EnvHttpProxyAgent } = createRequire(resolve(process.argv[1]))('undici');
+    let transport;
+    try { transport = createRequire(resolve(process.argv[1]))('undici'); }
+    catch { transport = createRequire(import.meta.url)('undici'); }
+    const { EnvHttpProxyAgent } = transport;
     return new EnvHttpProxyAgent(options);
   } catch (cause) {
     throw Object.assign(new Error('Configured proxy transport is unavailable.', { cause }), { code: 'SP_PROXY_UNAVAILABLE' });

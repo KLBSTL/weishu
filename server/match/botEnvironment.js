@@ -9,7 +9,7 @@ export const PREP_OBSERVATION_VERSION = 1;
 const noop = () => {};
 const ignoredMatch = new Set(['opts','sched','dispatcher','log','sendFn','broadcastFn','onEndFn','fields','runner','pacer',
   'bossPool','lastResults','_timers','_phaseTimer','_turnTimer','_pubTimer','_bossPubTimer','_progressTimer','_poolTimer',
-  '_botPath','_botTraits','_privDirty','_botPlannerTrace','teammateChat','deepSeekPending','_deepSeekWait']);
+  '_botPath','_botTraits','_privDirty','_botPlannerTrace','teammateChat','deepSeekPending','_deepSeekWait','_deepSeekGate']);
 
 function detached(value, seen) {
   if (value == null || typeof value !== 'object') return value;
