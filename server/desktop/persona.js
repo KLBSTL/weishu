@@ -79,7 +79,7 @@ export function parsePersona(bytes) {
 /** Both the standalone host and the game read the latest atomically saved choice. */
 export function readSelectedPersona(file, log = console) {
   try {
-    if (basename(file) === 'stronghold-persona.json' && existsSync(join(dirname(file), 'companion-library.json'))) {
+    if (basename(file) === 'stronghold-persona.json' && (existsSync(join(dirname(file), 'companion-library.json')) || existsSync(join(dirname(file), 'companion.sqlite')))) {
       const bound = companionLibrary(dirname(file)).card('main');
       return bound ? normalize(bound) : null;
     }

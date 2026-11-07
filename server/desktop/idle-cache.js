@@ -49,7 +49,7 @@ export class IdleCache {
     } catch { /* The in-memory generation path remains available if a profile is read-only. */ }
     finally { try { rmSync(temporary, { force: true }); } catch { /* optional cache */ } }
   }
-  key(input) { return fingerprint([input.companionPetId, input.cacheActor, input.storyCard, input.speakerStyle, input.cacheRevision, input.cacheEpoch || 'start']); }
+  key(input) { return fingerprint([input.companionPetId, input.cacheActor, input.storyCard, input.cacheStyle ?? input.speakerStyle, input.cacheRevision, input.cacheEpoch || 'start']); }
   warm(input) {
     const data = this.read(), key = this.key(input), heard = new Set((input.history || []).filter(m => m.role === 'assistant').map(m => plain(m.content)));
     const entry = data.entries[key] ||= { rows: [], used: [], at: this.now() };
@@ -67,6 +67,7 @@ export class IdleCache {
     if (!batch.grounded) return;
     const data = this.read(), key = this.key(input), entry = data.entries[key] ||= { rows: [], used: [], at: this.now() };
     const additions = batch.segments.map((part, index) => ({ ...part, origin: 'model-cache', topicId: selected.topic,
+      sourceEvidence: { text: selected.text, timeState: selected.timeState, eventId: selected.eventId },
       topicFinal: index === batch.segments.length - 1 && !batch.incomplete, expires: this.now() + 900000 }));
     entry.rows = [...entry.rows.filter(row => !additions.some(part => part.id === row.id)), ...additions].slice(-6);
     this.save(data);

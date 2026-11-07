@@ -5,16 +5,20 @@
   const { origin, token } = strongholdPetConfig;
   const label = '卫戍聊天';
   const gamePlayingUrl = origin + '/playing.webm';
-  const previewPlayingUrl = BASE + '/stronghold/library-playing.webm';
-  let playingUrl = gamePlayingUrl;
-  let previewing = false;
-  let previewPet = null;
-  let previewRequest = null;
-  try { previewPet = window.localStorage?.getItem('ark-playing-preview-pet') || null; } catch { /* session-only fallback */ }
+  const playingUrl = gamePlayingUrl;
+  let dailyRoleplay = false;
+  let roleplayPet = null;
+  let dailyRequest = null;
+  try {
+    roleplayPet = window.localStorage?.getItem('ark-roleplay-pet') || window.localStorage?.getItem('ark-playing-preview-pet') || null;
+    if (roleplayPet) window.localStorage?.setItem('ark-roleplay-pet', roleplayPet);
+    window.localStorage?.removeItem('ark-playing-preview-pet');
+  } catch { /* session-only fallback */ }
   let activeSprite = null;
   let activeMatch = null;
+  let panelRound = null, lastPanelReport = '';
   let composer = null;
-  const hiddenComposers = new Set();
+  const openedComposers = new Set();
   let latestSources = [];
   let activeRequestId = null;
   let shownErrorId = null;
@@ -161,6 +165,43 @@
     }
   }
 
+  async function clearHistory(sprite) {
+    const request = async (action, values = {}) => {
+      const response = await fetch(BASE + '/stronghold/library', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, pet: sprite.pet.id, ...values }), signal: AbortSignal.timeout(15000) });
+      const result = await response.json(); if (!response.ok) throw new Error(result.error || '清空未完成，请重试。'); return result;
+    };
+    try {
+      const preview = await request('clear-history-preview');
+      sprite.chatMount?.close();
+      const form = document.createElement('form');
+      form.className = 'dsh-pet-chat stronghold-pet-control'; form.setAttribute('role', 'dialog'); form.setAttribute('aria-label', '确认清空记忆和历史记录');
+      const message = document.createElement('p'); message.textContent = `清空「${preview.name}」的全部记忆和历史记录？删除后无法恢复，角色卡和世界书会保留。`;
+      const confirm = document.createElement('button'); confirm.type = 'submit'; confirm.textContent = '确认清空';
+      const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = '取消';
+      const close = () => { form.remove(); if (sprite.chatMount?.el === form) { sprite.chatMount = null; sprite.chatOpen = false; } sprite.syncInputBusy(); sprite.syncInputRegions(); if (!sprite.inputBusy()) sprite.setInteractive(false); };
+      cancel.onclick = close;
+      form.addEventListener('focusin', () => window.petBridge?.requestKeyboardFocus());
+      form.onkeydown = e => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
+      form.onsubmit = async e => {
+        e.preventDefault(); if (confirm.disabled) return; confirm.disabled = true;
+        try {
+          activity(true); if (activeSprite === sprite) dailyRequest?.abort();
+          await request('clear-history', { confirmation: preview.confirmation });
+          chatDeliveries.delete(sprite.pet.id); shownChat.delete(sprite.pet.id);
+          close(); sprite.showWhisper('记忆和历史记录已清空。', undefined, undefined, 5000, false);
+        }
+        catch (error) { message.textContent = error.message; confirm.disabled = false; }
+      };
+      form.append(message, confirm, cancel); document.body.append(form);
+      const bounds = sprite.visibleClampRect(), hit = sprite.hit.getBoundingClientRect(), width = Math.min(330, bounds.w - 8);
+      form.style.width = width + 'px'; form.style.left = Math.max(bounds.x + 4, Math.min(hit.left, bounds.x + bounds.w - width - 4)) + 'px';
+      form.style.top = Math.max(bounds.y + 4, Math.min(hit.top - form.offsetHeight - 6, bounds.y + bounds.h - form.offsetHeight - 4)) + 'px';
+      sprite.chatMount = { el: form, close }; sprite.chatOpen = true;
+      sprite.syncInputBusy(); sprite.setInteractive(true); sprite.syncInputRegions(); cancel.focus();
+    } catch (error) { sprite.showWhisper(error.message || '未能读取人物资料，请重试。', undefined, undefined, 5000, false); }
+  }
+
   function editMaxChars(sprite) {
     sprite.chatMount?.close();
     const form = document.createElement('form');
@@ -286,7 +327,7 @@
       link.style.cssText = 'display:block;flex-basis:100%;overflow-wrap:anywhere';
       link.addEventListener('click', event => {
         event.preventDefault();
-        if (activeSprite && !previewing) void request('/pet/open-source', { url: source.url });
+        if (activeSprite && !dailyRoleplay) void request('/pet/open-source', { url: source.url });
         else void fetch(BASE + '/stronghold/open-source', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: source.url, pet: sprite.pet.id }) });
       });
       panel.append(link);
@@ -302,8 +343,8 @@
   function mount() {
     const form = document.createElement('form');
     form.className = 'dsh-pet-chat stronghold-pet-chat stronghold-game-composer';
-    form.setAttribute('aria-label', previewing ? '角色扮演聊天' : '卫戍聊天');
-    form.hidden = hiddenComposers.has(activeSprite.pet.id);
+    form.setAttribute('aria-label', dailyRoleplay ? '角色扮演聊天' : '卫戍聊天');
+    form.hidden = !openedComposers.has(activeSprite.pet.id);
     const input = document.createElement('input');
     input.placeholder = '和我聊聊…';
     input.setAttribute('aria-label', '和我聊聊');
@@ -319,8 +360,8 @@
     cancel.dataset.role = 'cancel'; cancel.disabled = true;
     cancel.addEventListener('click', () => {
       activity(true);
-      if (previewRequest) {
-        previewRequest.abort();
+      if (dailyRequest) {
+        dailyRequest.abort();
         void fetch(BASE + '/stronghold/cancel', { method: 'POST' }).catch(() => {});
       } else if (activeRequestId) void request('/pet/cancel', { matchId: activeMatch, requestId: activeRequestId });
     });
@@ -337,14 +378,14 @@
       status.textContent = goal ? '' : '我想想。';
       const sprite = activeSprite;
       try {
-        if (previewing) {
+        if (dailyRoleplay) {
           if (goal) return;
-          const controller = new AbortController(); previewRequest = controller; activeRequestId = 'preview-chat';
+          const controller = new AbortController(); dailyRequest = controller; activeRequestId = 'preview-chat';
           try {
             const res = await fetch(BASE + '/chat?pet=' + encodeURIComponent(sprite.pet.id) + '&surface=any', {
               method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }), signal: controller.signal });
             const answer = await res.json();
-            if (controller.signal.aborted || activeSprite !== sprite || !previewing) return;
+            if (controller.signal.aborted || activeSprite !== sprite || !dailyRoleplay) return;
             if (!res.ok || !answer.ok || !answer.text) {
               status.dataset.error = '1'; status.textContent = answer.message || answer.error || '这次没回答出来，稍后再试试。';
             } else {
@@ -352,7 +393,7 @@
               latestSources = answer.sources || [];
               sprite.showWhisper(answer.text, undefined, undefined, chatOptions.bubbleSeconds * 1000, false);
             }
-          } finally { if (previewRequest === controller) { previewRequest = null; activeRequestId = null; } }
+          } finally { if (dailyRequest === controller) { dailyRequest = null; activeRequestId = null; } }
           return;
         }
         const res = await request('/pet/ask', { matchId: activeMatch, text, goal });
@@ -388,7 +429,7 @@
       const button = document.createElement('button');
       button.type = 'button';
       button.textContent = text;
-      button.hidden = previewing;
+      button.hidden = dailyRoleplay;
       button.addEventListener('click', () => void ask(text, goal));
       actions.append(button);
     }
@@ -398,7 +439,7 @@
     const close = document.createElement('button'); close.type = 'button'; close.textContent = '×';
     close.className = 'stronghold-composer-close'; close.dataset.role = 'close'; close.setAttribute('aria-label', '关闭输入栏');
     close.addEventListener('click', () => {
-      hiddenComposers.add(activeSprite.pet.id); form.hidden = true; input.blur(); place();
+      openedComposers.delete(activeSprite.pet.id); form.hidden = true; input.blur(); place();
     });
     form.append(input, close, actions, status);
     document.body.append(form);
@@ -423,6 +464,18 @@
     }
     return result;
   };
+  async function speechResponse(response) {
+    let value;
+    try { value = await response.json(); } catch { /* The helper may return a plain-text transport error. */ }
+    if (!response.ok) {
+      const status = response.status;
+      return { error: status === 429 ? '请求暂时过多，请稍后再试（HTTP 429）。'
+        : status === 401 || status === 403 ? '桌宠服务验证未通过，请检查连接设置。'
+        : value?.code === 'IDLE_CONTEXT_FAILED' ? '人物资料暂时读取失败，请重启桌宠后再试。'
+        : `碎碎念请求未能送达（HTTP ${status}），请稍后重试。`, failure: { status } };
+    }
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : { error: '桌宠服务没有返回有效结果，请稍后重试。' };
+  }
   async function speak(manual = false) {
     const sprite = activeSprite || sprites[0];
     if (!manual && Date.now() < idleRetryAt) return;
@@ -451,11 +504,23 @@
     try {
       const res = await fetch(BASE + '/stronghold/idle', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pet: sprite.pet.id, manual, prepare: preparing, warmStart: true }), signal: controller.signal });
-      let result = res.ok ? await res.json() : null;
+      let result = await speechResponse(res);
       if (result?.prepared && controller.foreground) {
         const ready = await fetch(BASE + '/stronghold/idle', { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pet: sprite.pet.id, manual: true, warmStart: true }), signal: controller.signal });
-        result = ready.ok ? await ready.json() : null;
+        result = await speechResponse(ready);
+      }
+      const recoverable = value => value?.skipped && !value.recoveryExhausted && [undefined, 'duplicate', 'cooldown'].includes(value.reason);
+      if (controller.foreground && recoverable(result) && !controller.signal.aborted) {
+        if (notice) { delete notice.dataset.error; notice.textContent = '正在换个话题，准备下一条。'; }
+        await new Promise((resolve, reject) => {
+          const stop = () => { clearTimeout(timer); reject(controller.signal.reason); };
+          const timer = setTimeout(() => { controller.signal.removeEventListener('abort', stop); resolve(); }, Math.min(1500, Math.max(1050, result.retryAfterMs || 0)));
+          controller.signal.addEventListener('abort', stop, { once: true }); if (controller.signal.aborted) stop();
+        });
+        const next = await fetch(BASE + '/stronghold/idle', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pet: sprite.pet.id, manual: true, warmStart: true }), signal: controller.signal });
+        result = await speechResponse(next);
       }
       if (result?.retryAfterMs) idleRetryAt = Date.now() + Math.min(60000, result.retryAfterMs);
       if (result?.prepared && controller.foreground && notice) {
@@ -479,7 +544,9 @@
         notice.textContent = result?.error || (result?.reason === 'busy' ? '模型还在处理上一条请求，稍后再点即可。'
           : result?.reason === 'stories-exhausted' ? '这张卡的新背景暂时讲完了，可以补充故事或直接和我聊聊。'
           : result?.reason === 'needs-speaker' ? '这张剧情卡还没有固定人物，请在右键「角色扮演 → 资料管理」中填写人物名字和设定。'
-          : '这次仍在重复旧话题，已跳过，可以直接问我想了解的事。');
+          : result?.reason === 'interrupted' ? ''
+          : result?.reason === 'duplicate' ? '生成的内容仍与已讲过的话题重复，稍后再试试。'
+          : '这次请求没有返回台词，请稍后重试。');
       }
     } catch {
       failed = true;
@@ -522,6 +589,7 @@
     finally { speechStatusPending = false; }
   }
   PetSprite.prototype.inputBusy = function () {
+    // Visible controls need their native input lease before a first click can give them focus.
     return inputBusy.call(this) || !!(this === activeSprite && composer && !composer.hidden)
       || !!document.querySelector('.stronghold-pet-control');
   };
@@ -544,9 +612,10 @@
         hint: (label === '日常模式' && chatOptions.mode === 'daily')
           || (label === '无限制模式' && chatOptions.mode === 'unlimited') ? '✓' : '' }));
       roleItems.unshift({ label: '打开输入栏', action: 'stronghold-open-composer' });
-      roleItems.unshift({ label: previewPet === this.pet.id ? '停止角色扮演' : '开启角色扮演',
-        action: 'stronghold-preview', hint: previewPet === this.pet.id ? '✓' : '' });
+      roleItems.unshift({ label: roleplayPet === this.pet.id ? '停止角色扮演' : '开启角色扮演',
+        action: 'stronghold-preview', hint: roleplayPet === this.pet.id ? '✓' : '' });
       roleItems.push(
+      { label: '清空记忆和历史记录', action: 'stronghold-clear-history' },
       { label: '对话预算', action: 'stronghold-info' },
       { label: '请求强度', children: [['low', '低'], ['medium', '中'], ['high', '高']].map(([effort, label]) => ({
         label, action: 'stronghold-effort', effort, hint: effort === chatOptions.effort ? '✓' : '' })) },
@@ -569,30 +638,25 @@
     }
   };
   PetSprite.prototype.switchTo = function (name, once, playbackId, url) {
-    if (this === activeSprite && url !== playingUrl) return;
+    if (this === activeSprite && !dailyRoleplay && url !== playingUrl) return;
     return switchTo.call(this, name, once, playbackId, url);
   };
   PetSprite.prototype.playOnce = function (name, playbackId, url) {
-    if (this === activeSprite) return;
+    if (this === activeSprite && !dailyRoleplay) return;
     return playOnce.call(this, name, playbackId, url);
   };
   PetSprite.prototype.onMenuAction = function (leaf, ...args) {
+    if (leaf?.action === 'stronghold-clear-history' && !args[1]) { this.closeMenu(); void clearHistory(this); return; }
     if (leaf?.action === 'stronghold-preview' && !args[1]) {
       this.closeMenu(); activity(true);
-      previewPet = previewPet === this.pet.id ? null : this.pet.id;
-      docked.delete(this);
-      if (previewPet) dockRole(this);
-      try {
-        if (previewPet) window.localStorage?.setItem('ark-playing-preview-pet', previewPet);
-        else window.localStorage?.removeItem('ark-playing-preview-pet');
-      } catch { /* session-only fallback */ }
-      if (!activeSprite || previewing) applyScene(null);
+      setRoleplay(this, roleplayPet !== this.pet.id);
       return;
     }
     if (leaf?.action === 'stronghold-open-composer' && !args[1]) {
       this.closeMenu();
+      if (!activeSprite) setRoleplay(this, true);
       if (this === activeSprite && composer) {
-        hiddenComposers.delete(this.pet.id); composer.hidden = false; place(); composer.querySelector('input').focus();
+        openedComposers.add(this.pet.id); composer.hidden = false; place(); composer.querySelector('input').focus();
         return;
       }
       return onMenuAction.call(this, { action: 'chat' }, ...args);
@@ -614,6 +678,7 @@
     if (!args[1] && leaf?.action === 'third-party' && leaf.owner === `Stronghold Protocol (${this.pet.id})`) {
       if (leaf.label === '资料管理') {
         this.closeMenu(); activity(true);
+        if (window.arkDesktop) { void window.arkDesktop.openPanel('people', this.pet.id); return; }
         void fetch(BASE + '/stronghold/library', { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'open', pet: this.pet.id }) }).then(async res => {
           const data = await res.json(); if (!res.ok) throw new Error(data.error || '资料管理打开失败');
@@ -648,7 +713,7 @@
     if (this === activeSprite && !args[1] && (leaf?.action === 'chat'
       || (leaf?.action === 'third-party' && leaf.label === label && leaf.owner === `Stronghold Protocol (${this.pet.id})`))) {
       this.closeMenu();
-      hiddenComposers.delete(this.pet.id); composer.hidden = false; place();
+      openedComposers.add(this.pet.id); composer.hidden = false; place();
       composer.querySelector('input').focus();
       return;
     }
@@ -658,18 +723,19 @@
   function unmount(animate = false) {
     const sprite = activeSprite;
     if (!sprite) return;
-    previewRequest?.abort(); previewRequest = null; activeRequestId = null;
+    const wasGame = !dailyRoleplay;
+    dailyRequest?.abort(); dailyRequest = null; activeRequestId = null;
     activeSprite = activeMatch = null;
-    previewing = false;
+    dailyRoleplay = false;
     composer.remove();
     composer = null;
     if (sprite.bubble) sprite.bubble.style.translate = '';
     sprite.syncInputBusy();
     sprite.clearWhisper();
     const video = frontVideo(sprite);
-    const exit = animate && !sprite.dragState?.active && video?.src === playingUrl ? cue(video, 'leave') : null;
+    const exit = animate && wasGame && !sprite.dragState?.active && video?.src === playingUrl ? cue(video, 'leave') : null;
     const idle = () => {
-      if (activeSprite === sprite || sprite.sleeping) return;
+      if (!wasGame || activeSprite === sprite || sprite.sleeping) return;
       if (sprite.animations.idle.length) sprite.playOnce(S.pick(sprite.animations.idle, sprite.anim));
     };
     if (exit) {
@@ -692,36 +758,40 @@
   }
 
   function applyScene(gameState) {
+    panelRound = gameState?.round || null;
     const real = gameState?.active ? sprites.find(sprite => sprite.pet.id === gameState.pet) : null;
-    const preview = real ? null : sprites.find(sprite => sprite.pet.id === previewPet && !sprite.sleeping);
-    const sprite = real || preview || null, asPreview = !!preview;
-    const state = real ? gameState : { matchId: null, phase: 'PREVIEW' };
-    if (activeSprite !== sprite || activeMatch !== state.matchId || previewing !== asPreview) unmount(!sprite);
+    const daily = real ? null : sprites.find(sprite => sprite.pet.id === roleplayPet && !sprite.sleeping);
+    const sprite = real || daily || null, asPreview = !!daily;
+    const state = real ? gameState : { matchId: null, phase: 'ROLEPLAY' };
+    if (activeSprite !== sprite || activeMatch !== state.matchId || dailyRoleplay !== asPreview) unmount(!sprite);
     if (sprite && !activeSprite) {
       sprite.chatMount?.close(); sprite.stopMove();
-      activeSprite = sprite; activeMatch = state.matchId; previewing = asPreview;
-      if (asPreview) dockRole(sprite);
-      playingUrl = asPreview ? previewPlayingUrl : gamePlayingUrl;
+      activeSprite = sprite; activeMatch = state.matchId; dailyRoleplay = asPreview;
+      if (real) dockRole(sprite);
       latestSources = []; composer = mount();
       lastPhase = state.phase; lastAnswerId = state.lastAnswerId;
       entryPending = true; transition?.cancel();
+      // A daily bar can reopen during a game exit cue; cancelling that cue must still restore ordinary motion.
+      if (asPreview && (frontVideo(sprite)?.src === playingUrl || sprite.pending?.anim === playingUrl) && sprite.animations.idle.length) sprite.playOnce(S.pick(sprite.animations.idle, sprite.anim));
     }
     if (!activeSprite) return;
     const video = frontVideo(sprite);
-    if (video?.src !== playingUrl && sprite.pending?.anim !== playingUrl) {
-      sprite.anim = playingUrl; sprite.once = false; sprite.facing = 'left';
-      sprite.switchTo(playingUrl, false, null, playingUrl);
-    } else if (video?.src === playingUrl && video.paused && video.readyState >= 2) {
-      void video.play().catch(() => {});
-    }
-    if (video?.src === playingUrl && video.readyState >= 2 && !sprite.dragState?.active) {
-      if (entryPending) { cue(video, 'enter'); entryPending = false; }
-      else if (state.lastAnswerId && state.lastAnswerId !== lastAnswerId) cue(video, 'reply');
-      else if (state.phase !== lastPhase && ['SETTLE', 'FINAL_ASSAULT', 'HIDDEN_CORE'].includes(state.phase)) cue(video, 'settle');
+    if (!asPreview) {
+      if (video?.src !== playingUrl && sprite.pending?.anim !== playingUrl) {
+        sprite.anim = playingUrl; sprite.once = false; sprite.facing = 'left';
+        sprite.switchTo(playingUrl, false, null, playingUrl);
+      } else if (video?.src === playingUrl && video.paused && video.readyState >= 2) {
+        void video.play().catch(() => {});
+      }
+      if (video?.src === playingUrl && video.readyState >= 2 && !sprite.dragState?.active) {
+        if (entryPending) { cue(video, 'enter'); entryPending = false; }
+        else if (state.lastAnswerId && state.lastAnswerId !== lastAnswerId) cue(video, 'reply');
+        else if (state.phase !== lastPhase && ['SETTLE', 'FINAL_ASSAULT', 'HIDDEN_CORE'].includes(state.phase)) cue(video, 'settle');
+      }
     }
     lastPhase = state.phase; lastAnswerId = state.lastAnswerId;
-    const notice = composer.querySelector('[data-role="status"]'), pending = asPreview ? !!previewRequest : state.pending;
-    activeRequestId = asPreview ? (previewRequest ? 'preview-chat' : null) : state.activeRequestId || null;
+    const notice = composer.querySelector('[data-role="status"]'), pending = asPreview ? !!dailyRequest : state.pending;
+    activeRequestId = asPreview ? (dailyRequest ? 'preview-chat' : null) : state.activeRequestId || null;
     composer.querySelector('[data-role="cancel"]').disabled = !(pending || idleController);
     if (!asPreview) latestSources = state.lastTurn?.sources || [];
     composer.querySelector('[data-role="sources"]').hidden = !latestSources.length;
@@ -778,8 +848,28 @@
     } finally {
       void refreshChatOptions();
       void speak();
+      reportPanel();
       setTimeout(poll, 750);
     }
   }
+  function setRoleplay(sprite, enabled) {
+    roleplayPet = enabled ? sprite.pet.id : null; docked.delete(sprite);
+    if (!enabled) openedComposers.delete(sprite.pet.id);
+    try { if (roleplayPet) window.localStorage?.setItem('ark-roleplay-pet', roleplayPet); else window.localStorage?.removeItem('ark-roleplay-pet'); } catch { /* session-only fallback */ }
+    if (!activeSprite || dailyRoleplay) applyScene(null);
+  }
+  function reportPanel(requestId) {
+    const value = { roleplay: !!activeSprite, game: !!activeSprite && !dailyRoleplay, round: panelRound, phase: lastPhase };
+    const serialized = JSON.stringify(value);
+    if (requestId || serialized !== lastPanelReport) { lastPanelReport = serialized; window.arkDesktop?.report({ ...value, requestId }); }
+  }
+  window.arkDesktop?.onCommand(async message => {
+    const sprite = sprites[0]; if (!sprite) return;
+    try {
+      if (message.name === 'roleplay') { activity(true); setRoleplay(sprite, message.enabled); }
+      if (message.name === 'composer') sprite.onMenuAction({ action: 'stronghold-open-composer' });
+      if (message.name === 'refresh') await refreshChatOptions();
+    } finally { reportPanel(message.requestId); }
+  });
   void poll();
 }

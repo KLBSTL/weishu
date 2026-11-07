@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
-import { mkdir, rename, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fingerprint, compileCard, activateLore, automaticSpeaker } from './materials.js';
+import { CompanionStore } from './store.js';
 
 const libraries = new Map();
 const copy = value => structuredClone(value);
@@ -10,6 +10,19 @@ const error = (message, status = 400) => Object.assign(new Error(message), { sta
 export const directRoom = actor => 'direct:' + actor;
 export const actorSpeakerKey = actor => actor.speaker?.name ? fingerprint(actor.speaker.name).slice(0, 12) : 'default';
 export const actorSessionKey = (actor, room = directRoom(actor.id)) => actor.id + ':' + room + ':' + (actor.assetId || 'default') + (actor.speaker?.name ? ':' + actorSpeakerKey(actor) : '');
+const identityKey = actor => (actor.assetId || 'default') + ':' + actorSpeakerKey(actor);
+function identities(data) {
+  for (const actor of data.actors) {
+    actor.identities ||= {};
+    const key = identityKey(actor);
+    actor.characterId = actor.identities[key] ||= 'character-' + fingerprint([actor.id, key]).slice(0, 24);
+  }
+  for (const event of data.events || []) {
+    event.at ??= 0;
+    event.characterId ||= 'character-' + fingerprint([event.actorId, (event.cardId || 'default') + ':' + (event.speakerKey || 'default')]).slice(0, 24);
+  }
+  return data;
+}
 function initial(directory) {
   const data = { version: 1, revision: 0, assets: [], actors: [{ id: 'main', name: '默认人物', assetId: null, overrides: {}, bookIds: [] }],
     bindings: { main: 'main' }, userPersona: { name: '你', description: '' }, preset: { style: '自然口语，先回应本次问题，减少小说旁白。' },
@@ -26,25 +39,31 @@ function initial(directory) {
 }
 
 export class CompanionLibrary {
-  constructor(directory) { this.directory = directory; this.file = join(directory, 'companion-library.json'); this.queue = Promise.resolve(); }
-  snapshot() {
+  constructor(directory) {
+    this.directory = directory; this.file = join(directory, 'companion-library.json'); this.queue = Promise.resolve();
+    let seed;
     try {
-      const data = JSON.parse(readFileSync(this.file, 'utf8'));
-      if (data.version !== 1 || !Array.isArray(data.actors) || !Array.isArray(data.assets)) throw error('资料库格式不受支持');
-      return data;
-    } catch (e) { if (e.code === 'ENOENT') return initial(this.directory); throw e; }
+      seed = JSON.parse(readFileSync(this.file, 'utf8'));
+      if (seed.version !== 1 || !Array.isArray(seed.actors) || !Array.isArray(seed.assets)) throw error('资料库格式不受支持');
+    } catch (e) { if (e.code !== 'ENOENT') throw e; seed = initial(directory); }
+    this.store = new CompanionStore(directory, identities(seed));
   }
+  snapshot() { return this.store.snapshot(); }
+  async ready() { await this.store.ready(); return this; }
+  async close() { await this.store.close(); }
   async update(expectedRevision, edit, { configuration = true } = {}) {
     const pending = this.queue.then(async () => {
+      await this.ready();
       const next = this.snapshot();
+      const revision = next.revision, eventRevision = next.eventRevision || 0, memoryRevision = next.memoryRevision || 0;
+      const events = new Map(next.events.map(event => [event.id, JSON.stringify(event)]));
       if (expectedRevision !== undefined && expectedRevision !== next.revision) throw error('资料已更新，请重新载入后再保存。', 409);
       const result = await edit(next);
       if (configuration) next.revision++;
       else next.eventRevision = (next.eventRevision || 0) + 1;
-      await mkdir(this.directory, { recursive: true });
-      const temporary = this.file + '.' + randomUUID() + '.tmp';
-      try { await writeFile(temporary, JSON.stringify(next), { flag: 'wx' }); await rename(temporary, this.file); }
-      finally { await rm(temporary, { force: true }); }
+      identities(next);
+      const changed = next.events.filter(event => events.get(event.id) !== JSON.stringify(event));
+      await this.store.call('commit', { data: next, events: changed, revision, eventRevision, memoryRevision });
       return { revision: next.revision, result };
     });
     this.queue = pending.catch(() => {}); return pending;
@@ -59,6 +78,7 @@ export class CompanionLibrary {
     if (!actor.speaker?.name && source && !legacyName && compileCard(source).sceneCard) {
       // Stable migration on read; the next atomic event/config write persists it.
       actor.speaker = automaticSpeaker(source); actor.speakerMode = 'auto';
+      actor.identities ||= {}; actor.characterId = actor.identities[identityKey(actor)] ||= 'character-' + fingerprint([actor.id, identityKey(actor)]).slice(0, 24);
     }
     return actor;
   }
@@ -88,8 +108,8 @@ export class CompanionLibrary {
       if (!room?.members.includes(actorId)) throw error('人物没有加入这个会话', 403);
     } else if (roomId !== directRoom(actorId)) throw error('不能读取另一人物的私聊', 403);
     const actor = this.actor(actorId, data, true);
-    return data.events.filter(e => e.deliveryState !== 'generated' && e.deliveryState !== 'cancelled' && e.roomId === roomId && (!e.audience || e.audience.includes(actorId))
-      && (!roomId.startsWith('direct:') || e.cardId === actor.assetId && (e.speakerKey || 'default') === actorSpeakerKey(actor))).slice(-40);
+    return data.events.filter(e => !e.deleted && !data.forgottenSources?.includes(e.id) && e.deliveryState !== 'generated' && e.deliveryState !== 'cancelled' && e.roomId === roomId && (!e.audience || e.audience.includes(actorId))
+      && (!roomId.startsWith('direct:') || (e.characterId ? e.characterId === actor.characterId : e.cardId === actor.assetId && (e.speakerKey || 'default') === actorSpeakerKey(actor)))).slice(-40);
   }
   inspect(pet, question = '', byId = false) {
     const data = this.snapshot(), actor = this.actor(pet, data, byId), card = this.card(pet, data, byId), compiled = compileCard(card);
@@ -97,16 +117,19 @@ export class CompanionLibrary {
       idleEligible: compiled.units.filter(u => u.kind === 'background' && u.facet !== 'appearance' && ['self', 'world'].includes(u.ownership) && !['first_mes', 'mes_example', 'personality'].includes(u.title)),
       diagnostics: [...compiled.diagnostics, ...activateLore(compiled, question).diagnostics] };
   }
-  async importCard(card, originalBytes, pet = 'main') {
+  async importCard(card, originalBytes, pet = 'main', { updateExisting = false } = {}) {
     return this.update(undefined, data => {
       const id = 'card-' + fingerprint(card).slice(0, 24);
       if (!data.assets.some(a => a.id === id)) data.assets.push({ id, kind: 'card', name: card.name || card.data?.name, card: copy(card),
         originalBytes: originalBytes?.toString('base64'), sourceFormat: originalBytes?.[0] === 137 ? 'png' : 'json', sourceComplete: !!originalBytes });
       let actor = data.actors.find(a => a.id === (data.bindings[pet] || pet));
       if (!actor) { actor = { id: randomUUID(), bookIds: [], overrides: {} }; data.actors.push(actor); }
+      const previousSpeaker = (actor.assetId === id || updateExisting) ? actor.speaker : null;
+      const parsed = compileCard(card), candidate = parsed.candidates?.find(c => c.name === previousSpeaker?.name);
       Object.assign(actor, { assetId: id, name: card.name || card.data?.name, overrides: {},
-        speaker: compileCard(card).sceneCard ? automaticSpeaker(card, { random: Math.random }) : null,
+        speaker: parsed.sceneCard ? candidate ? { ...previousSpeaker, description: candidate.description } : automaticSpeaker(card, { random: Math.random }) : null,
         speakerMode: 'auto', embeddedBook: null }); data.bindings[pet] = actor.id;
+      if (updateExisting && actor.characterId) { actor.identities ||= {}; actor.identities[identityKey(actor)] = actor.characterId; }
       return actor;
     });
   }
@@ -118,14 +141,15 @@ export class CompanionLibrary {
       if (event.expectedCardId !== undefined && actor.assetId !== event.expectedCardId
         || event.expectedRevision !== undefined && data.revision !== event.expectedRevision
         || event.expectedContextEpoch !== undefined && this.contextEpoch(actorId, data) !== event.expectedContextEpoch) throw error('本次人物或对话已经变化', 409);
-      const row = { ...copy(event), id: event.id || randomUUID(), actorId, cardId: actor.assetId, speakerKey: actorSpeakerKey(actor),
+      const row = { ...copy(event), id: event.id || randomUUID(), actorId, characterId: actor.characterId, cardId: actor.assetId, speakerKey: actorSpeakerKey(actor),
         speakerName: compileCard(this.card(actor.id, data, true)).speaker?.name || actor.name, roomId, at: Date.now() };
       data.events.push(row); return row;
     }, { configuration: false });
   }
   contextEpoch(actorId, data = this.snapshot()) {
     const actor = this.actor(actorId, data, true);
-    return data.events.findLast(e => e.actorId === actorId && e.cardId === actor.assetId && (e.speakerKey || 'default') === actorSpeakerKey(actor) && e.roomId === directRoom(actorId) && e.type === 'user')?.id || 'start';
+    const latest = data.events.findLast(e => !e.deleted && e.actorId === actorId && e.characterId === actor.characterId && e.roomId === directRoom(actorId) && e.type === 'user')?.id || 'start';
+    return data.historyEpochs?.[actor.characterId] ? data.historyEpochs[actor.characterId] + ':' + latest : latest;
   }
   async acknowledgeChat(pet, id) {
     return this.update(undefined, data => {
@@ -136,6 +160,27 @@ export class CompanionLibrary {
       event.deliveryState = 'displayed'; event.displayedAt = Date.now(); return { ok: true };
     }, { configuration: false }).then(result => result.result);
   }
+  async recall(pet, query = '', { byId = false, roomId, limit = 12 } = {}) {
+    await this.ready(); const actor = this.actor(pet, this.snapshot(), byId);
+    const room = roomId || directRoom(actor.id); this.visibleHistory(actor.id, room);
+    return this.store.call('recall', { characterId: actor.characterId, roomId: room, query, limit: Math.min(80, Math.max(1, limit)) });
+  }
+  async editMemory(pet, id, { text, removeMessage = false, byId = false } = {}) {
+    await this.ready(); const actor = this.actor(pet, this.snapshot(), byId);
+    if (text !== undefined && (typeof text !== 'string' || !text.trim() || text.length > 2000)) throw error('纠正内容需要1–2000字');
+    await this.store.call('memory-edit', { characterId: actor.characterId, id, text, removeMessage, correctionId: randomUUID() });
+    return { ok: true };
+  }
+  async progress(pet) { await this.ready(); const actor = this.actor(pet); return this.store.call('progress', { characterId: actor.characterId }); }
+  async clearHistory(actorId, expected) {
+    const pending = this.queue.then(async () => {
+      await this.ready();
+      return this.store.call('clear-history', { actorId, ...expected, epoch: randomUUID() });
+    });
+    this.queue = pending.catch(() => {}); return pending;
+  }
+  async stage(pet, packets) { await this.ready(); const actor = this.actor(pet); return this.store.call('stage', { characterId: actor.characterId, packets }); }
+  async exportLegacy() { await this.ready(); return this.store.call('export', {}); }
 }
 
 export function companionLibrary(directory) {

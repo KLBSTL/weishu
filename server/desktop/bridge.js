@@ -321,7 +321,7 @@ export async function startDesktopPet({
     if (!active) return send(409, { error: 'WRONG_PHASE' });
     const { chat } = pair;
     const player = chat.match.players.get(chat.playerId);
-    const body = await readIntent(req);
+    const body = await readIntent(req, req.url === '/pet/ask' ? 20000 : 2048);
     if (!current(pair) || !player || !chat.authorized(player, chat.identity.matchId, chat.identity.seat)) {
       return send(403, { error: 'OFFLINE' });
     }
@@ -336,6 +336,7 @@ export async function startDesktopPet({
       text: body?.text, ...(body?.goal && { goal: body.goal }) };
     if (body?.matchId !== chat.identity.matchId || validateC2S(intent)) return send(400, { error: 'BAD_MSG' });
     const result = chat.ask(player, intent);
+    if (result.ok && chat.active?.frame.requestId === intent.requestId && typeof body.contextPrompt === 'string' && body.contextPrompt.length <= 4500) chat.active.contextPrompt = body.contextPrompt;
     if (result.ok && body?.delivery === 'native' && chat.active?.frame.requestId === intent.requestId) chat.active.frame.delivery = 'native';
     return send(result.error ? 409 : 200, { ...result, requestId: intent.requestId });
   }

@@ -71,7 +71,7 @@ registerHooks({
     const requests = `import { resilientTextStream, normalizeAiFailure } from ${JSON.stringify(requestHelper)};\n`
       + `import { libraryRoute as strongholdLibraryRoute } from ${JSON.stringify(libraryHelper)};\n`
       + `import { petProfile as strongholdPetProfile, hasLibrary as strongholdHasLibrary } from ${JSON.stringify(profileHelper)};\n`
-      + `import { idleChatRoute as strongholdIdleChatRoute, idleStatusRoute as strongholdIdleStatusRoute, warmIdleStartup } from ${JSON.stringify(idleHelper)};\nwarmIdleStartup();\n`
+      + `import { idleChatRoute as strongholdIdleChatRoute, idleStatusRoute as strongholdIdleStatusRoute, warmIdleStartup } from ${JSON.stringify(idleHelper)};\nawait warmIdleStartup();\n`
       + `import { createAssistantTextStream, sourcesRoute as strongholdSourcesRoute, openSourceRoute as strongholdOpenSourceRoute, cancelConversation as strongholdCancelConversation } from ${JSON.stringify(conversationHelper)};\n`
       + 'function createTextStream(runtime) { return createAssistantTextStream(runtime, parseRequest); }\n'
       + 'async function* sdkTextStream(settings, request, signal, fetcher) { yield* resilientTextStream(strongholdBaseTextStream, settings, request, signal, fetcher, defaultLog); }\n'

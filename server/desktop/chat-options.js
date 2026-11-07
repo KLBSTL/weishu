@@ -10,6 +10,9 @@ import { companionDirectory } from '../companion/profile.js';
 import { randomUUID } from 'node:crypto';
 import { compileCard } from '../companion/materials.js';
 import { speechProblem, speechFailure } from '../companion/speech.js';
+import { conversationEngine } from '../companion/engine.js';
+import { knowledgeProblem, extensionProposals } from '../companion/knowledge.js';
+import { runGenerationJob } from '../companion/broker.js';
 export { chatOptionsFile, readChatOptions, saveChatOptions } from './chat-preferences.js';
 
 export async function chatOptionsRoute(method, raw = '', file = chatOptionsFile()) {
@@ -23,16 +26,23 @@ export async function chatOptionsRoute(method, raw = '', file = chatOptionsFile(
   catch (error) { return result(error.code ? 500 : 400, { error: error.code ? '设置保存失败，请稍后重试' : error.message }); }
 }
 
-export async function generatePetChat(generate, input) {
+export function generatePetChat(generate, input) {
+  return runGenerationJob('chat', () => generatePetChatInner(generate, input), chatProfile(input.userText, readChatOptions()).timeoutMs);
+}
+async function generatePetChatInner(generate, input) {
   noteConversationActivity();
   groupDirector(companionDirectory()).stop();
   const options = chatProfile(input.userText, readChatOptions()).options;
   const petId = input.companionPetId || 'main';
-  const profile = hasLibrary() ? petProfile(petId) : null;
+  let profile = hasLibrary() ? petProfile(petId) : null;
+  if (profile?.library) {
+    const context = await conversationEngine.prepare(profile.library, petId, input.userText);
+    profile = context.profile; input = { ...input, system: input.system + '\n' + context.prompt, recallContext: context.prompt };
+  }
   let chatEpoch;
   if (profile?.card && compileCard(profile.card).needsSpeaker) return { ok: false, message: '这张剧情卡还没有固定人物，请在「角色扮演 → 资料管理」选择实际扮演人物。', failure: { kind: 'speaker' } };
   if (profile?.library) {
-    const history = profile.library.visibleHistory(profile.actorId).filter(e => ['user', 'assistant'].includes(e.type));
+    const history = profile.library.visibleHistory(profile.actorId).filter(e => ['user', 'assistant'].includes(e.type)).slice(-12);
     input = { ...input, history: history.map(e => ({ role: e.type, content: e.text, ts: e.at })) };
     if (input.userText) await profile.library.event(profile.actorId, directRoom(profile.actorId), { type: 'user', text: input.userText });
     chatEpoch = profile.library.contextEpoch(profile.actorId);
@@ -42,6 +52,7 @@ export async function generatePetChat(generate, input) {
     if (profile?.library && out.ok && out.text) {
       const id = randomUUID();
       await profile.library.event(profile.actorId, directRoom(profile.actorId), { id, type: 'assistant', text: out.text, sourceKind: 'chat', deliveryState: 'generated',
+        extensionProposals: extensionProposals(out.text, profile.card),
         expectedCardId: profile.actor.assetId, expectedRevision: profile.revision, expectedContextEpoch: chatEpoch });
       return { ...out, deliveryId: id };
     }
@@ -61,8 +72,9 @@ export async function generatePetChat(generate, input) {
           if (controller.signal.aborted) return { ok: false, message: '本次回复已取消或超时。' };
           const out = await generate({ ...input, system: input.system + recentIdleContext(petId, input.userText) + chatOptionsPrompt(options) + correction,
             ...(options.mode === 'daily' && { pool: [] }) });
-          if (!out.ok || !speechProblem(out.text, profile ? compileCard(profile.card).speaker?.name : '', { allowImages: options.mode === 'unlimited' })) return out;
-          correction = '\n【请重写】上一版含旁白或舞台动作。只返回人物亲口对玩家说的自然台词，使用“我”，不要写动作和人物名标签。';
+          if (!out.ok || (!speechProblem(out.text, profile ? compileCard(profile.card).speaker?.name : '', { allowImages: options.mode === 'unlimited' })
+            && !knowledgeProblem(out.text, profile?.card))) return out;
+          correction = '\n【请重写】上一版未通过口语或人物事实校验。只返回人物亲口说的自然台词，使用“我”，不写动作或人物名标签；重大身世/关系和明确偏好遵守原卡，可以改聊不冲突的日常小事。';
         }
         return speechFailure();
       }, { chatOptions: options, petId, signal: controller.signal, extendDeadline: () => {

@@ -21,7 +21,7 @@ export function classifyAiFailure(error, aborted = false) {
     if (!status && Number.isInteger(candidate) && candidate >= 400 && candidate <= 599) status = candidate;
     if (NETWORK_CODES.has(node.code) || CONTEXT_CODES.has(node.code)
       || ['SP_PROXY_UNAVAILABLE', 'max_tokens_exceeded', 'SP_PROTOCOL', 'SP_PERSONA_CHANGED', 'SP_GAME_CONTEXT', 'SP_CANCELLED',
-        'SP_TOOL_LIMIT', 'SP_RESPONSE_SIZE', 'SP_REFUSAL', 'SP_EMPTY', 'SP_PROVIDER_BUSY'].includes(node.code)) code ??= node.code;
+        'SP_TOOL_LIMIT', 'SP_ATTEMPT_BUDGET', 'SP_RESPONSE_SIZE', 'SP_REFUSAL', 'SP_EMPTY', 'SP_PROVIDER_BUSY'].includes(node.code)) code ??= node.code;
     if (Object.hasOwn(REMOTE_CODES, node.code)) code ??= node.code;
     if (Object.hasOwn(REMOTE_CODES, node.type)) code ??= node.type;
     if (node.message === 'Unexpected standalone AI endpoint.') endpoint = true;
@@ -54,6 +54,7 @@ export function classifyAiFailure(error, aborted = false) {
   else if (error?.message === 'Standalone AI response exceeds limits.') kind = 'output';
   else if (code === 'max_tokens_exceeded') kind = 'output';
   else if (code === 'SP_PROTOCOL') kind = 'request';
+  else if (code === 'SP_ATTEMPT_BUDGET') kind = 'tools';
   else if (['SP_PERSONA_CHANGED', 'SP_GAME_CONTEXT'].includes(code)) kind = 'timeout';
   return { kind, status, code,
     retryable: ['network', 'rate', 'response'].includes(kind)

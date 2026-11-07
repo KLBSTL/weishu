@@ -26,6 +26,7 @@ export function storySimilarity(a, b) {
 export const repeatsStory = (text, recent) => recent.some(row => storySimilarity(text, typeof row === 'string' ? row : row.text) >= .52);
 
 export function storyKey(card, seeds = [], personaKey = '') {
+  if (typeof personaKey === 'string' && personaKey.startsWith('character:')) return personaKey;
   const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object'
     ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])])) : value;
   return (card ? 'card-' : 'default-') + digest(JSON.stringify(stable(card || { seeds, personaKey })));
@@ -114,6 +115,12 @@ export class StoryMemory {
     const choices = grounded ? catalog : creativeAngles.map((text, index) => ({ id: 'creative-' + index, topic: 'creative-' + index, text }));
     const next = choices.filter(row => !entry.used[row.topic] && !excluded.has(row.topic) && (entry.rejected[row.topic] || 0) < 2)
       .sort((a, b) => (entry.attempted[a.topic] || 0) - (entry.attempted[b.topic] || 0))[0];
+    if (!next && !grounded && choices.length) {
+      // Rotate to a new cycle without erasing background coverage or repeating the last angle.
+      const recentTopics = new Set(entry.recent.slice(-6).map(row => row.topic));
+      const unused = choices.filter(row => !recentTopics.has(row.topic) && !excluded.has(row.topic)).sort((a, b) => (entry.attempted[a.topic] || 0) - (entry.attempted[b.topic] || 0))[0];
+      if (unused) { delete entry.used[unused.topic]; delete entry.rejected[unused.topic]; return this.select(entry, [unused], false, new Set([...excluded, ...choices.filter(row => row !== unused).map(row => row.topic)])); }
+    }
     if (!next) return null;
     entry.attempted[next.topic] = ++entry.sequence;
     try { this.persist(); } catch { /* keep in-memory progress even on a read-only profile */ }

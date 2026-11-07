@@ -10,6 +10,7 @@ export function petProfile(petId = 'main', directory = companionDirectory()) {
   if (!data.bindings[petId] && !data.actors.some(a => a.id === petId)) return { petId, actorId: petId, card: null, revision: data.revision };
   const actor = library.actor(petId, data);
   return { petId, actorId: actor.id, card: library.card(petId, data), revision: data.revision,
+    characterId: actor.characterId, memoryRevision: data.memoryRevision || 0,
     userPersona: data.userPersona, preset: data.preset, library, actor,
     state: data.states[actorSessionKey(actor)]?.value || {} };
 }
@@ -18,4 +19,4 @@ export function profilePrompt(profile, question = '') {
     + (profile.userPersona?.description ? '\n【玩家虚构身份，不是现实用户资料】' + profile.userPersona.description : '')
     + (profile.preset?.style ? '\n【表达风格】' + profile.preset.style : '');
 }
-export function hasLibrary(directory = companionDirectory()) { return existsSync(join(directory, 'companion-library.json')); }
+export function hasLibrary(directory = companionDirectory()) { return existsSync(join(directory, 'companion.sqlite')) || existsSync(join(directory, 'companion-library.json')); }

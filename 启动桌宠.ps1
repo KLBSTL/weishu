@@ -109,10 +109,36 @@ if (-not $index.Contains($tag)) {
     if (-not $index.Contains('</body>')) { throw '桌宠窗口页面缺少加载位置。' }
     [IO.File]::WriteAllText($indexPath, $index.Replace('</body>', "$tag`n  </body>"))
 }
-if ($Check) { & node --import $personaAdapter (Join-Path $package 'lib/standalone.js') --check; return }
+$roleSource = Join-Path $PSScriptRoot 'server/desktop'
+foreach ($item in @(@('roleplay-windows.cjs','ark-roleplay-windows.cjs'), @('roleplay-preload.cjs','ark-roleplay-preload.cjs'), @('roleplay-config.cjs','roleplay-config.cjs'), @('bridge-timeouts.cjs','ark-bridge-timeouts.cjs'))) {
+    Copy-Item -LiteralPath (Join-Path $roleSource $item[0]) -Destination (Join-Path $helper $item[1])
+}
+$bridgePath = Join-Path $helper 'main/bridge.js'
+$bridgeSource = [IO.File]::ReadAllText($bridgePath)
+$oldBridgeTimeout = '      }, 45000).unref?.();'
+$newBridgeTimeout = "      }, require('../ark-bridge-timeouts.cjs').bridgeTimeout(method, url, body)).unref?.();"
+if (!$bridgeSource.Contains($newBridgeTimeout)) {
+    if ([regex]::Matches($bridgeSource,[regex]::Escape($oldBridgeTimeout)).Count -ne 1) { throw 'Desktop bridge timeout requires the pinned helper v0.4.1 hook.' }
+    [IO.File]::WriteAllText($bridgePath,$bridgeSource.Replace($oldBridgeTimeout,$newBridgeTimeout))
+}
+$mainPath = Join-Path $helper 'main.js'
+$helperMain = [IO.File]::ReadAllText($mainPath)
+$panelMarker = '  createDisplaySync({ screen, petWindows, dpi });'
+$oldPanelRegistration = "  require('./ark-roleplay-windows.cjs').install({ app, BrowserWindow, ipcMain, screen, hostRequest: bridge.hostRequest, petWindows, helperDir: __dirname });"
+$panelRegistration = "  require('./ark-roleplay-windows.cjs').install({ app, BrowserWindow, ipcMain, screen, hostRequest: bridge.hostRequest, hostReady: () => !BRIDGE || !!bridge.callbackUrl(), petWindows, helperDir: __dirname });"
+if ($helperMain.Contains($oldPanelRegistration)) { $helperMain=$helperMain.Replace($oldPanelRegistration,$panelRegistration); [IO.File]::WriteAllText($mainPath,$helperMain) }
+if (!$helperMain.Contains($panelRegistration)) {
+    if ([regex]::Matches($helperMain, [regex]::Escape($panelMarker)).Count -ne 1) { throw 'Desktop roleplay panel requires the pinned helper window hook.' }
+    [IO.File]::WriteAllText($mainPath, $helperMain.Replace($panelMarker, "$panelMarker`n$panelRegistration"))
+}
+$preloadPath = Join-Path $helper 'preload.js'
+$helperPreload = [IO.File]::ReadAllText($preloadPath)
+$panelPreload = "require('./ark-roleplay-preload.cjs');"
+if (!$helperPreload.Contains($panelPreload)) { [IO.File]::WriteAllText($preloadPath, "$helperPreload`n$panelPreload`n") }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'server/desktop/companion-native.js') -Destination (Join-Path $helper 'companion-native.js')
 $index=Get-Content -LiteralPath $indexPath -Raw
 if (!$index.Contains('<script src="./companion-native.js"></script>')) {
     [IO.File]::WriteAllText($indexPath,$index.Replace('</body>',"<script src=`"./companion-native.js`"></script>`n</body>"))
 }
+if ($Check) { & node --import $personaAdapter (Join-Path $package 'lib/standalone.js') --check; return }
 & node --import $personaAdapter (Join-Path $package 'lib/standalone.js') --port $Port

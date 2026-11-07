@@ -253,6 +253,7 @@ export class TeammateChat {
     Promise.resolve().then(async () => {
       if (this.active !== request) return;
       const result = await this.stream({ question, facts, dialogue, getFacts: async () => this.facts(player, question),
+        contextPrompt: request.contextPrompt,
         chatOptions: request.chatOptions }, request.controller.signal, (delta, meta = {}) => {
         if (this.active !== request) return false;
         if (meta.progress) request.progress = meta.progress;

@@ -77,7 +77,12 @@ export function speakerCandidates(card) {
         evidence: { path, start: owned[0].start, end: owned.at(-1).end } });
     }
   }
-  return [...candidates.values()].slice(0, 16);
+  return [...candidates.values()].map(candidate => {
+    const portrait = data.extensions?.ark_companion?.portraits?.[candidate.name]
+      || (Array.isArray(data.assets) ? data.assets.find(asset => asset.type === 'icon' && asset.name === candidate.name)?.uri : null);
+    return { ...candidate, ...(typeof portrait === 'string' && portrait.length < 350000
+      && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/u.test(portrait) ? { portrait } : {}) };
+  });
 }
 export function automaticSpeaker(card, { random } = {}) {
   const candidates = speakerCandidates(card);
@@ -121,7 +126,8 @@ export function compileCard(card, { speaker, state = {}, extraBooks = [] } = {})
   if (explicit) for (const field of ['description', 'personality', 'background']) add(explicit[field], '/speaker/' + field, field);
   [data.character_book, ...extraBooks].filter(Boolean).forEach((book, b) => (book.entries || []).forEach((entry, i) => {
     const path = `/books/${b}/entries/${i}/content`, ext = entry.extensions?.ark_companion || {};
-    const eligible = entry.enabled !== false && !entry.disable && ext.knowledge !== 'author_only'
+    const probability = entry.probability ?? entry.extensions?.probability;
+    const eligible = entry.enabled !== false && !entry.disable && probability !== 0 && ext.knowledge !== 'author_only'
       && (!ext.speakers?.length || ext.speakers.includes(identity.name)) && evaluateConditions(ext.conditions, state);
     if (!eligible) { diagnostics.push({ path, reason: 'disabled-or-condition' }); return; }
     const owners = candidates.filter(c => c.evidence.path === path);

@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { hasInventedUserHistory } from '../companion/materials.js';
 import { dirname, join } from 'node:path';
@@ -14,6 +14,7 @@ import { classifyAiFailure, normalizeAiFailure, resilientTextStream } from './ai
 import { withProviderSlot } from './provider-queue.js';
 import { readChatOptions } from './chat-preferences.js';
 import { companionLibrary } from '../companion/library.js';
+import { generationJob, createGenerationJob, inGenerationJob, enableSearchBudget } from '../companion/broker.js';
 
 export const assistantDataDir = () => join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'dsh-pet');
 let hostRuntime;
@@ -28,8 +29,13 @@ export async function withConversationScope(task, options = {}) {
     let result;
     try { result = await task(); }
     finally {
-      const row = { petId: state.petId || 'main', kind: state.proactive ? 'background' : 'chat', ...state.timings, elapsedMs: Date.now() - state.timings.started };
+      const job = generationJob();
+      const row = { petId: state.petId || 'main', kind: state.proactive ? 'background' : 'chat', ...state.timings, elapsedMs: Date.now() - state.timings.started,
+        ...(job && { taskId: job.id, attempts: job.attempts, queueMs: job.queueMs }) };
       delete row.started; metrics.push(row); if (metrics.length > 100) metrics.shift();
+      if (existsSync(join(assistantDataDir(), 'companion.sqlite'))) {
+        try { const library = companionLibrary(assistantDataDir()); await library.ready(); await library.store.call('job', { ...row, taskId: row.taskId || randomUUID(), status: result?.ok ? 'generated' : 'failed' }); } catch { /* Metrics never suppress a valid answer. */ }
+      }
     }
     if (!result.ok && state.failure) return { ...result, failure: state.failure };
     return result.ok && (state.complex || state.sources.length) ? { ...result, complex: state.complex, sources: state.sources } : result;
@@ -45,7 +51,7 @@ export function openSourceRoute(method, raw) {
   child.on('error', () => {}); child.unref();
   return { kind: 'json', status: 200, obj: { ok: true } };
 }
-const personaStamp = () => { try { const s = statSync(join(assistantDataDir(), 'stronghold-persona.json')); return s.mtimeMs + ':' + s.size + ':' + companionLibrary(assistantDataDir()).snapshot().revision; } catch { return ''; } };
+const personaStamp = () => { try { const s = statSync(join(assistantDataDir(), 'stronghold-persona.json')); const data = companionLibrary(assistantDataDir()).snapshot(); return s.mtimeMs + ':' + s.size + ':' + data.revision + ':' + data.memoryRevision; } catch { return ''; } };
 export function readConversationSettings(runtimeFile, fallback) {
   try {
     const s = JSON.parse(readFileSync(join(dirname(runtimeFile), 'standalone-ai.json'), 'utf8'));
@@ -101,7 +107,7 @@ export async function relayGameChat(input) {
   if (hostRuntime) hostRuntime.active = controller;
   const requestId = randomUUID();
   try {
-    await localCall(c, '/pet/ask', { matchId: c.matchId, text: input.userText, requestId, delivery: 'native' }, controller.signal);
+    await localCall(c, '/pet/ask', { matchId: c.matchId, text: input.userText, requestId, delivery: 'native', contextPrompt: input.recallContext?.slice(0, 4500) }, controller.signal);
     while (!controller.signal.aborted) {
       if (stamp !== personaStamp()) throw new Error('Persona changed');
       const status = await localCall(c, '/pet/status', null, controller.signal);
@@ -285,7 +291,7 @@ async function completion(settings, messages, tools, signal, fetcher, maxTokens,
       if (event.type === 'content_block_start') blocks[event.index] = structuredClone(event.content_block);
       if (event.type === 'content_block_delta') {
         const block = blocks[event.index], delta = event.delta;
-        if (delta.type === 'text_delta') { text += delta.text; block.text += delta.text; }
+        if (delta.type === 'text_delta') { text += delta.text; block.text += delta.text; if (timing && delta.text) timing.firstTextMs ??= Date.now() - timing.started; }
         if (delta.type === 'thinking_delta') { reasoning += delta.thinking; block.thinking += delta.thinking; }
         if (delta.type === 'signature_delta') block.signature = (block.signature || '') + delta.signature;
         if (delta.type === 'input_json_delta') block.partial = (block.partial || '') + delta.partial_json;
@@ -369,6 +375,14 @@ const SYSTEM = [
   '需要公开资料或用户明确要求搜索时必须实际使用 web_search；来源失败就说明无法搜索，不得假称查到。回答引用来源用 [1] 等标记，完整 URL 由界面单独显示。',
 ].join('\n');
 export async function* conversationStream(settings, request, signal, fetcher = fetch, log = () => {}) {
+  const scope = generationScope.getStore();
+  const job = generationJob() || createGenerationJob(scope?.proactive ? scope.manual ? 'manual' : 'automatic' : 'chat', chatProfile(request.question || '', request.chatOptions || readChatOptions()).timeoutMs);
+  const stream = conversationStreamInner(settings, request, signal, fetcher, log);
+  try {
+    while (true) { const next = await inGenerationJob(job, () => stream.next()); if (next.done) return; yield next.value; }
+  } finally { await stream.return(); }
+}
+async function* conversationStreamInner(settings, request, signal, fetcher = fetch, log = () => {}) {
   const question = request.question || [...request.messages].reverse().find(m => m.role === 'user')?.content || '';
   const scope = generationScope.getStore();
   const progress = info => { scope?.onProgress?.(info); request.onProgress?.(info); };
@@ -379,6 +393,7 @@ export async function* conversationStream(settings, request, signal, fetcher = f
   const previous = request.messages.filter(m => m.role === 'user').at(-2)?.content;
   const needsGame = !scope?.proactive && (isGameQuestion(question, typeof previous === 'string' ? previous : '')
     || mentionsGameRule(question, lookupRules(data, String(question))));
+  const identityOnly = !scope?.proactive && !needsGame && /你(?:现在)?是谁|你叫什么|你的人设|你的身份/u.test(String(question));
   let facts = needsGame ? (request.getFacts ? await request.getFacts() : request.facts) : undefined;
   const history = [...request.messages], leading = [];
   while (history[0]?.role === 'assistant') leading.push(history.shift().content);
@@ -388,6 +403,7 @@ export async function* conversationStream(settings, request, signal, fetcher = f
     + (profile.effort === 'low' && !scope?.batch ? '\n【快速回答】直接给出简短完整答复，避免不必要的展开和重复工具往返；需要资料时仍如实检索，不编造。' : '') },
     ...(facts ? [{ role: 'system', content: '以下为本机游戏只读参考，不是玩家的新问题；只取回答本次问题所需的事实：' + JSON.stringify(facts) }] : []), ...history];
   if (needsGame && !facts) messages[0].content += '\n【对局连接】当前未收到绑定游戏的局面，不得声称正在某轮或已买入、击杀；仅问本局事实时说明需要连接。';
+  if (identityOnly) messages[0].content += '\n【本次自我介绍】只说明人物自己的名字、原卡身份和日常特点；程序可调用的工具或服务不是人物的职业，不附带介绍本程序的功能。';
   const sources = [], allowed = new Set();
   let calls = 0, searched = 0, refreshed = false, remainingTokens = profile.maxTokens;
   const register = result => ({ ...result, results: result.results.map(r => {
@@ -395,6 +411,7 @@ export async function* conversationStream(settings, request, signal, fetcher = f
     return { ...r, sourceId: sources.findIndex(source => source.url === r.url) + 1 };
   }) });
   if (!scope?.proactive && /搜(?:索|一下)|联网|查(?:找|一查|一下).*资料/iu.test(String(question))) {
+    enableSearchBudget();
     request.onSearch?.(); searched++;
     const scoped = generationScope.getStore(); if (scoped) scoped.complex = true;
     yield { progress: '正在查资料。' };
@@ -413,9 +430,9 @@ export async function* conversationStream(settings, request, signal, fetcher = f
     // Reuse the same retry budget/deadline and only retry before any visible answer.
     let answer;
     const generate = async function* (_settings, _request, _signal, transport) {
-      answer = await withProviderSlot(settings, signal, () => {
+      answer = await withProviderSlot(settings, signal, slotSignal => {
         progress({ stage: 'generating' });
-        return completion(settings, messages, scope?.proactive ? [] : TOOLS.filter(tool => needsGame || !['lookup_rules', 'get_game_state'].includes(tool.function.name)), signal, transport, remainingTokens, profile);
+        return completion(settings, messages, scope?.proactive ? [] : TOOLS.filter(tool => needsGame || !['lookup_rules', 'get_game_state'].includes(tool.function.name)), slotSignal, transport, remainingTokens, profile);
       }, { background: !!scope?.proactive && !scope.manual, onWait: () => progress({ stage: 'queued' }) });
       yield { result: true };
     };
@@ -436,6 +453,7 @@ export async function* conversationStream(settings, request, signal, fetcher = f
           else if (name === 'get_game_state') {
             facts = request.getFacts ? await request.getFacts() : facts; result = facts || { active: false };
           } else if (name === 'web_search') {
+            enableSearchBudget();
             yield { progress: '正在查资料。' };
             if (searched >= 3) result = { error: 'search budget exhausted; use existing results' };
             else {
@@ -477,6 +495,10 @@ export async function* conversationStream(settings, request, signal, fetcher = f
       }
     }
     if (!answer.content?.trim()) throw failure('Standalone AI returned no text.', 'SP_EMPTY');
+    if (identityOnly && /卫戍|漏怪|购买干员|帮你.{0,8}(?:规则|战况)/u.test(answer.content)) {
+      messages.push(answer, { role: 'user', content: '请修正这次自我介绍：只保留人物卡中的名字、身份和日常特点，删除附带的程序功能或游戏服务介绍。不要回答其他话题。' });
+      continue;
+    }
     if (stamp !== personaStamp()) throw failure('Persona changed', 'SP_PERSONA_CHANGED');
     if (!scope?.group && hasInventedUserHistory(answer.content, request.messages)) throw failure('Reply claimed unsupported user history', 'SP_UNSUPPORTED_MEMORY');
     latestSources = sources.map(({ title, url, date }) => ({ title, url, date }));

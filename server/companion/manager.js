@@ -3,9 +3,15 @@ const $ = id => document.getElementById(id);
 const fragment = new URLSearchParams(location.hash.slice(1));
 const token = fragment.get('token') || '';
 let pet = fragment.get('pet') || 'main', data, actorId, bookId, bookDraft, entryIndex = -1, roomId;
-let candidates = [], candidateRequest = 0;
+let candidates = [], candidateInfo = {}, candidateRequest = 0;
 history.replaceState(null, '', location.pathname);
-const notice = (message, error = false) => { $('notice').textContent = message; $('notice').dataset.error = String(error); };
+let noticeTimer;
+const notice = (message, error = false) => {
+  clearTimeout(noticeTimer);
+  if (['资料已就绪。', '已载入最新资料。'].includes(message)) return;
+  $('notice').textContent = message; $('notice').dataset.error = String(error);
+  noticeTimer = setTimeout(() => { $('notice').textContent = ''; }, error ? 9000 : 3500);
+};
 async function api(action, values = {}) {
   const response = await fetch('library', { method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', ...(token && { 'X-DSH-Pet-Token': token }) }, body: JSON.stringify({ action, pet, ...values }) });
@@ -33,14 +39,16 @@ function showActor(id) {
   const state = data.states?.[sessionKey()]; $('stateView').textContent = JSON.stringify(state || {}, null, 2);
   if (state?.schema) $('schema').value = JSON.stringify(state.schema, null, 2);
   $('html').value = raw.first_mes || raw.description || '';
+  document.dispatchEvent(new Event('companion:actor'));
 }
 async function loadCandidates(assetId) {
   const serial = ++candidateRequest;
   const result = assetId ? await api('analyze-card', { assetId }) : { candidates: [], needsSpeaker: false };
   if (serial !== candidateRequest) return;
-  candidates = result.candidates;
+  candidates = result.candidates; candidateInfo = { ...result, assetId };
   options($('speakerCandidate'), [{ id: '', name: '自动选择剧情较多的人物' }, ...candidates.map((c, i) => ({ id: String(i), name: c.name }))], '');
-  $('speakerHint').textContent = candidates.length ? '剧情卡会自动选定资料较丰富的人物并保持；不用手动填写，角色卡标题不作为姓名。' : '沿用卡内已有身份；没有明确姓名时直接用“我”说话，不要求创建人物。';
+  $('speakerHint').textContent = candidates.length ? '剧情卡会自动选定资料较丰富的人物并保持；不用手动填写，角色卡标题不作为姓名。' : '沿用卡内身份：' + (candidateInfo.speaker?.name || '我') + '；没有明确姓名时直接用“我”说话，不要求创建人物。';
+  document.dispatchEvent(new Event('companion:candidates'));
 }
 const availableBooks = () => [...(data.embeddedBooks || []), ...data.assets.filter(a => a.kind === 'lorebook')];
 function storeEntry() {
@@ -60,6 +68,7 @@ function showEntry(index) {
   $('entryConstant').checked = !!entry.constant; $('entryEnabled').checked = entry.enabled !== false && !entry.disable;
   const ext = entry.extensions?.ark_companion || {};
   $('entryKnowledge').value = ['self', 'world', 'author_only'].includes(ext.knowledge) ? ext.knowledge : 'auto'; $('entrySubject').value = ext.subject || '';
+  document.dispatchEvent(new Event('companion:entry'));
 }
 function entryOptions() { options($('entry'), (bookDraft?.entries || []).map((e, i) => ({ id: String(i), name: e.comment || e.name || '条目 ' + (i + 1) })), String(entryIndex)); }
 function showBook(id) {
@@ -67,6 +76,7 @@ function showBook(id) {
   bookDraft = structuredClone(book?.book || { entries: [] }); $('bookName').value = book?.name || '';
   $('bookOrigin').textContent = book?.actorId ? '来源：角色卡内世界书。保存为该人物的本地覆盖，源PNG保持不变。' : '来源：独立世界书。保存后可在人物页关联。';
   entryIndex = bookDraft.entries.length ? 0 : -1; entryOptions(); showEntry(entryIndex);
+  document.dispatchEvent(new Event('companion:book'));
 }
 function showRoom(id) {
   roomId = id; const room = data.rooms.find(r => r.id === id); $('roomName').value = room?.name || '';
@@ -87,6 +97,7 @@ async function reload() {
   options($('room'), data.rooms, roomId); showRoom($('room').value);
   $('userName').value = data.userPersona.name; $('userDescription').value = data.userPersona.description; $('style').value = data.preset.style;
   $('groupStatus').textContent = data.group.running ? '角色正在对话，已显示 ' + data.group.completed + ' 句。' : data.group.error || '尚未开始角色对话。'; renderTranscript();
+  document.dispatchEvent(new Event('companion:loaded'));
 }
 function bind(id, task) { $(id).addEventListener('click', async () => { $(id).disabled = true; try { await task(); } catch (e) { notice(e.message, true); } finally { $(id).disabled = false; } }); }
 function download(name, value, binary = false, extension = 'json') {
@@ -119,7 +130,30 @@ $('book').addEventListener('change', () => showBook($('book').value));
 $('entry').addEventListener('change', () => { storeEntry(); showEntry($('entry').value); });
 $('room').addEventListener('change', () => { showRoom($('room').value); renderTranscript(); });
 bind('reload', async () => { await reload(); notice('已载入最新资料。'); });
-bind('newActor', async () => { actorId = null; showActor(null); $('actorName').focus(); });
+async function showMemories() {
+  if (!actorId) throw new Error('请先选择人物');
+  const result = await api('memories', { actorId, question: $('memoryQuery').value });
+  const list = document.createElement('nav'), detail = document.createElement('div'); list.className = 'item-list';
+  $('memoryRows').replaceChildren(list, detail);
+  const kinds = { user_statement: '玩家原话', dialogue: '角色已展示原话', extension: '互动扩展', correction: '已纠正记忆' };
+  for (const row of result.memories) {
+    const block = document.createElement('article'), label = document.createElement('p'), editor = document.createElement('textarea');
+    label.textContent = `${kinds[row.kind] || row.kind} · ${new Date(row.at).toLocaleString()}`;
+    editor.value = row.text; editor.maxLength = 2000; editor.setAttribute('aria-label', '记忆内容');
+    const correct = document.createElement('button'), forget = document.createElement('button'); correct.textContent = '保存纠正'; forget.textContent = '忘记';
+    const edit = async values => { correct.disabled = forget.disabled = true; try { await api('memory-edit', { actorId, memoryId: row.id, ...values }); await showMemories(); notice('记忆已更新。'); } catch (e) { notice(e.message, true); correct.disabled = forget.disabled = false; } };
+    correct.addEventListener('click', () => { void edit({ text: editor.value }); });
+    forget.addEventListener('click', () => { void edit({ removeMessage: $('deleteMemorySource').checked }); });
+    block.append(label, editor, correct, forget);
+    const choose = document.createElement('button'); choose.textContent = row.text.slice(0, 28);
+    choose.onclick = () => { detail.replaceChildren(block); for (const b of list.children) b.setAttribute('aria-current', String(b === choose)); };
+    list.append(choose); if (!detail.children.length) choose.click();
+  }
+  if (!result.memories.length) $('memoryRows').textContent = '没有找到可用于回复的记忆。';
+}
+bind('searchMemory', showMemories);
+bind('researchCard', async () => { notice('正在整理当前人物背景；可以继续聊天，主动对话优先。'); const result = await api('research-card', { actorId }); notice(`已整理 ${result.count} 个资料引用${result.cached ? '（使用已有结果）' : ''}。`); });
+bind('newActor', async () => { actorId = null; showActor(null); $('createActorDialog').showModal(); $('actorName').focus(); });
 bind('saveActor', async () => {
   const saved = await api('save-actor', { expectedRevision: data.revision, actorId, actor: { name: $('actorName').value, assetId: $('actorAsset').value,
     speakerName: $('speakerName').value,
@@ -128,21 +162,19 @@ bind('saveActor', async () => {
 });
 bind('bindActor', async () => { await api('bind', { expectedRevision: data.revision, actorId }); await reload(); notice('已绑定，下次回复使用这个人物。'); });
 bind('inspect', async () => { const result = await api('inspect', { actorId, question: $('probe').value });
-  $('inspection').textContent = (result.needsSpeaker ? '需要先指定固定人物。\n' : '当前说话人物：' + (result.speaker?.name || '未指定') + '\n')
-    + '可读资料：' + result.units.length + '；可选闲聊素材：' + (result.idleEligible?.length || 0) + '。以下为资料预览，不是生成回答。\n'
-    + JSON.stringify({ materials: result.units.slice(0, 16).map(u => ({ id: u.id, ownership: u.ownership, kind: u.kind, source: u.path, text: u.text.slice(0, 180) })), activation: result.diagnostics.slice(0, 30) }, null, 2); });
+  $('inspection').textContent = result.units.length ? result.units.slice(0, 16).map(u => u.text).join('\n\n') : '没有触发的条目'; });
 for (const [id, original] of [['exportCard', false], ['originalCard', true]]) bind(id, async () => {
   const actor = selectedActor(); if (!actor?.assetId) throw new Error('请先保存或选择人物');
   const result = await api('export', { actorId, assetId: actor.assetId, original }); download(result.name, result.original ? result.file : result.document, result.original, result.extension || 'json');
 });
 $('cardFile').addEventListener('change', async () => { try {
   const file = $('cardFile').files[0]; if (!file) return; const reader = new FileReader();
-  reader.onload = async () => { try { await api('import-card', { file: String(reader.result).split(',')[1] }); await reload(); notice('角色卡已导入当前桌宠。'); } catch (e) { notice(e.message, true); } };
+  reader.onload = async () => { try { await api('import-card', { file: String(reader.result).split(',')[1], updateExisting: $('updateExistingCard').checked }); await reload(); notice('角色卡已导入当前桌宠。'); } catch (e) { notice(e.message, true); } };
   reader.readAsDataURL(file);
 } catch (e) { notice(e.message, true); } });
 bind('newBook', async () => { showBook(null); });
 bind('newEntry', async () => { storeEntry(); bookDraft ??= { entries: [] }; bookDraft.entries.push({ id: 'entry-' + Date.now(), content: '', keys: [], enabled: true }); entryIndex = bookDraft.entries.length - 1; entryOptions(); showEntry(entryIndex); });
-bind('saveBook', async () => { storeEntry(); const book = availableBooks().find(b => b.id === bookId); const saved = await api(book?.actorId ? 'save-embedded-book' : 'save-book', { expectedRevision: data.revision, actorId: book?.actorId, assetId: bookId, name: $('bookName').value, book: bookDraft }); bookId = saved.result.id; await reload(); notice('世界书已保存。卡内修改仅影响本地人物覆盖。'); });
+bind('saveBook', async () => { storeEntry(); const book = availableBooks().find(b => b.id === bookId); const saved = await api(book?.actorId ? 'save-embedded-book' : 'save-book', { expectedRevision: data.revision, actorId: book?.actorId, assetId: bookId, name: $('bookName').value, book: bookDraft }); bookId = saved.result.id; await reload(); notice('世界书已保存。'); });
 $('bookFile').addEventListener('change', async () => { try { const file = $('bookFile').files[0]; if (!file) return; const book = JSON.parse(await file.text());
   const saved = await api('save-book', { expectedRevision: data.revision, name: book.name || file.name, book }); bookId = saved.result.id; await reload(); notice('世界书已导入。'); } catch (e) { notice(e.message, true); } });
 bind('exportBook', async () => { const book = availableBooks().find(b => b.id === bookId); if (book?.actorId) { download(book.name, bookDraft); return; } const result = await api('export', { assetId: bookId }); download(result.name, result.document); });

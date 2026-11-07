@@ -1,0 +1,13 @@
+html.native-shell{background:transparent}
+body.native-shell{background:transparent;overflow:visible}
+.native-shell #panelMotion{position:absolute;top:0;left:0;width:100%;height:var(--panel-layout-height);display:grid;grid-template-columns:inherit;grid-template-rows:inherit;grid-template-areas:inherit;gap:inherit;padding:inherit;will-change:transform;isolation:isolate;background:radial-gradient(ellipse at 80% 0,#61416820,transparent 60%),linear-gradient(125deg,#1b213c,#13162b);border-radius:0 0 12px 12px;overflow:visible}
+.native-shell #panelSurface{display:contents}
+.native-shell #panelHeader{app-region:no-drag}
+.native-shell #resizeEdges{position:absolute;inset:0;pointer-events:none}
+.native-shell .resize-edge{pointer-events:auto}
+.native-shell .charm{position:absolute;top:100%;left:calc(var(--anchor-x) - var(--gem)/2);width:var(--gem);display:flex;align-items:center;flex-direction:column;border:0;padding:0;background:transparent;color:#c5d8ee;cursor:grab;touch-action:none;transform-origin:50% 0;will-change:rotate;user-select:none}
+.native-shell .charm:active{cursor:grabbing}
+.native-shell .charm:before{content:"";width:2px;height:var(--rope);flex:none;background:#eddba6;box-shadow:0 0 3px #ffffda80}
+.native-shell .charm svg{width:var(--gem);height:calc(var(--gem)*1.2);overflow:visible;filter:drop-shadow(0 0 6px #add8fa65)}
+.native-shell .charm:hover svg{filter:drop-shadow(0 0 10px #ecd8eb)}
+.native-shell .charm:focus-visible{outline:1px solid #ecdaff;outline-offset:3px}

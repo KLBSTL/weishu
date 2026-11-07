@@ -29,9 +29,9 @@ export function rememberDeepSeekBattle(match, player, leaks, lpLoss) {
 function deepSeekRequest({ key, base = 'https://api.deepseek.com', model = 'deepseek-flash' }) {
   const fetcher = createProxyFetch(fetch);
   return async (body, signal) => {
-    return withProviderSlot({ baseUrl: base, apiKey: key, model }, signal, async () => {
+    return withProviderSlot({ baseUrl: base, apiKey: key, model }, signal, async slotSignal => {
       const response = await fetcher(base.replace(/\/$/, '') + '/chat/completions', {
-        method: 'POST', signal, redirect: 'error',
+        method: 'POST', signal: slotSignal, redirect: 'error',
         headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
         body: JSON.stringify({ model, thinking: { type: 'disabled' }, ...body }),
       });
@@ -75,13 +75,13 @@ const CHAT_INSTRUCTIONS = [
 ].join('\n');
 
 export function deepSeekChatClient(config) {
-  return async ({ question, facts, dialogue, getFacts, chatOptions = config.getChatOptions?.() }, signal, onDelta) => {
+  return async ({ question, facts, dialogue, getFacts, contextPrompt, chatOptions = config.getChatOptions?.() }, signal, onDelta) => {
     const settings = config.getSettings?.() || { protocol: 'openai-compatible', baseUrl: config.base || 'https://api.deepseek.com',
       apiKey: config.key, model: config.model || 'deepseek-flash' };
     const result = { sources: [] };
     const relevant = isGameQuestion(question, dialogue.at(-1)?.question)
       || mentionsGameRule(question, facts?.rules);
-    const history = relevant ? dialogue : dialogue.filter(turn => !isGameQuestion(turn.question));
+    const history = contextPrompt ? [] : relevant ? dialogue : dialogue.filter(turn => !isGameQuestion(turn.question));
     const request = { question, facts: relevant ? facts : undefined, getFacts: relevant ? getFacts : undefined, chatOptions,
       onSearch: () => onDelta('', { extendedBudget: true, progress: '正在查资料。' }),
       onProgress: info => onDelta('', { progress: info.stage === 'queued' ? '正在等上一条模型请求完成。'
@@ -89,7 +89,7 @@ export function deepSeekChatClient(config) {
       system: (relevant ? teammatePersona(config.getPersona?.(), question)
         + '\n当前语气提示：' + teammateTone(facts) + '\n' + CHAT_INSTRUCTIONS
         : characterPersona(config.getPersona?.(), question) || '像桌边的朋友自然聊天，只答这次问题，不附加游戏战况或购买计划。')
-        + recentIdleContext('main', question) + chatOptionsPrompt(chatOptions),
+        + recentIdleContext('main', question) + '\n' + (contextPrompt || '') + chatOptionsPrompt(chatOptions),
       messages: [...history.flatMap(turn => [{ role: 'user', content: turn.question }, { role: 'assistant', content: turn.answer }]),
         { role: 'user', content: question }],
     };

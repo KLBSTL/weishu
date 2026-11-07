@@ -3,9 +3,16 @@ import { createHash, randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
+import { accountSlot, generationJob, claimAttempt } from '../companion/broker.js';
 
 // Coordinate the game and standalone host without sharing credentials or blocking the game scheduler.
-export async function withProviderSlot(settings, signal, task, { background = false, onWait = () => {} } = {}) {
+export async function withProviderSlot(settings, callerSignal, task, options = {}) {
+  const job = generationJob();
+  const signal = job ? AbortSignal.any([callerSignal, job.controller.signal, AbortSignal.timeout(Math.max(1, job.deadline - Date.now()))]) : callerSignal;
+  const key = createHash('sha256').update((settings.baseUrl || '') + '\0' + settings.apiKey).digest('hex');
+  return accountSlot(key, signal, () => providerSlot(settings, signal, task, options), options);
+}
+async function providerSlot(settings, signal, task, { background = false, onWait = () => {} } = {}) {
   const dir = process.env.SP_DSH_PET_RUNTIME_FILE ? dirname(process.env.SP_DSH_PET_RUNTIME_FILE)
     : join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'dsh-pet');
   const account = new URL(settings.baseUrl || 'https://api.deepseek.com').origin;
@@ -47,7 +54,7 @@ export async function withProviderSlot(settings, signal, task, { background = fa
       if (background) throw Object.assign(new Error('Provider cooldown'), { code: 'SP_PROVIDER_BUSY' });
       await delay(remaining, undefined, { signal });
     }
-    const result = await task();
+    claimAttempt(); const result = await task(signal);
     if (cooldown?.failures) { try { await writeFile(cooldownFile, JSON.stringify({ until: 0, failures: 0 })); } catch { /* optional pacing state */ } }
     return result;
   } catch (error) {
