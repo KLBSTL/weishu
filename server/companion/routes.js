@@ -11,6 +11,13 @@ import { cancelConversation, conversationMetrics } from '../desktop/conversation
 import { groupDirector } from './turns.js';
 import { compileCard, automaticSpeaker, speakerCandidates } from './materials.js';
 import { conversationEngine } from './engine.js';
+import { currentDocument, currentPng } from './card-export.js';
+import { evaluateLore } from './lore.js';
+import { createPlan } from './plan.js';
+import { inspectCharx } from './charx.js';
+import { buildPrompt, characterPromptLayer, resolvePromptSettings, validatePromptSettings, setPromptLayer, voiceProfile, PROMPT_TASKS, lastPromptRequests, forgetPromptRequests, importPromptPreset, exportPromptPreset } from './prompts.js';
+import { assembleLore } from './lore.js';
+import { summarizeJobs } from './metrics.js';
 
 const result = (status, obj) => ({ kind: 'json', status, obj });
 const clearConfirmations = new Map();
@@ -28,10 +35,14 @@ export function staticCardDocument(html) {
 /** Sensitive material only travels through authenticated POST; GET serves static UI only. */
 export async function libraryRoute(url, rest, method, raw, signal, deps = {}) {
   const staticFiles = { 'stronghold/library-ui': 'manager.html', 'stronghold/library-client.js': 'manager.js', 'stronghold/library-style.css': 'manager.css',
-    'stronghold/library-panel.js': 'panel.js', 'stronghold/library-pagination.js': 'pagination.js', 'stronghold/library-shell.js': '../desktop/roleplay-dock.js',
-    'stronghold/library-shell.css': '../desktop/roleplay-dock.css', 'stronghold/library-playing.webm': '../desktop/playing.webm' };
+    'stronghold/library-prompts.js': 'prompt-editor.js', 'stronghold/library-prompt-transfer.js': 'prompt-transfer.js', 'stronghold/library-motion.js': 'motion.js',
+    'stronghold/library-panel.js': 'panel.js', 'stronghold/library-rounds.js': 'round-controls.js', 'stronghold/library-pagination.js': 'pagination.js', 'stronghold/library-shell.js': '../desktop/roleplay-dock.js',
+    'stronghold/library-shell.css': '../desktop/roleplay-dock.css', 'stronghold/library-playing.webm': '../desktop/playing.webm',
+    'stronghold/library-ai-settings.js': 'ai-settings-ui.js', 'stronghold/library-i18n/i18n.js': '../../shared/i18n.js',
+    'stronghold/library-i18n/i18nPacks.js': '../../shared/i18nPacks.js',
+    ...Object.fromEntries(['en', 'ja', 'ko', 'zh-TW'].map(lang => ['stronghold/library-i18n/' + lang + '.json', '../../public/i18n/' + lang + '.json'])) };
   if (staticFiles[rest]) return method === 'GET' ? { kind: 'file', file: fileURLToPath(new URL('./' + staticFiles[rest], import.meta.url)),
-    contentType: rest.endsWith('.webm') ? 'video/webm' : rest.endsWith('.js') ? 'text/javascript' : rest.endsWith('.css') ? 'text/css' : 'text/html' } : result(405, { error: '只读页面' });
+    contentType: rest.endsWith('.webm') ? 'video/webm' : rest.endsWith('.js') ? 'text/javascript' : rest.endsWith('.json') ? 'application/json' : rest.endsWith('.css') ? 'text/css' : 'text/html' } : result(405, { error: '只读页面' });
   if (rest !== 'stronghold/library') return result(404, { error: '未知资料接口' });
   if (method !== 'POST') return result(405, { error: '资料接口必须使用POST' });
   const dir = companionDirectory(), library = companionLibrary(dir);
@@ -40,6 +51,49 @@ export async function libraryRoute(url, rest, method, raw, signal, deps = {}) {
   const pet = body.pet || 'main', action = body.action;
   try {
     await library.ready();
+    if (['prompt-settings', 'prompt-save', 'prompt-preview', 'prompt-request', 'prompt-import', 'prompt-export'].includes(action)) {
+      const data = library.snapshot(), actor = library.actor(body.actorId || pet, data, !!body.actorId), roomId = body.roomId || directRoom(actor.id);
+      library.visibleHistory(actor.id, roomId, data);
+      const scope = body.scope || 'character'; if (!['global', 'character', 'room'].includes(scope)) bad('请选择设置范围');
+      if (action === 'prompt-import') return result(200, importPromptPreset(body.preset));
+      if (action === 'prompt-export') return result(200, { preset: exportPromptPreset(body.settings, body.name || actor.name) });
+      if (action === 'prompt-request') return result(200, { requests: lastPromptRequests(actor.characterId) });
+      if (action === 'prompt-settings') {
+        const resolved = resolvePromptSettings(data, actor, roomId), store = data.promptSettings || {};
+        const layer = scope === 'global' ? store.global : scope === 'character' ? characterPromptLayer(data, actor).settings : store.rooms?.[actor.characterId + ':' + roomId];
+        const profile = (await conversationEngine.prepare(library, actor.id, '', { preview: true, roomId })).profile;
+        return result(200, { settings: layer || {}, resolved, voice: voiceProfile(profile), defaults: PROMPT_TASKS, revision: data.revision });
+      }
+      const settings = body.reset ? null : validatePromptSettings(body.settings);
+      if (action === 'prompt-save') {
+        const saved = await library.update(body.expectedRevision, next => {
+          const target = library.actor(actor.id, next, true);
+          if (body.expectedPromptRevision !== undefined && body.expectedPromptRevision !== resolvePromptSettings(next, target, roomId).revision) bad('提示词已更新，请重新打开后再保存', 409);
+          setPromptLayer(next, target, scope, settings, roomId); return { ok: true };
+        }, { configuration: false });
+        await library.store.call('invalidate-prompts', { characterId: actor.characterId, roomId: scope === 'room' ? roomId : undefined, all: scope === 'global' });
+        forgetPromptRequests(actor.characterId);
+        return result(200, saved);
+      }
+      setPromptLayer(data, actor, scope, settings, roomId);
+      const kind = body.kind || 'chat'; if (!Object.hasOwn(PROMPT_TASKS, kind)) bad('请选择预览场景');
+      const question = text(body.question || '', 2000);
+      const context = await conversationEngine.prepare(library, actor.id, question, { preview: true, roomId, promptKind: kind,
+        plan: createPlan({ id: 'preview:' + actor.characterId + ':' + data.revision + ':' + kind }) });
+      context.profile.promptSettings = resolvePromptSettings(data, actor, roomId);
+      const built = buildPrompt(context.profile, { question, kind, memories: context.memories, anchor: context.anchor, now: context.plan.createdAt });
+      const messages = assembleLore([{ role: 'system', content: built.system }, ...(question ? [{ role: 'user', content: question }] : [])], context.lore?.blocks || [], '', built.examples);
+      return result(200, { stage: 'preview', kind, blocks: built.blocks, omitted: built.omitted, diagnostics: built.diagnostics, examples: built.examples, messages, revision: built.revision });
+    }
+    if (action === 'charx-inspect') {
+      if (typeof body.file !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/u.test(body.file)) bad('请选择有效资源包');
+      return result(200, inspectCharx(Buffer.from(body.file, 'base64')));
+    }
+    if (action === 'editor-draft') {
+      if (typeof body.kind !== 'string' || body.kind.length > 100 || Buffer.byteLength(JSON.stringify(body.value || {})) > 1024 * 1024) bad('草稿过长或类型无效');
+      const actor = library.actor(body.actorId || pet, library.snapshot(), !!body.actorId);
+      return result(200, await library.store.call('editor-draft', { characterId: actor.characterId, kind: body.kind, value: body.value }));
+    }
     if (action === 'clear-history-preview') {
       const data = library.snapshot(), actor = library.actor(body.actorId || pet, data, !!body.actorId), confirmation = randomUUID();
       for (const [key, item] of clearConfirmations) if (item.expires < Date.now()) clearConfirmations.delete(key);
@@ -57,6 +111,7 @@ export async function libraryRoute(url, rest, method, raw, signal, deps = {}) {
       const card = library.card(actor.id, data, true);
       noteConversationActivity(); groupDirector(dir).stop(); await cancelConversation('SP_PERSONA_CHANGED');
       await library.clearHistory(actor.id, ticket);
+      forgetPromptRequests(ticket.characterId);
       clearIdleHistory(ticket.characterId, card, data);
       return result(200, { ok: true });
     }
@@ -72,7 +127,28 @@ export async function libraryRoute(url, rest, method, raw, signal, deps = {}) {
     if (action === 'export-state') return result(200, { document: await library.exportLegacy() });
     if (action === 'research-card') {
       if (body.actorId && library.actor(pet).id !== body.actorId) bad('请先把要整理的人物绑定到当前桌宠');
+      if (body.background === true) return result(200, await conversationEngine.startResearch(library, pet, deps));
       const saved = await conversationEngine.research(library, pet, deps); noteConversationActivity(); return result(200, saved);
+    }
+    if (action === 'research-status') return result(200, await conversationEngine.researchStatus(library, pet, body.actorId));
+    if (action === 'research-stop') return result(200, conversationEngine.stopResearch(library, pet));
+    if (['memory-pending', 'memory-changes', 'memory-decide'].includes(action)) {
+      const actor = library.actor(body.actorId || pet, library.snapshot(), !!body.actorId);
+      const value = await library.store.call(action, { characterId: actor.characterId, id: body.memoryId, accept: body.accept === true });
+      if (action === 'memory-decide') { noteConversationActivity(); await cancelConversation('SP_PERSONA_CHANGED'); }
+      return result(200, { [action === 'memory-pending' ? 'pending' : action === 'memory-changes' ? 'changes' : 'result']: value });
+    }
+    if (action === 'lore-preview') {
+      const data = library.snapshot(), actor = library.actor(body.actorId || pet, data, !!body.actorId), card = library.card(actor.id, data, true);
+      const scan = [0, 4, 10, 40, 100].includes(body.historyLimit) ? body.historyLimit : 40;
+      const compiled = compileCard(card, { state: data.states[actorSessionKey(actor)]?.value || {} }), history = await library.store.call('lore-context', { characterId: actor.characterId, roomId: directRoom(actor.id), limit: scan || 1 });
+      if (!scan) history.messages = [];
+      const enhanced = await evaluateLore(compiled, { question: text(body.question || '', 2000), history: history.messages, messageCount: history.count + 1,
+        state: history.state, plan: createPlan({ id: 'preview:' + actor.characterId + ':' + data.revision }), preview: true });
+      for (const row of enhanced.diagnostics) row.title = compiled.lore.find(r => r.id === row.id)?.title || '未命名条目';
+      enhanced.diagnostics.push(...compiled.diagnostics.filter(d => d.path.startsWith('/books/')));
+      return result(200, { current: actor.ruleProfile || 'legacy', enhanced, legacy: library.inspect(actor.id, body.question || '', true).diagnostics,
+        compatibility: { executed: ['关键词', '概率', '扫描范围', '互斥分组', '递归', '消息时效', '消息插入'], preserved: ['未知扩展', '资源引用'], unsupported: ['脚本与模板执行', 'Author’s Note', 'Outlet', '向量触发', 'CCv3装饰器', '精确令牌预算', 'Anthropic协议的system聊天深度'] } });
     }
     if (action === 'memories') return result(200, { memories: await library.recall(body.actorId || pet, text(body.question || '', 2000), { byId: !!body.actorId, limit: 80 }) });
     if (action === 'memory-edit') {
@@ -101,7 +177,12 @@ export async function libraryRoute(url, rest, method, raw, signal, deps = {}) {
       const compiled = compileCard(asset.card);
       return result(200, { needsSpeaker: compiled.needsSpeaker, speaker: compiled.speaker, sceneCard: compiled.sceneCard, candidates: compiled.candidates || [] });
     }
-    if (action === 'ack-chat') return result(200, await library.acknowledgeChat(pet, body.deliveryId));
+    if (action === 'ack-chat') {
+      const ack = await library.acknowledgeChat(pet, body.deliveryId);
+      if (ack.ok) await library.store.call('display-metrics', { characterId: library.actor(pet).characterId, id: body.deliveryId, renderedAt: body.renderedAt, displayMs: body.displayMs });
+      return result(200, ack);
+    }
+    if (action === 'metrics') { const jobs = await library.store.call('jobs', {}); return result(200, { jobs, summary: summarizeJobs(jobs) }); }
     if (action === 'inspect') return result(200, library.inspect(body.actorId || pet, text(body.question || '', 2000), !!body.actorId));
     if (action === 'preview') {
       const data = library.snapshot(), actor = library.actor(body.actorId || pet, data, !!body.actorId), room = body.roomId || directRoom(actor.id);
@@ -111,11 +192,10 @@ export async function libraryRoute(url, rest, method, raw, signal, deps = {}) {
       })) });
     }
     if (action === 'export') {
+      if (body.format === 'png') return result(200, currentPng(library, body.actorId || library.actor(pet).id, { cover: body.cover, singleActor: body.singleActor === true }));
       if (body.actorId && !body.original) {
-        const data = library.snapshot(), actor = library.actor(body.actorId, data, true);
-        const card = library.card(actor.id, data, true), speaker = card?.extensions?.ark_companion?.speaker;
-        if (speaker?.name) Object.assign(card, { name: speaker.name, description: speaker.description || card.description, personality: speaker.personality || card.personality });
-        return result(200, { name: speaker?.name || actor.name, document: { spec: 'chara_card_v3', spec_version: '3.0', data: card } });
+        const { document } = currentDocument(library, body.actorId, { singleActor: body.singleActor === true });
+        return result(200, { name: document.data.name, document });
       }
       const data = library.snapshot(), asset = data.assets.find(a => a.id === body.assetId);
       if (!asset) bad('资料不存在');
@@ -142,6 +222,17 @@ export async function libraryRoute(url, rest, method, raw, signal, deps = {}) {
       return result(200, started);
     }
     const saved = await library.update(body.expectedRevision, data => {
+      if (action === 'rule-profile') {
+        if (!['legacy', 'enhanced'].includes(body.profile)) bad('请选择支持的规则');
+        const actor = library.actor(body.actorId || pet, data, !!body.actorId); actor.ruleProfile = body.profile;
+        (actor.ruleProfiles ||= {})[actor.characterId] = body.profile; return actor;
+      }
+      if (action === 'book-proactive') {
+        if (typeof body.enabled !== 'boolean' || !validId(body.bookId) && body.bookId !== 'embedded') bad('无效世界书设置');
+        const actor = library.actor(body.actorId || pet, data, !!body.actorId);
+        if (body.bookId !== 'embedded' && !data.assets.some(a => a.kind === 'lorebook' && a.id === body.bookId)) bad('世界书不存在');
+        (actor.bookProactive ||= {})[body.bookId] = body.enabled; return actor;
+      }
       if (action === 'bind-books') {
         const actor = library.actor(body.actorId || pet, data, !!body.actorId);
         if (!Array.isArray(body.bookIds) || !body.bookIds.every(id => data.assets.some(a => a.kind === 'lorebook' && a.id === id))) bad('请选择已有世界书');
@@ -189,7 +280,7 @@ export async function libraryRoute(url, rest, method, raw, signal, deps = {}) {
         data.bindings[pet] = body.actorId; return { pet, actorId: body.actorId };
       }
       if (action === 'save-book' || action === 'save-embedded-book') {
-        const book = structuredClone(body.book || {});
+        const book = structuredClone(body.book?.spec === 'lorebook_v3' ? body.book.data : body.book || {});
         if (book.entries && !Array.isArray(book.entries)) book.entries = Object.entries(book.entries).map(([id, entry]) => ({ ...entry, id: entry.id ?? entry.uid ?? id }));
         const normalized = parsePersona(Buffer.from(JSON.stringify({ name: '世界书', description: '独立世界书。', character_book: book }))).character_book;
         if (action === 'save-embedded-book') {

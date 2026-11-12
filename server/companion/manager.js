@@ -12,12 +12,21 @@ const notice = (message, error = false) => {
   $('notice').textContent = message; $('notice').dataset.error = String(error);
   noticeTimer = setTimeout(() => { $('notice').textContent = ''; }, error ? 9000 : 3500);
 };
-async function api(action, values = {}) {
-  const response = await fetch('library', { method: 'POST', credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json', ...(token && { 'X-DSH-Pet-Token': token }) }, body: JSON.stringify({ action, pet, ...values }) });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error || '操作未完成');
+async function requestJson(path, options = {}) {
+  let response, result;
+  try {
+    const signal = AbortSignal.timeout(options.method === 'POST' ? 30000 : 10000);
+    response = await fetch(path, { credentials: 'same-origin', ...options, signal: options.signal ? AbortSignal.any([signal, options.signal]) : signal,
+      headers: { ...(token && { 'X-DSH-Pet-Token': token }), ...options.headers } });
+    result = await response.json();
+  } catch {
+    throw new Error(options.method === 'POST' ? '操作结果尚未确认，已保留当前输入；请刷新核对后再试。' : '资料服务暂时没有回应，当前页面已保留，可以稍后再试。');
+  }
+  if (!response.ok) throw Object.assign(new Error(result.error || '操作未完成'), { code: result.code });
   return result;
+}
+async function api(action, values = {}) {
+  return requestJson('library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, pet, ...values }) });
 }
 function options(node, items, value) {
   node.replaceChildren(...items.map(item => { const o = document.createElement('option'); o.value = item.id; o.textContent = item.name; return o; }));
@@ -152,7 +161,7 @@ async function showMemories() {
   if (!result.memories.length) $('memoryRows').textContent = '没有找到可用于回复的记忆。';
 }
 bind('searchMemory', showMemories);
-bind('researchCard', async () => { notice('正在整理当前人物背景；可以继续聊天，主动对话优先。'); const result = await api('research-card', { actorId }); notice(`已整理 ${result.count} 个资料引用${result.cached ? '（使用已有结果）' : ''}。`); });
+bind('researchCard', async () => { await api('research-card', { actorId, background: true }); document.dispatchEvent(new Event('companion:research')); notice('已开始整理背景'); });
 bind('newActor', async () => { actorId = null; showActor(null); $('createActorDialog').showModal(); $('actorName').focus(); });
 bind('saveActor', async () => {
   const saved = await api('save-actor', { expectedRevision: data.revision, actorId, actor: { name: $('actorName').value, assetId: $('actorAsset').value,
@@ -165,7 +174,7 @@ bind('inspect', async () => { const result = await api('inspect', { actorId, que
   $('inspection').textContent = result.units.length ? result.units.slice(0, 16).map(u => u.text).join('\n\n') : '没有触发的条目'; });
 for (const [id, original] of [['exportCard', false], ['originalCard', true]]) bind(id, async () => {
   const actor = selectedActor(); if (!actor?.assetId) throw new Error('请先保存或选择人物');
-  const result = await api('export', { actorId, assetId: actor.assetId, original }); download(result.name, result.original ? result.file : result.document, result.original, result.extension || 'json');
+  const result = await api('export', { actorId, assetId: actor.assetId, original, singleActor: $('exportScope')?.value === 'single' }); download(result.name, result.original ? result.file : result.document, result.original, result.extension || 'json');
 });
 $('cardFile').addEventListener('change', async () => { try {
   const file = $('cardFile').files[0]; if (!file) return; const reader = new FileReader();
@@ -189,5 +198,5 @@ bind('applyPatch', async () => { await api('state-patch', { expectedRevision: da
   patch: JSON.parse($('patch').value) }); await reload(); notice('状态已更新。'); });
 bind('previewHtml', async () => { const result = await api('preview', { actorId, html: $('html').value }); $('frame').srcdoc = result.html; });
 void reload().then(() => notice('资料已就绪。')).catch(e => notice(e.message + '。请从桌宠右键重新打开此页。', true));
-setInterval(() => { if (!$('rooms').hidden) void api('snapshot').then(s => { data.events = s.events; $('groupStatus').textContent = s.group.running
+setInterval(() => { if (!document.hidden && !$('rooms').hidden) void api('snapshot').then(s => { data.events = s.events; $('groupStatus').textContent = s.group.running
   ? '正在对话，已显示 ' + s.group.completed + ' 句' + (s.group.waitingForDisplay ? '，等待桌宠展示。' : '。') : s.group.error || '对话已结束。'; renderTranscript(); }).catch(() => {}); }, 2000);

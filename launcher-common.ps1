@@ -1,4 +1,8 @@
 # Shared launcher bootstrap. Keep this file ASCII for legacy Windows PowerShell.
+function Assert-StrongholdNode([string]$NodePath = 'node') {
+    & $NodePath -e 'const v=process.versions.node.split(".").map(Number);process.exit(v[0]<22||(v[0]===22&&v[1]<16)?1:0)'
+    if ($LASTEXITCODE -ne 0) { throw 'Node.js 22.16 or later is required for the companion memory store.' }
+}
 function Initialize-StrongholdNetwork {
     if ($env:HTTP_PROXY -or $env:HTTPS_PROXY -or $env:ALL_PROXY) { return }
     $client = [Net.Sockets.TcpClient]::new()

@@ -1,4 +1,4 @@
-/* global document, window, ResizeObserver, requestAnimationFrame, $, data, pet, actorId, candidates, candidateInfo, bookId, bookDraft, entryIndex, api, reload, notice, selectedActor, token, showBook */
+/* global document, window, ResizeObserver, requestAnimationFrame, $, data, pet, actorId, candidates, candidateInfo, bookId, bookDraft, entryIndex, api, requestJson, reload, notice, selectedActor, showBook */
 (() => {
   const initial = new URLSearchParams(window.location.search), main = document.querySelector('main'), nav = $('mainNav'), subnav = $('subNav');
   const gem = '<svg viewBox="0 0 40 52" aria-hidden="true"><path class="chain" d="M20 0v10m-5 6v-4a5 5 0 0110 0v4"/><path class="gem-body" d="M20 13L6 24v9l14 16 14-16v-9z"/><path class="facets" d="M6 24l14 7 14-7M20 13v36M6 33l14-2 14 2"/></svg>';
@@ -7,8 +7,8 @@
     people:['人物',[['actors','角色卡'],['cast','卡内角色'],['actorEditor','人设编辑'],['persona','我的身份']]],
     world:['世界书',[['worldBindings','已启用'],['worldLibrary','世界书库'],['books','条目编辑'],['worldInspect','触发预览']]],
     dialogue:['对话',[['historyPage','聊天回看'],['memories','记忆管理'],['sourcePage','引用来源']]],
-    status:['状态',[['runtimePage','运行状态'],['gamePage','卫戍信息'],['moodPage','心情']]],
-    settings:['设置',[['roleSettings','角色扮演'],['dialogueSettings','对话与碎碎念'],['appearanceSettings','字体与气泡'],['windowSettings','窗口大小'],['dockSettings','吊坠'],['apiSettings','API连接'],['dataSettings','记忆与历史'],['advancedPage','其他工具']]],
+    status:['状态',[['runtimePage','运行状态'],['gamePage','卫戍信息']]],
+    settings:['设置',[['roleSettings','角色扮演'],['dialogueSettings','对话与碎碎念'],['promptSettings','提示词'],['appearanceSettings','字体与气泡'],['windowSettings','窗口大小'],['dockSettings','吊坠'],['apiSettings','API连接'],['dataSettings','记忆与历史'],['advancedPage','其他工具']]],
   };
   const bridge=()=>window.arkDesktop;
   const node=(tag,value,cls)=>{const n=document.createElement(tag);n.textContent=value||'';if(cls)n.className=cls;return n;};
@@ -23,13 +23,12 @@
   section('sourcePage','<div id="sourceList"></div>');
   section('runtimePage','<div id="runtimeView"></div><button id="refreshRuntime" title="刷新状态">刷新</button>');
   section('gamePage','<p id="gameInfo"></p>');
-  section('moodPage','<div class="character-frame"><h2>心情</h2><p>暂未开启</p></div>');
   section('roleSettings','<div class="choice-grid"><button id="startRole">开启角色扮演</button><button id="stopRole">停止角色扮演</button><button id="openComposer">打开输入栏</button></div><p id="desktopHint" class="note"></p>');
   section('dialogueSettings','<form id="chatSettingsForm"><div class="form-grid"><label>回复模式<select id="optionMode"><option value="daily">日常模式</option><option value="unlimited">无限制模式</option></select></label><label>请求强度<select id="optionEffort"><option value="low">低</option><option value="medium">中</option><option value="high">高</option></select></label><label>回复字数<input id="optionChars" type="number" min="1" max="2000"></label><label>主动聊天<select id="optionProactive"><option value="true">开启</option><option value="false">关闭</option></select></label><label>碎碎念间隔<select id="optionIdle"><option>10</option><option>15</option><option>20</option><option>30</option><option>45</option><option>60</option></select></label></div><div class="actions"><button class="primary">保存</button></div></form>');
   section('appearanceSettings','<form id="appearanceForm"><div class="form-grid"><label>字体<select id="fontFamily"><option value="Microsoft YaHei">微软雅黑</option><option value="DengXian">等线</option><option value="Source Han Sans SC">思源黑体</option><option value="SimSun">宋体</option><option value="KaiTi">楷体</option><option value="system-ui">系统默认</option><option value="custom">自定义</option></select></label><label>字号<input id="fontSize" type="number" min="14" max="28"></label><label id="customFontLabel" hidden>本机字体名称<input id="customFont" maxlength="64"></label><label>气泡时长<select id="optionBubble"><option>15</option><option>20</option><option>30</option><option>60</option><option>120</option></select></label><label class="check"><input id="reduceMotion" type="checkbox">减少动效</label></div><div class="actions"><button class="primary">保存</button></div></form>');
   section('windowSettings','<form id="windowForm" class="settings-page"><div class="form-grid"><label class="wide">窗口大小<select id="windowPreset"><option value="960x640">960 × 640</option><option value="1200x800">1200 × 800</option><option value="1440x900">1440 × 900</option><option value="custom">自定义</option></select></label><label>宽度<input id="windowWidth" type="number" min="760" max="2400"></label><label>高度<input id="windowHeight" type="number" min="560" max="1600"></label></div><div class="actions"><button class="primary">应用</button></div></form>');
   section('dockSettings','<form id="dockForm" class="settings-page"><div class="form-grid"><label>宝石大小<select id="gemSize"><option>64</option><option>80</option><option>96</option><option>104</option></select></label><label>线长<input id="lineLength" type="number" min="24" max="160"></label><label class="check"><input id="dockSway" type="checkbox">轻微摆动</label><label class="check"><input id="dockMove" type="checkbox">允许调整位置（Alt+拖动）</label></div><div class="toolbar"><button type="button" id="showDock">显示</button><button type="button" id="hideDock">隐藏</button><button type="button" id="resetDock">重置位置</button></div><div class="actions"><button class="primary">保存</button></div></form>');
-  section('apiSettings','<form id="apiForm"><div class="form-grid"><label>协议<select id="apiProtocol"><option value="openai-compatible">OpenAI兼容</option><option value="anthropic">Anthropic</option></select></label><label>模型<input id="apiModel" required></label><label class="wide">服务地址<input id="apiBase" type="url" required></label><label class="wide">密钥<input id="apiKey" type="password" autocomplete="new-password" placeholder="留空保留已有密钥"></label></div><p id="apiKeyState" class="note"></p><div class="actions"><button type="button" id="testApi">测试连接</button><button class="primary">保存</button></div></form>');
+  section('apiSettings','');
   section('advancedPage','<div class="toolbar"><button data-legacy="preview">卡面预览</button><button data-legacy="rooms">角色对话</button><button id="openResearch">整理背景</button></div>');
   section('dataSettings','<div class="context-name" data-person-name></div><p>清空当前人物的聊天、记忆和碎碎念进度。角色卡、世界书和连接设置会保留。</p><button id="clearHistory">清空记忆和历史记录</button>');
   const clearDialog=document.createElement('dialog');clearDialog.id='clearHistoryDialog';
@@ -52,7 +51,7 @@
   const chatPages=new window.FittedPages($('chatHistory'),$('historyPager'),renderChat);
   function avatar(p){const a=node('span','','portrait');if(typeof p.portrait==='string'&&p.portrait.length<350000&&/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/u.test(p.portrait)){const i=document.createElement('img');i.src=p.portrait;i.alt=p.name;a.append(i);}else{a.textContent=Array.from(p.name||'未')[0];a.title='暂无独立头像';}return a;}
   function heading(target,p){target.replaceChildren(avatar(p),node('h2',p.name));}
-  function showSection(id){for(const s of document.querySelectorAll('main>section'))s.hidden=s.id!==id;currentSection=id;for(const b of subnav.querySelectorAll('button'))b.setAttribute('aria-current',String(b.dataset.section===id));bioPages.refresh();chatPages.refresh();}
+  function showSection(id){const previous=currentSection;for(const s of document.querySelectorAll('main>section'))s.hidden=s.id!==id;currentSection=id;for(const b of subnav.querySelectorAll('button'))b.setAttribute('aria-current',String(b.dataset.section===id));if(previous!==id)window.ArkMotion?.enter($(id));bioPages.refresh();chatPages.refresh();}
   function open(key,target){
     if(!pages[key])key='overview';document.body.classList.toggle('overview-page',key==='overview');
     for(const b of nav.querySelectorAll('button'))b.setAttribute('aria-current',String(b.dataset.page===key));
@@ -61,6 +60,7 @@
   }
   function navigate(id){
     showSection(id);
+    if(id==='promptSettings')document.dispatchEvent(new Event('companion:prompts'));
     if(id==='cast')renderCast();
     if(id==='historyPage')void loadHistory().catch(error);
     if(id==='sourcePage')void sources().catch(error);
@@ -71,8 +71,7 @@
   }
   function error(e){notice(e.message||'操作未完成',true);}
   async function request(path,body,method=body?'POST':'GET'){
-    const r=await fetch(path,{method,headers:{...(body&&{'Content-Type':'application/json'}),...(token&&{'X-DSH-Pet-Token':token})},...(body&&{body:JSON.stringify(body)})});
-    const value=await r.json();if(!r.ok)throw new Error(value.error||'操作未完成');return value;
+    return requestJson(path,{method,headers:{...(body&&{'Content-Type':'application/json'})},...(body&&{body:JSON.stringify(body)})});
   }
   async function command(name,values={}){
     if(!bridge()){notice('此操作请在桌面面板中使用');return;}
@@ -81,7 +80,7 @@
   function applyPreferences(){
     const root=document.documentElement;
     root.style.setProperty('--font-family','"'+prefs.fontFamily.replace(/["\\]/gu,'')+'",system-ui,sans-serif');root.style.setProperty('--font-size',prefs.fontSize+'px');
-    document.body.classList.toggle('reduce-motion',prefs.reducedMotion);bioPages.refresh();chatPages.refresh();
+    document.body.classList.toggle('reduce-motion',prefs.reducedMotion);if(prefs.reducedMotion)window.ArkMotion?.cancelAll();bioPages.refresh();chatPages.refresh();
   }
   async function savePreferences(patch){
     const next={...prefs,...patch};
@@ -99,6 +98,8 @@
   async function runtime(){
     try{nativeState=await bridge()?.status()||{};const info=nativeState.pets?.[pet];$('toggleRole').setAttribute('aria-pressed',String(!!info?.roleplay));$('toggleRole').title=info?.roleplay?'停止角色扮演':'开启角色扮演';
       const pending=await request('idle-status?pet='+encodeURIComponent(pet));$('runtimeView').replaceChildren(node('p',pending.pending?'正在准备话题':'空闲'));
+      const recent=(await api('metrics')).jobs.find(row=>row.petId===pet&&Number.isFinite(row.elapsedMs));
+      if(recent){const facts=node('dl','','card-facts');for(const [label,value] of [['上次准备',((recent.contextMs||0)+recent.elapsedMs)/1000+' 秒'],['展示',recent.status==='displayed'?'已显示':recent.status==='failed'?'未完成':'尚未显示'],['模型请求',recent.attempts===undefined?'未记录':recent.attempts+' 次']])facts.append(node('dt',label),node('dd',value));$('runtimeView').append(facts);}
       $('gameInfo').textContent=info?.game?'回合 '+(info.round||'—')+' · '+(info.phase||'—'):'当前没有卫戍对局';$('desktopHint').textContent='';
     }catch{$('runtimeView').textContent='暂时无法读取状态';}
   }
@@ -187,7 +188,8 @@
   async function loadOptions(){
     const o=await request('chat-options');for(const[id,value]of Object.entries({optionMode:o.mode,optionEffort:o.effort,optionChars:o.maxChars,optionProactive:String(o.proactive),optionIdle:o.idleSeconds,optionBubble:o.bubbleSeconds}))$(id).value=value;
   }
-  async function loadApi(){const v=await request('/standalone-ai/settings');$('apiProtocol').value=v.protocol||'openai-compatible';$('apiBase').value=v.baseUrl||'';$('apiModel').value=v.model||'';$('apiKey').value='';$('apiKeyState').textContent=v.hasKey?'已保存密钥':'尚未配置密钥';}
+  let connectionUi;
+  async function loadApi(){connectionUi??=import('./library-ai-settings.js').then(m=>m.installAiSettings($('apiSettings'),{request,notice}));await (await connectionUi).load();}
   function action(id,fn){$(id).addEventListener('click',()=>{void Promise.resolve().then(fn).catch(error);});}
   function submit(id,fn){$(id).addEventListener('submit',e=>{e.preventDefault();void Promise.resolve().then(fn).catch(error);});}
   action('applyCast',async()=>{const expectedName=inspectedName;$('applyCast').disabled=true;try{await api('choose-speaker',{expectedRevision:data.revision,actorId,assetId:selectedActor().assetId,name:expectedName});await reload();notice('已使用'+(inspectedPerson?.name||'自动选择'));}finally{$('applyCast').disabled=false;}});
@@ -208,8 +210,6 @@
   for(const id of ['windowWidth','windowHeight'])$(id).oninput=()=>{$('windowPreset').value='custom';};
   submit('windowForm',async()=>{await savePreferences({width:Number($('windowWidth').value),height:Number($('windowHeight').value)});notice('窗口大小已应用');});
   submit('dockForm',async()=>{await savePreferences({gemSize:Number($('gemSize').value),lineLength:Number($('lineLength').value),sway:$('dockSway').checked,moveEnabled:$('dockMove').checked});notice('吊坠设置已保存');});
-  submit('apiForm',async()=>{const key=$('apiKey').value.trim();await request('/standalone-ai/settings',{protocol:$('apiProtocol').value,baseUrl:$('apiBase').value.trim(),model:$('apiModel').value.trim(),...(key&&{apiKey:key})});await loadApi();notice('模型连接已保存');});
-  action('testApi',async()=>{$('testApi').disabled=true;try{const r=await request('/standalone-ai/test',{});notice(r.ok?'连接成功':r.message||'连接未成功',!r.ok);}finally{$('testApi').disabled=false;}});
   action('startRole',()=>command('roleplay',{enabled:true}).then(runtime));action('stopRole',()=>command('roleplay',{enabled:false}).then(runtime));action('openComposer',()=>command('composer'));
   action('toggleRole',async()=>{await runtime();await command('roleplay',{enabled:!nativeState.pets?.[pet]?.roleplay});await runtime();});
   action('showDock',()=>command('dock',{visible:true}));action('hideDock',()=>command('dock',{visible:false}));action('resetDock',()=>command('dock-reset'));
@@ -222,15 +222,15 @@
   document.querySelector('[data-field=description]').setAttribute('aria-current','true');
   document.addEventListener('companion:loaded',fill);document.addEventListener('companion:candidates',()=>{if(previewAsset===selectedActor()?.assetId)renderCast();});document.addEventListener('companion:book',renderBooks);document.addEventListener('companion:entry',renderEntries);
   $('actor').addEventListener('change',()=>{inspectedName='';fill();});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('createActorDialog').open&&!clearDialog.open)void bridge()?.close();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!document.querySelector('dialog[open]'))void bridge()?.close();});
   bridge()?.onNavigate(({page})=>open(page));
   bridge()?.onSettings?.(value=>{prefs={...prefs,...value};applyPreferences();paintPreferences();});
   if(bridge())for(const edge of ['n','s','w','e','nw','ne','sw','se']){
     const handle=node('div','','resize-edge');handle.dataset.edge=edge;$('resizeEdges').append(handle);
     let dragging=false;
-    handle.onpointerdown=e=>{if(e.button!==0)return;dragging=true;handle.setPointerCapture(e.pointerId);void command('resize-start',{edge,x:e.screenX,y:e.screenY});};
-    handle.onpointermove=e=>{if(dragging)void command('resize-move',{x:e.screenX,y:e.screenY});};
-    const end=()=>{if(dragging){dragging=false;void command('resize-end');}};handle.onpointerup=end;handle.onpointercancel=end;
+    handle.onpointerdown=e=>{if(e.button!==0)return;dragging=true;handle.setPointerCapture(e.pointerId);void command('resize-start',{edge,x:e.screenX,y:e.screenY}).catch(error);};
+    handle.onpointermove=e=>{if(dragging)void command('resize-move',{x:e.screenX,y:e.screenY}).catch(error);};
+    const end=()=>{if(dragging){dragging=false;void command('resize-end').catch(error);}};handle.onpointerup=end;handle.onpointercancel=end;
   }
   applyPreferences();paintPreferences();open(initial.get('page')||'overview');if(typeof data!=='undefined')fill();
   if(bridge())void bridge().status().then(v=>{nativeState=v;if(v.settings){prefs={...prefs,...v.settings};applyPreferences();paintPreferences();}}).catch(()=>{});

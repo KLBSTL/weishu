@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { companionLibrary } from './library.js';
-import { petProfile, profilePrompt } from './profile.js';
+import { petProfile } from './profile.js';
 import { compileCard } from './materials.js';
 import { speechProblem } from './speech.js';
 import { readChatOptions } from '../desktop/chat-preferences.js';
 import { withConversationScope } from '../desktop/conversation.js';
 import { replyResult } from '../match/replyStyle.js';
+import { conversationEngine } from './engine.js';
 
 const directors = new Map();
 export class GroupDirector {
@@ -21,7 +22,8 @@ export class GroupDirector {
     if (!item || item.pet !== pet || item.id !== id || item.committing) return { ok: false };
     if (this.library.snapshot().revision !== item.revision || this.job?.controller.signal.aborted) { this.stop(); return { ok: false }; }
     item.committing = true;
-    await this.library.event(item.actorId, item.roomId, { id, type: 'assistant', speakerId: item.actorId, text: item.text, chainId: item.chainId });
+    await this.library.event(item.actorId, item.roomId, { id, type: 'assistant', speakerId: item.actorId, text: item.text, chainId: item.chainId,
+      loreProposal: item.loreProposal, taskId: item.taskId });
     this.waiting = null; item.resolve(true); return { ok: true };
   }
   async start({ roomId, topic = '', limit = 2 }, deps) {
@@ -55,11 +57,13 @@ export class GroupDirector {
       const history = this.library.visibleHistory(actorId, job.roomId).filter(e => ['user', 'assistant'].includes(e.type))
         .map(e => ({ role: e.type === 'user' ? 'user' : 'assistant', content: e.type === 'user' ? e.text : `【${e.speakerName || e.speakerId}的公开发言，不是玩家发言】${e.text}`, ts: e.at }));
       const options = readChatOptions();
+      const context = await conversationEngine.prepare(this.library, pet, topic, { roomId: job.roomId, kind: 'group' });
       const output = await withConversationScope(() => deps.generate({ ...base, history,
-        system: profilePrompt(profile, topic) + '\n【人物间短对话】本次只有你发言。其他公开人物：' + bindings.filter(b => b.actorId !== actorId).map(b => b.speakerName).join('、')
+        system: context.prompt + '\n【人物间短对话】本次只有你发言。其他公开人物：' + bindings.filter(b => b.actorId !== actorId).map(b => b.speakerName).join('、')
           + '。只根据已给出的公开对话自然回应，不替其他人物或玩家说话，不编造玩家旧发言，不调用工具。',
         userText: turn ? '自然接上已经公开显示的上一句，只说自己的下一句。' : '围绕本次话题或自己的背景，向在场另一人物开启一小段自然对话。', pool: [], actions: [],
-      }), { proactive: true, manual: true, group: true, petId: pet, signal: job.controller.signal, chatOptions: options });
+      }), { proactive: true, manual: true, group: true, petId: pet, signal: job.controller.signal, chatOptions: options,
+        plan: context.plan, loreBlocks: context.lore?.blocks, examples: context.examples });
       const answer = replyResult(output, options);
       if (!answer.ok || !answer.text?.trim() || speechProblem(answer.text, compileCard(profile.card).speaker?.name)) throw new Error('没有完整口语正文');
       job.controller.signal.throwIfAborted();
@@ -68,6 +72,7 @@ export class GroupDirector {
         const abort = () => resolve(false);
         job.controller.signal.addEventListener('abort', abort, { once: true });
         this.waiting = { id, pet, actorId, text: answer.text, roomId: job.roomId, chainId: job.id, revision: job.revision,
+          loreProposal: context.lore?.proposed, taskId: context.plan?.id,
           resolve: value => { job.controller.signal.removeEventListener('abort', abort); resolve(value); } };
       });
       if (!shown) break;

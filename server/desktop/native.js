@@ -37,26 +37,46 @@
   let lastGroupDelivery = null;
   let lastIdleDelivery = null;
   const chatDeliveries = new Map(), shownChat = new Map();
+  let receiptQueue = [];
+  try { receiptQueue = JSON.parse(window.localStorage?.getItem('ark-display-receipts') || '[]').filter(r => r && typeof r.pet === 'string' && typeof r.id === 'string' && ['chat', 'idle'].includes(r.kind) && Date.now() - r.at < 180000).slice(-32); } catch { /* optional receipt recovery */ }
+  let receiptTimer, sendingReceipts = false;
+  function saveReceipts() { try { window.localStorage?.setItem('ark-display-receipts', JSON.stringify(receiptQueue)); } catch { /* in-memory retry remains available */ } }
+  async function flushReceipts() {
+    if (sendingReceipts || !receiptQueue.length) return; sendingReceipts = true;
+    for (const row of [...receiptQueue]) {
+      if (Date.now() - row.at > 180000) { receiptQueue = receiptQueue.filter(r => r !== row); continue; }
+      try {
+        const response = await fetch(BASE + (row.kind === 'chat' ? '/stronghold/library' : '/stronghold/idle'), { method: row.kind === 'chat' ? 'POST' : 'PATCH',
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...(row.kind === 'chat' ? { action: 'ack-chat' } : { warmStart: true }), pet: row.pet, deliveryId: row.id, renderedAt: row.at, displayMs: row.displayMs }), signal: AbortSignal.timeout(12000) });
+        const result = await response.json(); if (response.ok && typeof result.ok === 'boolean') receiptQueue = receiptQueue.filter(r => r !== row);
+      } catch { /* network failure retains only IDs and timing, never private text */ }
+    }
+    saveReceipts(); sendingReceipts = false; window.clearTimeout(receiptTimer);
+    if (receiptQueue.length) receiptTimer = window.setTimeout(() => { void flushReceipts(); }, 3000);
+  }
+  function queueReceipt(kind, pet, id, displayMs) {
+    if (!receiptQueue.some(r => r.id === id && r.pet === pet)) receiptQueue.push({ kind, pet, id, at: Date.now(), displayMs });
+    receiptQueue = receiptQueue.slice(-32); saveReceipts(); void flushReceipts();
+  }
+  if (receiptQueue.length) receiptTimer = window.setTimeout(() => { void flushReceipts(); }, 1000);
   function acknowledgeChat(pet, item) {
     if (item && Date.now() - item.started > 180000) { chatDeliveries.delete(pet); return; }
     const shown = shownChat.get(pet);
     if (!item || !shown || shown.text !== item.text || shown.at < item.started || item.acknowledging) return;
     item.acknowledging = true;
-    void fetch(BASE + '/stronghold/library', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'ack-chat', pet, deliveryId: item.id }) }).then(r => r.json()).then(result => {
-      if (typeof result.ok === 'boolean' && chatDeliveries.get(pet) === item) chatDeliveries.delete(pet);
-    }).catch(() => {}).finally(() => { item.acknowledging = false; });
+    queueReceipt('chat', pet, item.id, shown.mono - item.startedMono);
+    chatDeliveries.delete(pet); item.acknowledging = false;
   }
   if (typeof window.fetch === 'function') {
     const originalFetch = window.fetch;
     window.fetch = async function (...args) {
-      const started = Date.now(), response = await originalFetch.apply(this, args);
+      const started = Date.now(), startedMono = performance.now(), response = await originalFetch.apply(this, args);
       try {
         const url = new URL(typeof args[0] === 'string' ? args[0] : args[0].url, window.location.href);
         if (/\/chat$/u.test(url.pathname) && response.ok) {
           const reply = await response.clone().json(), pet = url.searchParams.get('pet') || 'main';
           if (reply.deliveryId && typeof reply.text === 'string') {
-            const item = { id: reply.deliveryId, text: reply.text, started }; chatDeliveries.set(pet, item); acknowledgeChat(pet, item);
+            const item = { id: reply.deliveryId, text: reply.text, started, startedMono }; chatDeliveries.set(pet, item); acknowledgeChat(pet, item);
           }
         }
       } catch { /* Leave unrelated/native responses intact. */ }
@@ -189,6 +209,7 @@
           activity(true); if (activeSprite === sprite) dailyRequest?.abort();
           await request('clear-history', { confirmation: preview.confirmation });
           chatDeliveries.delete(sprite.pet.id); shownChat.delete(sprite.pet.id);
+          receiptQueue = receiptQueue.filter(r => r.pet !== sprite.pet.id); saveReceipts();
           close(); sprite.showWhisper('记忆和历史记录已清空。', undefined, undefined, 5000, false);
         }
         catch (error) { message.textContent = error.message; confirm.disabled = false; }
@@ -460,7 +481,7 @@
     if (duration !== 0) { activity(); bubbleUntil = Date.now() + (duration || 20000); automaticBubble = false; }
     const result = showWhisper.call(this, text, image, url, duration, anim);
     if (duration !== 0 && this.pet?.id && this.whisperText === text && this.whisperView) {
-      shownChat.set(this.pet.id, { text, at: Date.now() }); acknowledgeChat(this.pet.id, chatDeliveries.get(this.pet.id));
+      shownChat.set(this.pet.id, { text, at: Date.now(), mono: performance.now() }); acknowledgeChat(this.pet.id, chatDeliveries.get(this.pet.id));
     }
     return result;
   };
@@ -494,7 +515,8 @@
       || [...document.querySelectorAll('.dsh-pet-chat input, .dsh-pet-chat textarea')].some(input => input.value.trim()))) return;
     const controller = new AbortController(); idleController = controller;
     controller.speechId = String(++speechSerial);
-    controller.foreground = manual; controller.started = Date.now(); controller.stage = 'generating';
+    controller.interactionId = crypto.randomUUID();
+    controller.foreground = manual; controller.started = Date.now(); controller.startedMono = performance.now(); controller.stage = 'generating';
     if (manual) lastInteraction = Date.now();
     const notice = composer?.querySelector('[data-role="status"]');
     const button = composer?.querySelector('[data-role="whisper"]');
@@ -503,11 +525,13 @@
     let shown = false, failed = false;
     try {
       const res = await fetch(BASE + '/stronghold/idle', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pet: sprite.pet.id, manual, prepare: preparing, warmStart: true }), signal: controller.signal });
+        body: JSON.stringify({ pet: sprite.pet.id, manual, prepare: preparing, warmStart: true,
+          interactionId: controller.interactionId, interactionElapsedMs: performance.now() - controller.startedMono }), signal: controller.signal });
       let result = await speechResponse(res);
       if (result?.prepared && controller.foreground) {
         const ready = await fetch(BASE + '/stronghold/idle', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pet: sprite.pet.id, manual: true, warmStart: true }), signal: controller.signal });
+          body: JSON.stringify({ pet: sprite.pet.id, manual: true, warmStart: true,
+            interactionId: controller.interactionId, interactionElapsedMs: performance.now() - controller.startedMono }), signal: controller.signal });
         result = await speechResponse(ready);
       }
       const recoverable = value => value?.skipped && !value.recoveryExhausted && [undefined, 'duplicate', 'cooldown'].includes(value.reason);
@@ -519,7 +543,8 @@
           controller.signal.addEventListener('abort', stop, { once: true }); if (controller.signal.aborted) stop();
         });
         const next = await fetch(BASE + '/stronghold/idle', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pet: sprite.pet.id, manual: true, warmStart: true }), signal: controller.signal });
+          body: JSON.stringify({ pet: sprite.pet.id, manual: true, warmStart: true,
+            interactionId: controller.interactionId, interactionElapsedMs: performance.now() - controller.startedMono }), signal: controller.signal });
         result = await speechResponse(next);
       }
       if (result?.retryAfterMs) idleRetryAt = Date.now() + Math.min(60000, result.retryAfterMs);
@@ -529,11 +554,13 @@
       failed = !result || !!result.error || result.reason === 'stories-exhausted';
       if (result?.text && !controller.signal.aborted && (controller.foreground || (chatOptions.proactive && Date.now() - lastInteraction >= (chatOptions.idleSeconds || 30) * 1000))) {
         idleController = null;
-        if (!result.deliveryId || lastIdleDelivery !== result.deliveryId) sprite.showWhisper(result.text, undefined, undefined, chatOptions.bubbleSeconds * 1000, false);
-        if (sprite.whisperText !== result.text || !sprite.whisperView) throw new Error('Speech was not displayed');
+        const receiptPending = receiptQueue.some(row => row.kind === 'idle' && row.pet === sprite.pet.id && row.id === result.deliveryId);
+        if (!receiptPending) {
+          if (!result.deliveryId || lastIdleDelivery !== result.deliveryId) sprite.showWhisper(result.text, undefined, undefined, chatOptions.bubbleSeconds * 1000, false);
+          if (sprite.whisperText !== result.text || !sprite.whisperView) throw new Error('Speech was not displayed');
+        }
         lastIdleDelivery = result.deliveryId;
-        if (result.deliveryId) void fetch(BASE + '/stronghold/idle', { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pet: sprite.pet.id, deliveryId: result.deliveryId, warmStart: true }) }).catch(() => {});
+        if (result.deliveryId) queueReceipt('idle', sprite.pet.id, result.deliveryId, performance.now() - controller.startedMono);
         automaticBubble = !controller.foreground;
         shown = true;
         if (notice && (controller.foreground || notice.dataset.chatterError)) {

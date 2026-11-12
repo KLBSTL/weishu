@@ -1,13 +1,14 @@
 const { join } = require('node:path');
-const { readFileSync, writeFileSync, mkdirSync } = require('node:fs');
+const { readFileSync, writeFileSync, mkdirSync, existsSync } = require('node:fs');
 const config = require('./roleplay-config.cjs');
 
 /** One stable transparent surface; animation belongs to the renderer's compositor. */
 function install({ app, BrowserWindow, ipcMain, screen, hostRequest, hostReady = () => true, petWindows, helperDir, hidden = false }) {
   let disposed=false, currentPet='main', loadedPet, loading=Promise.resolve(), motion, sequence=0, resize;
-  let panelOpen=false, animating=false, progress=0, angle=0, ignore=true;
+  let panelOpen=false, animating=false, progress=0, angle=0, stretch=0, ignore=true;
   const pending=new Map(), state={pets:{},dragging:false};
   const file=join(process.env.DSH_HOME||app.getPath('userData'),'dsh-pet','ark-roleplay-window.json');
+  const firstLaunch=!hidden&&!existsSync(file);
   let position={};try{position=JSON.parse(readFileSync(file,'utf8'));}catch{/* first launch */}
   if(!position||typeof position!=='object'||Array.isArray(position))position={};
   let prefs;try{prefs=config.settings(position.settings);}catch{prefs=config.settings();}
@@ -66,7 +67,8 @@ function install({ app, BrowserWindow, ipcMain, screen, hostRequest, hostReady =
   const onShellReport=(event,value)=>{
     if(event.sender!==shell.webContents||!value||typeof value!=='object')return;
     if(Number.isFinite(value.progress))progress=Math.max(0,Math.min(1,value.progress));
-    if(Number.isFinite(value.angle))angle=Math.max(-8,Math.min(8,value.angle));
+    if(Number.isFinite(value.angle))angle=Math.max(-18,Math.min(18,value.angle));
+    if(Number.isFinite(value.stretch))stretch=Math.max(0,Math.min(8,value.stretch));
     if(value.phase==='done'&&motion?.id===value.id){animating=false;finish({ok:true});show();}
   };ipcMain.on('ark:shell-report',onShellReport);
   const onReport=(event,value)=>{
@@ -79,6 +81,8 @@ function install({ app, BrowserWindow, ipcMain, screen, hostRequest, hostReady =
   ipcMain.handle('ark:status',event=>{if(!trusted(event.sender))throw new Error('未知窗口');return snapshot();});
   const ensureReady=async()=>{await ready.catch(()=>{});if(!loadedPet)await context(currentPet,'overview');};
   const openPanel=async(page='overview',pet=currentPet)=>{await ensureReady();await context(pet,page);if(!panelOpen||animating)return settle(true);show();if(!hidden)shell.focus();return {ok:true};};
+  // New users need a visible setup entry. Existing window preferences keep the usual folded startup.
+  if(firstLaunch)void ready.then(()=>openPanel('settings')).then(()=>persist()).catch(()=>{});
   ipcMain.handle('ark:command',async(event,value)=>{
     if(!trusted(event.sender)||!value||typeof value!=='object')throw new Error('未知窗口操作');
     if(value.name==='open')return openPanel(value.page||'overview',value.pet);
@@ -122,7 +126,7 @@ function install({ app, BrowserWindow, ipcMain, screen, hostRequest, hostReady =
   const pointer=setInterval(()=>{
     if(shell.isDestroyed()||!hidden&&!shell.isVisible())return;
     const p=screen.getCursorScreenPoint(),x=p.x-layout.bounds.x,y=p.y-layout.bounds.y,top=progress*layout.panelHeight;
-    const rad=angle*Math.PI/180,rope=prefs.lineLength,gH=prefs.gemSize*1.2;
+    const rad=angle*Math.PI/180,rope=prefs.lineLength+stretch,gH=prefs.gemSize*1.2;
     const gemX=layout.gemX-Math.sin(rad)*(rope+gH/2),gemY=top+Math.cos(rad)*(rope+gH/2);
     const panelHit=top>0&&x>=0&&x<layout.bounds.width&&y>=0&&y<top;
     const charmHit=position.visible!==false&&(y>=top&&y<top+rope&&Math.abs(x-(layout.gemX-Math.tan(rad)*(y-top)))<7

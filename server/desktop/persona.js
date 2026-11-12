@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, basename, join } from 'node:path';
 import { companionLibrary } from '../companion/library.js';
+import { pngCardMetadata } from '../companion/card-png.js';
 
 export const MAX_CARD_BYTES = 8 * 1024 * 1024;
 export const MAX_PERSONA_BODY_BYTES = Math.ceil(MAX_CARD_BYTES / 3) * 4 + 1024;
@@ -37,7 +38,7 @@ function normalize(raw) {
       return { ...structuredClone(entry), content: entry.content, keys: keys(entry.keys ?? entry.key), secondary_keys: keys(entry.secondary_keys ?? entry.keysecondary),
         enabled: entry.enabled !== false && entry.disable !== true, constant: entry.constant === true,
         selective: entry.selective === true,
-        insertion_order: Number.isFinite(Number(entry.insertion_order)) ? Number(entry.insertion_order) : index };
+        insertion_order: Number.isFinite(Number(entry.insertion_order ?? entry.order)) ? Number(entry.insertion_order ?? entry.order) : index };
     }) };
     if (chars > 512000) throw new Error('角色卡世界书过长，请精简到 512000 字以内');
   }
@@ -54,22 +55,7 @@ export function parsePersona(bytes) {
       throw error;
     }
   }
-  const metadata = new Map();
-  let end = false;
-  for (let offset = 8; offset + 12 <= bytes.length;) {
-    const size = bytes.readUInt32BE(offset);
-    if (size > bytes.length - offset - 12) throw new Error('PNG 文件不完整');
-    const kind = bytes.toString('ascii', offset + 4, offset + 8);
-    if (kind === 'tEXt') {
-      const data = bytes.subarray(offset + 8, offset + 8 + size);
-      const zero = data.indexOf(0);
-      const key = data.subarray(0, zero).toString('ascii').toLowerCase();
-      if (zero > 0 && ['chara', 'ccv3'].includes(key)) metadata.set(key, data.subarray(zero + 1).toString('ascii'));
-    }
-    offset += size + 12;
-    if (kind === 'IEND') { end = true; break; }
-  }
-  if (!end) throw new Error('PNG 文件不完整');
+  const metadata = pngCardMetadata(bytes);
   const encoded = metadata.get('ccv3') || metadata.get('chara');
   if (!encoded) throw new Error('PNG 内没有 SillyTavern 角色卡数据');
   if (!/^[A-Za-z0-9+/]+={0,2}$/u.test(encoded)) throw new Error('PNG 角色卡编码无效');

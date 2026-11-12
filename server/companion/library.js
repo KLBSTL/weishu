@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fingerprint, compileCard, activateLore, automaticSpeaker } from './materials.js';
 import { CompanionStore } from './store.js';
+import { resolvePromptSettings } from './prompts.js';
+import { compileKnowledge } from './knowledge.js';
 
 const libraries = new Map();
 const copy = value => structuredClone(value);
@@ -16,6 +18,7 @@ function identities(data) {
     actor.identities ||= {};
     const key = identityKey(actor);
     actor.characterId = actor.identities[key] ||= 'character-' + fingerprint([actor.id, key]).slice(0, 24);
+    if (actor.ruleProfiles?.[actor.characterId]) actor.ruleProfile = actor.ruleProfiles[actor.characterId];
   }
   for (const event of data.events || []) {
     event.at ??= 0;
@@ -89,6 +92,7 @@ export class CompanionLibrary {
     for (const key of ['name', 'description', 'personality', 'scenario', 'mes_example']) if (typeof overrides[key] === 'string'
       && !(key === 'name' && ['explicit', 'auto'].includes(actor.speakerMode))) raw[key] = overrides[key];
     raw.extensions = { ...raw.extensions, ark_companion: { ...raw.extensions?.ark_companion } };
+    raw.extensions.ark_companion.ruleProfile = actor.ruleProfile || 'legacy';
     if (compileCard(asset.card).sceneCard) raw.extensions.ark_companion.sceneCard = true;
     if (actor.speaker?.name) raw.extensions.ark_companion.speaker = copy(actor.speaker);
     else if (!['explicit', 'auto'].includes(actor.speakerMode) && (overrides.name && overrides.name !== (asset.card.data || asset.card).name || actor.name !== (asset.card.data || asset.card).name)) {
@@ -99,7 +103,12 @@ export class CompanionLibrary {
     }
     if (actor.embeddedBook) raw.character_book = copy(actor.embeddedBook);
     const bound = data.assets.filter(a => a.kind === 'lorebook' && actor.bookIds.includes(a.id));
-    if (bound.length) raw.character_book = { ...raw.character_book, entries: [...(raw.character_book?.entries || []), ...bound.flatMap(a => (a.book.entries || []).map(e => ({ ...e, id: a.id + ':' + e.id })))] };
+    if (raw.character_book) raw.character_book.extensions = { ...raw.character_book.extensions, ark_companion: { ...raw.character_book.extensions?.ark_companion,
+      proactive: actor.bookProactive?.embedded ?? raw.character_book.extensions?.ark_companion?.proactive ?? true } };
+    if (bound.length) raw.character_book = { ...raw.character_book, entries: [...(raw.character_book?.entries || []), ...bound.flatMap(a => (a.book.entries || []).map(e => ({ ...e, id: a.id + ':' + e.id,
+      extensions: { ...e.extensions, ark_companion: { ...e.extensions?.ark_companion,
+        bookProactive: actor.bookProactive?.[a.id] ?? a.book.extensions?.ark_companion?.proactive ?? true,
+        bookRecursive: a.book.recursive_scanning !== false, bookScanDepth: a.book.scan_depth } } }))) ] };
     return raw;
   }
   visibleHistory(actorId, roomId = directRoom(actorId), data = this.snapshot()) {
@@ -114,6 +123,7 @@ export class CompanionLibrary {
   inspect(pet, question = '', byId = false) {
     const data = this.snapshot(), actor = this.actor(pet, data, byId), card = this.card(pet, data, byId), compiled = compileCard(card);
     return { actor, revision: data.revision, needsSpeaker: compiled.needsSpeaker, speaker: compiled.speaker, candidates: compiled.candidates || [], units: compiled.units,
+      factIndex: compileKnowledge(card).index,
       idleEligible: compiled.units.filter(u => u.kind === 'background' && u.facet !== 'appearance' && ['self', 'world'].includes(u.ownership) && !['first_mes', 'mes_example', 'personality'].includes(u.title)),
       diagnostics: [...compiled.diagnostics, ...activateLore(compiled, question).diagnostics] };
   }
@@ -124,7 +134,9 @@ export class CompanionLibrary {
         originalBytes: originalBytes?.toString('base64'), sourceFormat: originalBytes?.[0] === 137 ? 'png' : 'json', sourceComplete: !!originalBytes });
       let actor = data.actors.find(a => a.id === (data.bindings[pet] || pet));
       if (!actor) { actor = { id: randomUUID(), bookIds: [], overrides: {} }; data.actors.push(actor); }
-      const previousSpeaker = (actor.assetId === id || updateExisting) ? actor.speaker : null;
+      const same = actor.assetId === id || updateExisting, previousSpeaker = same ? actor.speaker : null;
+      if (actor.characterId) (actor.ruleProfiles ||= {})[actor.characterId] = actor.ruleProfile || 'legacy';
+      if (!same || !actor.assetId) actor.ruleProfile = 'enhanced';
       const parsed = compileCard(card), candidate = parsed.candidates?.find(c => c.name === previousSpeaker?.name);
       Object.assign(actor, { assetId: id, name: card.name || card.data?.name, overrides: {},
         speaker: parsed.sceneCard ? candidate ? { ...previousSpeaker, description: candidate.description } : automaticSpeaker(card, { random: Math.random }) : null,
@@ -139,6 +151,7 @@ export class CompanionLibrary {
       if (event.id && data.events.some(e => e.id === event.id)) return { duplicate: true };
       const actor = this.actor(actorId, data, true);
       if (event.expectedCardId !== undefined && actor.assetId !== event.expectedCardId
+        || event.expectedPromptRevision !== undefined && event.expectedPromptRevision !== resolvePromptSettings(data, actor, roomId).revision
         || event.expectedRevision !== undefined && data.revision !== event.expectedRevision
         || event.expectedContextEpoch !== undefined && this.contextEpoch(actorId, data) !== event.expectedContextEpoch) throw error('本次人物或对话已经变化', 409);
       const row = { ...copy(event), id: event.id || randomUUID(), actorId, characterId: actor.characterId, cardId: actor.assetId, speakerKey: actorSpeakerKey(actor),
@@ -154,9 +167,10 @@ export class CompanionLibrary {
   async acknowledgeChat(pet, id) {
     return this.update(undefined, data => {
       const actor = this.actor(pet, data), event = data.events.find(e => e.id === id && e.actorId === actor.id && e.cardId === actor.assetId && (e.speakerKey || 'default') === actorSpeakerKey(actor) && e.roomId === directRoom(actor.id));
-      if (!event || event.type !== 'assistant' || event.sourceKind !== 'chat') return { ok: false };
+      if (!event || event.type !== 'assistant' || !['chat','local-recovery'].includes(event.sourceKind)) return { ok: false };
       if (event.deliveryState === 'displayed') return { ok: true, duplicate: true };
-      if (event.deliveryState !== 'generated' || event.expectedRevision !== data.revision || event.expectedContextEpoch !== this.contextEpoch(actor.id, data) || Date.now() - event.at > 180000) return { ok: false };
+      if (event.deliveryState !== 'generated' || event.expectedRevision !== data.revision || event.expectedContextEpoch !== this.contextEpoch(actor.id, data)
+        || event.expectedPromptRevision !== undefined && event.expectedPromptRevision !== resolvePromptSettings(data, actor).revision || Date.now() - event.at > 180000) return { ok: false };
       event.deliveryState = 'displayed'; event.displayedAt = Date.now(); return { ok: true };
     }, { configuration: false }).then(result => result.result);
   }
@@ -164,6 +178,11 @@ export class CompanionLibrary {
     await this.ready(); const actor = this.actor(pet, this.snapshot(), byId);
     const room = roomId || directRoom(actor.id); this.visibleHistory(actor.id, room);
     return this.store.call('recall', { characterId: actor.characterId, roomId: room, query, limit: Math.min(80, Math.max(1, limit)) });
+  }
+  async lastDisplayed(pet = 'main', roomId) {
+    await this.ready(); const actor = this.actor(pet), room = roomId || directRoom(actor.id);
+    this.visibleHistory(actor.id, room);
+    return this.store.call('last-displayed', { characterId: actor.characterId, actorId: actor.id, roomId: room });
   }
   async editMemory(pet, id, { text, removeMessage = false, byId = false } = {}) {
     await this.ready(); const actor = this.actor(pet, this.snapshot(), byId);
@@ -179,7 +198,11 @@ export class CompanionLibrary {
     });
     this.queue = pending.catch(() => {}); return pending;
   }
-  async stage(pet, packets) { await this.ready(); const actor = this.actor(pet); return this.store.call('stage', { characterId: actor.characterId, packets }); }
+  async stage(pet, packets, { revalidate = false } = {}) {
+    await this.ready(); const actor = this.actor(pet);
+    if (packets.some(p => p.plan?.characterId !== undefined && p.plan.characterId !== actor.characterId)) throw error('人物已切换，旧草稿已取消',409);
+    return this.store.call('stage', { characterId: actor.characterId, packets, revalidate });
+  }
   async exportLegacy() { await this.ready(); return this.store.call('export', {}); }
 }
 

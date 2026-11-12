@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>角色面板</title><link rel="stylesheet" href="library-style.css"><link rel="stylesheet" href="library-shell.css"><script src="library-client.js" defer></script><script src="library-pagination.js" defer></script><script src="library-panel.js" defer></script><script src="library-shell.js" defer></script></head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>角色面板</title><link rel="stylesheet" href="library-style.css"><link rel="stylesheet" href="library-shell.css"><script src="library-client.js" defer></script><script src="library-motion.js" defer></script><script src="library-pagination.js" defer></script><script src="library-panel.js" defer></script><script src="library-shell.js" defer></script></head>
 <body>
 <header id="panelHeader"><nav id="mainNav" aria-label="主导航"></nav><div class="window-tools"><button id="reload" title="刷新" aria-label="刷新">↻</button><button id="toggleRole" title="角色扮演" aria-label="角色扮演">◇</button><button id="collapsePanel" title="收起" aria-label="收起">⌃</button><button id="closePanel" title="关闭" aria-label="关闭">×</button></div></header>
 <div id="notice" role="status" aria-live="polite"></div>
@@ -31,4 +31,5 @@
 </main>
 <dialog id="createActorDialog"><label>人物名称<input id="actorName" maxlength="80"></label><div class="actions"><button id="createActorConfirm" class="primary">创建</button><button id="createActorCancel">取消</button></div></dialog>
 <div id="resizeEdges" aria-hidden="true"></div>
+<script src="library-rounds.js" defer></script><script src="library-prompts.js" defer></script>
 </body></html>

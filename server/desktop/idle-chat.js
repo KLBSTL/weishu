@@ -1,6 +1,7 @@
 import { readFileSync, statSync, readdirSync, writeFileSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { assistantDataDir, withConversationScope } from './conversation.js';
+import { assistantDataDir, withConversationScope, recordGenerationOutcome, conversationMetrics } from './conversation.js';
+import { markPhase } from '../companion/plan.js';
 import { readChatOptions } from './chat-preferences.js';
 import { chatOptionsPrompt, replyResult } from '../match/replyStyle.js';
 import { readSelectedPersona } from './persona.js';
@@ -11,10 +12,19 @@ import { compileCard, characterContext, hasInventedUserHistory } from '../compan
 import { petProfile } from '../companion/profile.js';
 import { companionLibrary, directRoom } from '../companion/library.js';
 import { batchPrompt, parseSpeechBatch, batchGroundingProblem } from '../companion/batches.js';
+import { batchExpiresAt } from '../companion/batch-policy.js';
 import { IdleCache } from './idle-cache.js';
 import { conversationEngine } from '../companion/engine.js';
 import { generationJob, runGenerationJob } from '../companion/broker.js';
-import { utteranceKey, StoryPlanner } from '../companion/knowledge.js';
+import { utteranceKey, StoryPlanner, materialType, knowledgeProblem } from '../companion/knowledge.js';
+import { speechProblem } from '../companion/speech.js';
+import { buildPrompt } from '../companion/prompts.js';
+import { expressionGuidance } from '../companion/expression.js';
+import { factText, reconcileFactProgress } from '../companion/fact-index.js';
+import { isFollowUp, displayAnchor, followUpPrompt } from '../companion/follow-up.js';
+import { sessionProjection, sessionPrompt } from '../companion/session-context.js';
+import { speechLength } from '../companion/sentence-parts.js';
+import { bufferCoverage, refillThreshold } from '../companion/buffer-policy.js';
 let batchGenerating = null;
 
 const personaVersion = () => { try { const s = statSync(join(assistantDataDir(), 'stronghold-persona.json')); return s.mtimeMs + ':' + s.size; } catch { return ''; } };
@@ -29,12 +39,14 @@ export function chooseIdleStyle(random = Math.random, manual = false) {
 export function extractStorySeeds(card) {
   const compiled = compileCard(card);
   const rows = compiled.units.filter(row => row.kind === 'background' && ['self', 'world'].includes(row.ownership)
-    && row.facet !== 'appearance' && !['mes_example', 'first_mes', 'personality'].includes(row.title));
+    && row.proactive !== false && row.facet !== 'appearance' && !['attribute', 'program', 'voice'].includes(materialType(row.text, row.title)) && !['mes_example', 'first_mes', 'personality'].includes(row.title));
   const narrative = rows.filter(row => !(row.path === '/description' && row.start === 0 && row.text.length < 160
     && !/小时候|曾经|那年|学生|有一次|有一年|过去|第一次/u.test(row.text)));
+  const seen = new Set();
   return (narrative.length ? narrative : rows).flatMap(row => {
     const text = row.text.replaceAll('{{char}}', compiled.speaker?.name || '当前人物').replaceAll('{{user}}', '你');
-    return row.facet === 'personality' ? ['对此习惯的感受', '眼下一个小想法', '明确是假想的小计划'].map(angle => '【性格/习惯，不是过去事件；角度：' + angle + '】' + text) : [text];
+    const key = factText(text, compiled.speaker?.name); if (seen.has(key)) return []; seen.add(key);
+    return [text];
   });
 }
 function readRecent(pet = 'main') {
@@ -54,18 +66,19 @@ function readRecent(pet = 'main') {
   return [];
 }
 export function displayedStoryEvidence(card, history = []) {
-  const shown = history.findLast(event => event.type === 'assistant' && event.sourceKind === 'idle' && event.deliveryState === 'displayed');
-  const selected = shown?.sourceEvidence || (shown && new StoryPlanner().catalog(card, storyCatalog(extractStorySeeds(card))).find(row => row.topic === shown.topicId || row.legacyTopic === shown.topicId));
+  const shown = history.filter(event => event.type === 'assistant' && event.deliveryState === 'displayed' && !event.deleted)
+    .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0) || (a.displayedAt || a.at || 0) - (b.displayedAt || b.at || 0)).at(-1);
+  const selected = shown?.sourceEvidence || (shown && new StoryPlanner().catalog(card, storyCatalog(extractStorySeeds(card))).find(row => row.topic === shown.topicId || row.topicAliases?.includes(shown.topicId)));
   return selected ? '\n【刚才主动话题的原始证据，仅用于承接】\n' + selected.text
     + '\n保持原文的时间与完成状态：过去经历不能改成现在尚未完成的计划；已展示台词中的扩写不是新增正史。只据玩家真正的问题续说，不虚构后续事件。' : '';
 }
 export function recentIdleContext(pet = 'main', question = '') {
+  if (!isFollowUp(question)) return '';
   const profile = petProfile(pet);
-  const forgotten = profile.library?.snapshot().forgottenTextHashesByCharacter?.[profile.characterId] || [];
-  const lines = readRecent(pet).filter(text => !forgotten.includes(utteranceKey(text))).slice(-6);
-  const evidence = /刚才|继续|接着|后来|那件事|那个故事/u.test(question)
-    ? displayedStoryEvidence(profile.card, profile.library?.visibleHistory(profile.actorId)) : '';
-  return (lines.length ? '\n【最近自己主动说过的话，不是玩家发言】\n' + lines.join('\n') : '') + evidence;
+  const history = profile.library?.visibleHistory(profile.actorId) || [];
+  const shown = history.filter(event => event.type === 'assistant' && event.deliveryState === 'displayed')
+    .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0) || (a.displayedAt || a.at || 0) - (b.displayedAt || b.at || 0)).at(-1);
+  return '\n' + followUpPrompt(displayAnchor(shown)) + displayedStoryEvidence(profile.card, history);
 }
 
 /** Renderer idle time is checked again here: multiple surfaces cannot trigger duplicate requests. */
@@ -74,9 +87,27 @@ export class IdleChat {
     Object.assign(this, { now, options, stamp, read, save, random, stories, cache });
     this.lastActivity = now(); this.lastManual = -Infinity; this.pending = null;
     this.ready = null; this.nextReady = null; this.localReady = null; this.retryAt = 0; this.prefetching = false;
+    this.replenishments = []; this.bufferReason = 'cold';
   }
   stop() { this.pending?.abort(); }
   activity() { this.lastActivity = this.now(); this.ready = null; this.nextReady = null; this.localReady = null; this.stop(); }
+  restore(input, packets) {
+    if (this.ready || this.pending || !input.storyBatch) return;
+    const local = packets.find(p => ['local', 'model-cache'].includes(p.origin) && p.plan?.memoryEpoch === input.cacheEpoch
+      && p.plan.cardRevision === input.plan?.cardRevision && p.plan.promptRevision === input.plan?.promptRevision && p.plan.characterId === input.plan?.characterId && p.expires > this.now());
+    if (local) { this.localReady = { ...local, stamp: this.stamp(), input }; return; }
+    const row = packets.find(p => p.batch && p.selected && p.plan?.memoryEpoch === input.cacheEpoch && p.plan.cardRevision === input.plan?.cardRevision
+      && p.plan.promptRevision === input.plan?.promptRevision && p.plan.characterId === input.plan?.characterId && p.expires > this.now());
+    if (!row) return;
+    const card = input.storyCard, catalog = new StoryPlanner().catalog(card, storyCatalog(extractStorySeeds(card)), input.knowledge);
+    const entry = this.stories.entry(input.personaKey, catalog, this.read()); this.stories.reconcile(entry, catalog, input.history);
+    if (input.storyLedger) Object.assign(entry, structuredClone(input.storyLedger));
+    reconcileFactProgress(entry, catalog);
+    const previous = row.batch.segments.slice(0, row.index);
+    if (previous.some(p => !entry.progress?.[row.topicId]?.ids.includes(p.id))) return;
+    this.ready = { id: row.id, index: row.index, text: row.text, deliveryCount: row.deliveryCount, batch: row.batch, selected: row.selected, entry, catalog,
+      stamp: this.stamp(), notBefore: 0, expires: row.expires, onDisplayed: input.onDisplayed, cacheInput: input };
+  }
   warmPacket(input, { manual, prepare }) {
     if (!this.cache || this.ready && this.ready.stamp === this.stamp() && this.ready.expires >= this.now()) return null;
     const options = this.options(), due = this.lastActivity + (options.idleSeconds || 30) * 1000;
@@ -86,22 +117,51 @@ export class IdleChat {
       const row = this.cache.warm(input)[0];
       if (!row) return this.pending || this.prefetching || this.now() < this.retryAt
         ? { prepared: true, retryAfterMs: Math.max(1000, this.retryAt - this.now()) } : null;
-      this.localReady = { ...row, stamp: this.stamp(), input, expires: this.now() + 180000 };
+      this.localReady = { ...row, stamp: this.stamp(), input, expires: Math.min(row.expires ?? Infinity, this.now() + 180000) };
     }
     if (!manual && this.now() < due) return { prepared: true };
     const row = this.localReady;
-    return { text: row.text, deliveryId: row.id, origin: row.origin, segmentIndex: 0, segmentsTotal: 1, cacheHit: true };
+    return { text: row.text, deliveryId: row.id, origin: row.origin, segmentIndex: 0, segmentsTotal: 1, cacheHit: true,
+      topicId: row.topicId, topicFinal: row.topicFinal, angleId: row.angleId, factIds: row.factIds, sourceEvidence: row.sourceEvidence, extensionProposals: row.extensionProposals };
+  }
+  async resume(input, packets) {
+    if (this.ready || this.pending || !input.storyBatch || !input.plan) return false;
+    const stamp = this.stamp(), plan = input.plan;
+    const row = packets.find(p => p.batch && p.selected && p.plan?.memoryEpoch !== input.cacheEpoch && p.expires > this.now()
+      && ['characterId','actorId','roomId','cardRevision','promptRevision','memoryRevision','historyEpoch','knowledgeRevision','styleRevision']
+        .every(key => plan[key] !== undefined && p.plan?.[key] === plan[key]));
+    if (!row) return false;
+    const heard = input.storyLedger?.progress?.[row.topicId]?.ids || [];
+    if (row.batch.segments.slice(0, row.index).some(p => !heard.includes(p.id))) return false;
+    const remaining = row.batch.segments.slice(row.index), compiled = compileCard(input.storyCard);
+    if (!remaining.length || remaining.some(p => speechProblem(p.text, compiled.speaker?.name) || knowledgeProblem(p.text, input.storyCard)
+      || hasInventedUserHistory(p.text, input.history || []) || input.heardTextHashes?.some(key => key === utteranceKey(p.text) || key === utteranceKey(p.text).slice(0,24)))) return false;
+    if (row.batch.grounded && (!row.selected.factIds?.length || row.selected.factIds.some(id => !input.knowledge?.facts.some(f => f.factId === id && f.status === 'active' && f.proactive !== false)))) return false;
+    const focus = input.prepareFocus ? await input.prepareFocus(row.selected) : { allowed: false };
+    if (!focus.allowed || stamp !== this.stamp()) return false;
+    const refreshed = remaining.map(part => ({ ...part, batch: row.batch, selected: row.selected, topicId: row.topicId,
+      plan, expires: row.expires, revalidated: true, loreProposal: focus.lore?.proposed }));
+    await input.onPrepared?.(refreshed);
+    if (stamp !== this.stamp()) return false;
+    this.restore(input, refreshed);
+    if (this.ready) this.ready.notBefore = this.lastActivity + (this.options().idleSeconds || 30) * 1000;
+    return !!this.ready;
   }
   async prefetch(getInput, generate) {
     if (this.ready && (this.ready.stamp !== this.stamp() || this.ready.expires < this.now())) this.ready = null;
-    const refill = !!this.ready?.batch && this.ready.index === this.ready.batch.segments.length - 1;
+    if (this.nextReady && (this.nextReady.stamp !== this.stamp() || this.nextReady.expires < this.now())) this.nextReady = null;
+    const coverage = this.inventory();
+    const refill = !!this.ready?.batch && coverage.coverageMs <= coverage.refillThresholdMs;
     if (this.pending || this.prefetching || this.nextReady || this.ready && !refill || this.now() < this.retryAt) return;
     this.prefetching = true;
     try {
       const input = await getInput(); if (!input || !refill && this.cache?.warm(input).some(row => row.origin === 'model-cache')) return;
       const out = await this.run(async () => input, generate, undefined, { prepare: true, prefetch: true, refill });
-      if (out.error || out.reason === 'busy') this.retryAt = this.now() + (out.failure?.kind === 'rate' ? 30000 : 15000);
-    } catch { this.retryAt = this.now() + 15000; }
+      if (out.error || out.reason === 'busy') {
+        this.bufferReason = out.failure?.kind || 'busy';
+        this.retryAt = this.now() + Math.max(out.failure?.retryAfterMs || 0, out.failure?.kind === 'rate' ? 30000 : 15000);
+      }
+    } catch { this.bufferReason = 'refill-failed'; this.retryAt = this.now() + 15000; }
     finally { this.prefetching = false; }
   }
   acknowledge(id) {
@@ -124,25 +184,48 @@ export class IdleChat {
     try { this.save(ready.entry.recent.map(row => row.text)); } catch { /* history remains in durable story memory */ }
     this.ready = null; this.lastActivity = this.now(); return { ok: true };
   }
-  packet(ready, cacheHit = true) {
-    return { text: ready.text, deliveryId: ready.id, batchId: ready.batch.id, segmentIndex: ready.index,
-      segmentsTotal: ready.batch.segments.length, sourceId: ready.selected.id, grounded: ready.batch.grounded, target: ready.batch.segments[ready.index].target, cacheHit };
+  async packet(ready, cacheHit = true, manual = false) {
+    let count = ready.deliveryCount || 1;
+    if (!ready.deliveryCount && manual) {
+      let length = speechLength(ready.batch.segments[ready.index].text);
+      while (length < 60 && ready.index + count < ready.batch.segments.length) {
+        const extra = speechLength(ready.batch.segments[ready.index + count].text);
+        if (length + extra > 120) break;
+        length += extra; count++;
+      }
+    }
+    const parts = ready.batch.segments.slice(ready.index, ready.index + count), text = parts.map(p => p.text).join('');
+    if (!ready.deliveryCount) {
+      ready.deliveryCount = count;
+      if (count > 1) await ready.cacheInput?.onPrepared?.([{ ...parts[0], text, deliveryCount: count, consumedIds: parts.map(p => p.id),
+        sourceRange: parts[0].sourceRange && { start: parts[0].sourceRange.start, end: parts.at(-1).sourceRange.end },
+        taskId: ready.batch.taskId, batch: ready.batch, selected: ready.selected, topicId: ready.selected.topic,
+        plan: ready.cacheInput.plan, expires: ready.expires, revalidated: true }]);
+    }
+    return { text, taskId: ready.batch.taskId, deliveryId: ready.id, batchId: ready.batch.id, segmentIndex: ready.index, consumedIds: parts.map(p => p.id),
+      generationKind: ready.batch.generationKind || (ready.batch.grounded ? 'background-story' : 'creative-idle'),
+      deliveryTrigger: manual ? 'manual-click' : 'automatic-timer', requestedAction: 'continue',
+      segmentsTotal: ready.batch.segments.length, sourceId: ready.selected.id, grounded: ready.batch.grounded, target: parts[0].target, cacheHit };
   }
   async commitBatch(ready) {
     if (ready.committing) return { ok: false };
     ready.committing = true;
     try {
-      const final = ready.index + 1 === ready.batch.segments.length;
-      const part = ready.batch.segments[ready.index];
-      await ready.onDisplayed?.({ id: ready.id, text: ready.text, topicId: ready.selected.topic, topicFinal: final && !ready.batch.incomplete, batchId: ready.batch.id, segmentIndex: ready.index,
-        angleId: part.angleId, extensionProposals: part.extensionProposals, factIds: part.factIds, sourceEvidence: { text: ready.selected.text, timeState: ready.selected.timeState, eventId: ready.selected.eventId } });
-      if (ready.cacheInput) this.cache?.consume(ready.cacheInput, ready.id, ready.text);
-      this.stories.recordPart(ready.entry, ready.selected, ready.text, { id: ready.id, final: final && !ready.batch.incomplete });
+      const count = ready.deliveryCount || 1, parts = ready.batch.segments.slice(ready.index, ready.index + count), part = parts[0];
+      const final = ready.index + count === ready.batch.segments.length, text = parts.map(p => p.text).join('');
+      await ready.onDisplayed?.({ id: ready.id, text, consumedIds: parts.map(p => p.id), topicId: ready.selected.topic, topicFinal: final && !ready.batch.incomplete, batchId: ready.batch.id, segmentIndex: ready.index,
+        informationPoints: parts.flatMap(p => p.informationPoints || []), angleId: part.angleId,
+        extensionProposals: parts.flatMap(p => p.extensionProposals || []), factIds: [...new Set(parts.flatMap(p => p.factIds || []))],
+        sourceEvidence: { text: ready.selected.text, timeState: ready.selected.timeState, eventId: ready.selected.eventId } });
+      if (ready.cacheInput) for (const p of parts) this.cache?.consume(ready.cacheInput, p.id, p.text);
+      this.stories.recordPart(ready.entry, ready.selected, text, { id: ready.id, final: final && !ready.batch.incomplete, informationPoints: parts.flatMap(p => p.informationPoints || []) });
+      const progress = ready.entry.progress?.[ready.selected.topic];
+      if (progress) progress.ids = [...new Set([...progress.ids, ...parts.map(p => p.id)])];
       try { this.save(ready.entry.recent.map(row => row.text)); } catch { /* Durable timeline is authoritative. */ }
       if (this.ready === ready) {
         this.lastActivity = this.now();
-        const next = ready.batch.segments[ready.index + 1];
-        this.ready = !final && ready.stamp === this.stamp() ? { ...ready, committing: false, index: next.index, id: next.id, text: next.text,
+        const next = ready.batch.segments[ready.index + count];
+        this.ready = !final && ready.stamp === this.stamp() ? { ...ready, deliveryCount: undefined, committing: false, index: next.index, id: next.id, text: next.text,
           notBefore: this.now() + (this.options().idleSeconds || 30) * 1000 } : this.nextReady && this.nextReady.stamp === this.stamp() && this.nextReady.expires >= this.now()
           ? { ...this.nextReady, notBefore: this.now() + (this.options().idleSeconds || 30) * 1000 } : null;
         if (final) this.nextReady = null;
@@ -154,7 +237,8 @@ export class IdleChat {
     if (batchGenerating && batchGenerating !== controller) return { skipped: true, reason: 'busy' };
     batchGenerating = controller;
     const { entry, catalog, style, card, stamp, notBefore, prepare } = config;
-    const started = new Set(Object.entries(entry.progress || {}).filter(([, progress]) => progress.heard.length).map(([topic]) => topic));
+    const started = new Set(Object.entries(entry.progress || {}).filter(([, progress]) => progress.completed).map(([topic]) => topic));
+    if (config.refill && this.ready?.selected?.topic) started.add(this.ready.selected.topic);
     const dialogue = (input.history || []).filter(m => m.role === 'assistant' && m.source?.kind !== 'idle').slice(-8);
     for (const row of catalog) if (dialogue.some(m => storySimilarity(m.content, row.text) >= .55)) started.add(row.topic);
     const excluded = new Set(started);
@@ -162,52 +246,82 @@ export class IdleChat {
     const nextTopic = () => {
       let candidate = this.stories.select(entry, catalog, grounded, excluded);
       if (!candidate && grounded) { grounded = false; candidate = this.stories.select(entry, catalog, false, excluded); }
-      return candidate;
+      return candidate && { ...candidate, remainingPoints: (candidate.factPoints || []).filter(point => !entry.coverage?.[point.id]) };
     };
     let selected = nextTopic();
     if (!selected) { batchGenerating = null; return { skipped: true, reason: 'stories-exhausted' }; }
-    const targets = Array.from({ length: 3 }, () => {
-      const pick = chooseIdleStyle(this.random, controller.manual);
-      return { minChars: pick.minChars === 1 ? 20 : pick.minChars, maxChars: pick.maxChars };
-    });
+    const targets = [{ preferredMinChars: controller.manual ? 60 : 70, preferredMaxChars: 100 }];
     const policy = { ...this.options(), mode: 'unlimited' }, compiled = compileCard(card);
-    const context = () => (card ? characterContext(card, '', { purpose: 'idle', userName: input.playerPersona?.name }) : input.system)
-      + (input.speakerStyle ? '\n【表达风格】' + input.speakerStyle : '')
-      + (input.playerPersona?.description ? '\n【玩家虚构身份，不是玩家已经说过的话】' + input.playerPersona.description : '')
-      + batchPrompt(selected, targets, { grounded, heard: entry.progress?.[selected.topic]?.heard || [], previous: entry.recent.map(r => r.text) });
+    const context = () => {
+      const heard = entry.progress?.[selected.topic]?.heard || [];
+      const built = buildPrompt(input.profile || { card, userPersona: input.playerPersona, preset: { style: input.speakerStyle } }, {
+        kind: heard.length ? 'continue' : grounded ? 'background' : 'smalltalk', memories: input.memories || [], selected, heard, now: input.plan?.createdAt,
+        task: batchPrompt(selected, targets, { grounded, heard, contracts: false }) + expressionGuidance(entry.recent, selected.anchors)
+          + sessionPrompt(input.sessionProjection, [this.ready, this.nextReady].filter(r => r?.selected && r.expires > this.now()).map(r => ({ topicId: r.selected.topic, factIds: r.selected.factIds, eventId: r.selected.eventId }))) });
+      input.examples = built.examples;
+      if (input.plan) input.plan.promptBlocks = built.blocks.map(({ content: _content, ...b }) => b);
+      return built.system;
+    };
+    let validationMono;
     const accept = async batch => {
-      const grounding = batchGroundingProblem(batch, selected, catalog);
-      if (grounding) throw new Error('batch-' + grounding);
+      batch.taskId = generationJob()?.id;
+      if (input.plan) Object.assign(input.plan, { generationKind: batch.generationKind, deliveryTrigger: controller.manual ? 'manual-click' : 'automatic-timer', requestedAction: 'continue' });
       const continuing = !!entry.progress?.[selected.topic]?.heard?.length;
       const compared = continuing ? { ...entry, recent: entry.recent.filter(r => r.topic !== selected.topic) } : entry;
-      if (this.stories.repeated(batch.segments[0].text, compared, catalog, selected)) throw new Error('batch-repeat');
+      const heard = new Set(entry.recent.map(row => utteranceKey(row.text)));
+      const repeated = batch.segments.findIndex(part => heard.has(utteranceKey(part.text)) || this.stories.repeated(part.text, compared, catalog, selected));
+      if (repeated === 0) throw new Error('batch-repeat');
+      // Keep only a continuous prefix; a later repeated line must not bypass the
+      // check just because the opening was new, nor discard earlier valid speech.
+      if (repeated > 0) batch = { ...batch, segments: batch.segments.slice(0, repeated), incomplete: true };
+      const grounding = batchGroundingProblem(batch, selected, catalog);
+      if (grounding) throw new Error('batch-' + grounding);
+      markPhase(input.plan, 'validationReady'); markPhase(input.plan, 'ready');
+      if (input.plan && validationMono) input.plan.validationMs = (input.plan.validationMs || 0) + performance.now() - validationMono;
       const ready = { batch, index: 0, id: batch.segments[0].id, text: batch.segments[0].text, stamp,
-        notBefore: prepare ? notBefore : 0, expires: this.now() + 180000, entry, catalog, selected, style, onDisplayed: input.onDisplayed, cacheInput: input };
+        notBefore: prepare ? notBefore : 0, expires: batchExpiresAt(this.now(), batch.segments.length), entry, catalog, selected, style, onDisplayed: input.onDisplayed, cacheInput: input };
       if (config.refill && this.ready) this.nextReady = ready; else this.ready = ready;
       this.cache?.remember(input, batch, selected);
-      await input.onPrepared?.(batch.segments.map(part => ({ ...part, taskId: generationJob()?.id, topicId: selected.topic })));
-      return config.refill || !controller.manual && ready.notBefore > this.now() ? { prepared: true } : this.packet(ready, false);
+      await input.onPrepared?.(batch.segments.map(part => ({ ...part, taskId: generationJob()?.id, topicId: selected.topic,
+        batch, selected, plan: input.plan, expires: ready.expires, loreProposal: input.lore?.proposed })));
+      await recordGenerationOutcome(input.plan, 'validated', 'ready', { segments: batch.segments.length, underTarget: batch.underTarget === true });
+      const measured = conversationMetrics().find(row => row.taskId === batch.taskId);
+      const serviceMs = measured?.httpAttempts?.findLast(a => a.status === 'completed')?.completeMs;
+      this.replenishments.push({ totalMs: Math.max(0, this.now() - controller.started), serviceMs });
+      this.replenishments = this.replenishments.slice(-24); this.bufferReason = 'ready';
+      return config.refill || !controller.manual && ready.notBefore > this.now() ? { prepared: true } : this.packet(ready, false, controller.manual);
     };
     let correction = '', lastError;
     try {
       for (let attempt = 0; attempt < (controller.manual ? 3 : 2); attempt++) {
         if (controller.signal.aborted || stamp !== this.stamp()) return { skipped: true, reason: 'interrupted' };
+        if (input.prepareFocus) {
+          let focus;
+          for (let checked = 0; selected && checked < 9; checked++) {
+            focus = await input.prepareFocus(selected); if (focus.allowed) break;
+            excluded.add(selected.topic); if (checked === 7) grounded = false; selected = nextTopic();
+          }
+          if (!selected || !focus?.allowed) return { skipped: true, reason: 'stories-exhausted' };
+          input.lore = focus.lore;
+        }
+        if (input.plan) Object.assign(input.plan, { eventId: selected.eventId, sourceRefs: (input.knowledge?.facts || []).filter(f => selected.factIds?.includes(f.factId)).map(f => f.sourceRef),
+          angleIds: (selected.angles || []).map(a => a.id), targets });
         const references = (input.history || []).filter(m => m.role === 'user').slice(-2).map(m => m.content).join('\n').slice(-400);
         const result = await withConversationScope(() => generate({ ...input, history: [], pool: [], actions: [],
           system: context() + (references ? '\n【已完成的真实玩家提问，仅供了解玩家，不能当成当前待答问题】\n' + references : '') + correction,
           userText: '请直接返回这组连贯口语的JSON。' }), { proactive: true, batch: true, manual: controller.manual, petId: input.companionPetId || 'main',
-          signal: controller.signal, chatOptions: policy, onProgress: info => Object.assign(controller, info) });
+          signal: controller.signal, chatOptions: policy, plan: input.plan, contextChars: context().length, loreBlocks: input.lore?.blocks, examples: input.examples, onProgress: info => Object.assign(controller, info) });
         if (!result.ok) { const info = result.failure || classifyAiFailure({ message: result.message }); return { error: normalizeAiFailure({ status: info.status, code: info.code }).message, failure: info }; }
         if (controller.signal.aborted || stamp !== this.stamp()) return { skipped: true, reason: 'interrupted' };
+        markPhase(input.plan, 'validationStarted');
+        validationMono = performance.now();
         try {
-          return await accept(parseSpeechBatch(result.text, { selected, targets, grounded, name: compiled.speaker?.name, history: input.history, card }));
+          return await accept(parseSpeechBatch(result.text, { selected, targets, grounded, manual: controller.manual, name: compiled.speaker?.name, history: input.history, card }));
         } catch (e) {
           let problem = e.message;
-          if (e.prefix?.length) {
-            try { return await accept({ id: e.batchId, topicId: selected.topic, grounded, segments: e.prefix, incomplete: true }); } catch (prefixError) { problem = prefixError.message; }
-          }
+          await recordGenerationOutcome(input.plan, 'validation-rejected', 'rejected', { reason: problem.split(':')[0] });
           lastError = problem;
-          if (/batch-repeat|wrong-source/u.test(lastError)) {
+          if (/batch-repeat|batch-covered|wrong-source/u.test(lastError)) {
             this.stories.reject(entry, selected); excluded.add(selected.topic);
             const alternative = nextTopic();
             if (!alternative) return { skipped: true, reason: 'duplicate', recoveryExhausted: true };
@@ -215,23 +329,29 @@ export class IdleChat {
             correction = '\n【已自动更换话题】上一话题重复或不匹配，已跳过。只围绕本次新素材生成，不再重写旧话题。';
             continue;
           }
-          correction = '\n【本地校验要求重写本批次】问题代码：' + lastError + '。严格检查每段目标字数和证据id，改成直接口语，不复述已讲内容；重新返回完整JSON。';
+          correction = '\n【本地校验要求重写本批次】问题代码：' + lastError + '。检查各段接收边界和完整句末，偏好字数不必凑齐；改成直接口语，不复述已讲内容，不输出证据id；重新返回完整JSON。';
         }
       }
-      if (/batch-repeat|wrong-source/u.test(lastError || '')) return { skipped: true, reason: 'duplicate', recoveryExhausted: true };
+      if (/batch-repeat|batch-covered|wrong-source/u.test(lastError || '')) return { skipped: true, reason: 'duplicate', recoveryExhausted: true };
       return { error: '这组话没有通过口语、字数或重复检查，请稍后再试。', failure: { kind: 'speech', code: lastError } };
     } finally { if (batchGenerating === controller) batchGenerating = null; }
+  }
+  inventory() {
+    const now = this.now(), stamp = this.stamp();
+    return { ...bufferCoverage([this.ready, this.nextReady].filter(r => r?.stamp === stamp && r.expires > now), now, (this.options().idleSeconds || 30) * 1000),
+      refillThresholdMs: refillThreshold(this.replenishments, this.retryAt - now), retryAfterMs: Math.max(0, this.retryAt - now),
+      samples: this.replenishments.length, reason: this.bufferReason };
   }
   status() {
     const request = this.pending;
     return request ? { pending: true, manual: request.manual, elapsedMs: Math.max(0, this.now() - request.started),
-      stage: request.stage || 'generating', attempt: request.attempt, attempts: request.attempts } : { pending: false };
+      stage: request.stage || 'generating', attempt: request.attempt, attempts: request.attempts, buffer: this.inventory() } : { pending: false, buffer: this.inventory() };
   }
   async run(getInput, generate, signal, { manual = false, prepare = false, prefetch = false, refill = false } = {}) {
     if (!generationJob()) return runGenerationJob(manual ? 'manual' : 'automatic', () => this.run(getInput, generate, signal, { manual, prepare, prefetch, refill }));
     const options = this.options();
     if (!refill && this.ready && this.ready.stamp === this.stamp() && this.ready.expires >= this.now()) return !manual && this.ready.notBefore > this.now()
-      ? { prepared: true } : this.ready.batch ? this.packet(this.ready) : { text: this.ready.text, deliveryId: this.ready.id };
+      ? { prepared: true } : this.ready.batch ? this.packet(this.ready, true, manual) : { text: this.ready.text, deliveryId: this.ready.id };
     if (this.pending) { if (manual && this.pending.job) { this.pending.manual = true; Object.assign(this.pending.job, { kind: 'manual', priority: 1, limit: 3 }); } return { skipped: true, reason: 'busy' }; }
     if (!refill) this.ready = null;
     if (!prefetch && manual && this.now() - this.lastManual < 1000) return { skipped: true, reason: 'cooldown', retryAfterMs: 1000 - (this.now() - this.lastManual) };
@@ -250,6 +370,7 @@ export class IdleChat {
     try {
       const input = await getInput();
       if (!input || controller.signal.aborted) return { skipped: true };
+      if (input.plan && generationJob()) { generationJob().plan = input.plan; generationJob().id = input.plan.id; }
       const lines = this.read();
       const style = chooseIdleStyle(this.random, manual);
       const card = input.storyCard ?? readSelectedPersona(join(assistantDataDir(), 'stronghold-persona.json'));
@@ -260,6 +381,8 @@ export class IdleChat {
       const data = this.stories.load();
       if (key !== legacyKey && !data.cards[key] && data.cards[legacyKey]) data.cards[key] = structuredClone(data.cards[legacyKey]);
       const entry = this.stories.entry(key, catalog, lines);
+      if (input.storyLedger) Object.assign(entry, structuredClone(input.storyLedger));
+      reconcileFactProgress(entry, catalog);
       for (const row of catalog) if (entry.used[row.legacyTopic]) entry.used[row.topic] = true;
       if (input.forgottenTextHashes?.length) entry.recent = entry.recent.filter(row => !input.forgottenTextHashes.includes(utteranceKey(row.text)));
       if (input.storyBatch) this.stories.reconcile(entry, catalog, input.history);
@@ -331,7 +454,7 @@ const idles = new Map();
 function idleFor(pet = 'main') {
   if (!idles.has(pet)) idles.set(pet, new IdleChat({
     cache: new IdleCache(() => join(assistantDataDir(), 'stronghold-idle-start.json')),
-    stamp: () => { const profile = petProfile(pet); return assistantDataDir() + ':' + pet + ':' + personaVersion() + ':' + profile.revision + ':' + profile.memoryRevision + ':' + (profile.library?.contextEpoch(profile.actorId) || 'start'); },
+    stamp: () => { const profile = petProfile(pet); return assistantDataDir() + ':' + pet + ':' + personaVersion() + ':' + profile.revision + ':' + profile.memoryRevision + ':' + profile.promptSettings?.revision + ':' + (profile.library?.contextEpoch(profile.actorId) || 'start'); },
     read: () => readRecent(pet),
     stories: new StoryMemory(pet === 'main' ? memoryFile : () => join(assistantDataDir(), 'idle-' + Buffer.from(pet).toString('hex') + '.json')),
   }));
@@ -377,8 +500,10 @@ export async function warmIdleStartup() {
     const main = petProfile('main'), pets = Object.keys(main.library?.snapshot().bindings || { main: 'main' });
     for (const pet of pets) {
       const profile = petProfile(pet);
+      const ledger = profile.library ? await profile.library.store.call('story-ledger', { characterId: profile.characterId }) : {};
       idleFor(pet).cache.warm({ companionPetId: pet, storyCard: profile.card, speakerStyle: profile.preset?.style,
-        cacheStyle: profile.preset?.style || '', cacheActor: profile.characterId, cacheRevision: profile.revision + ':' + profile.memoryRevision, cacheEpoch: profile.library?.contextEpoch(profile.actorId),
+        clearEpoch: profile.library?.snapshot().historyEpochs?.[profile.characterId] || 'start', heardTextHashes: Object.keys(ledger.heard?.[directRoom(profile.actorId)] || {}),
+        cacheStyle: profile.preset?.style || '', cacheActor: profile.characterId, cacheRevision: profile.revision + ':' + profile.memoryRevision + ':' + profile.promptSettings?.revision, cacheEpoch: profile.library?.contextEpoch(profile.actorId),
         history: profile.library?.visibleHistory(profile.actorId).filter(e => e.type === 'assistant').map(e => ({ role: 'assistant', content: e.text })) || [] });
     }
   } catch { /* Optional local preparation must never prevent the pet from starting. */ }
@@ -393,7 +518,22 @@ export async function idleChatRoute(method, raw, signal, getInput, generate) {
   }
 }
 async function handleIdleChatRoute(method, raw, signal, getInput, generate) {
-  const result = (status, obj) => ({ kind: 'json', status, obj });
+  const receivedMono = performance.now(), receivedAt = Date.now();
+  const result = async (status, obj) => {
+    if (method === 'POST' && status === 200 && body?.pet) {
+      try {
+        const library = companionLibrary(assistantDataDir()), id = /^[\w-]{1,100}$/u.test(body.interactionId || '') ? body.interactionId : randomUUID();
+        const previousMs = Number.isFinite(body.interactionElapsedMs) ? Math.min(300000, Math.max(0, body.interactionElapsedMs)) : 0;
+        await library.store.call('job', { taskId: 'delivery:' + id, parentJobId: obj.taskId, deliveryId: obj.deliveryId,
+          source: body.manual ? 'manual-delivery' : 'automatic-delivery', startedAt: receivedAt - previousMs,
+          elapsedMs: previousMs + performance.now() - receivedMono, finishedAt: Date.now(), attempts: 0,
+          status: obj.deliveryId ? 'delivered' : obj.error ? 'failed' : 'pending',
+          generationKind: obj.generationKind, deliveryTrigger: body.manual ? 'manual-click' : 'automatic-timer',
+          buffer: idleFor(body.pet).inventory(), events: [{ id: randomUUID(), at: Date.now(), stage: obj.deliveryId ? 'delivered' : 'waiting' }] });
+      } catch { /* Telemetry cannot break delivery. */ }
+    }
+    return { kind: 'json', status, obj };
+  };
   if (method === 'DELETE') { noteConversationActivity(); return result(200, { skipped: true }); }
   if (!['POST', 'PATCH'].includes(method)) return result(405, { error: 'METHOD_NOT_ALLOWED' });
   let body; try { body = JSON.parse(raw); } catch { /* invalid */ }
@@ -402,31 +542,64 @@ async function handleIdleChatRoute(method, raw, signal, getInput, generate) {
     || (body.warmStart !== undefined && typeof body.warmStart !== 'boolean')) return result(400, { error: 'BAD_PET' });
   const idle = idleFor(body.pet);
   const build = async () => {
+    const startedMono = performance.now();
     const library = companionLibrary(assistantDataDir()); await library.ready();
     const input = await getInput(body.pet); if (!input) return null;
-    const context = await conversationEngine.prepare(library, body.pet), profile = context.profile;
+    const context = await conversationEngine.prepare(library, body.pet, '', { kind: body.manual ? 'manual' : 'automatic' }), profile = context.profile;
     const actor = library.actor(body.pet), revision = library.snapshot().revision, epoch = library.contextEpoch(actor.id);
     const progress = await library.progress(body.pet);
-    return { ...input, knowledge: context.knowledge, system: input.system + '\n' + context.prompt, speakerStyle: (input.speakerStyle || '') + '\n' + context.prompt,
+    const saved = idle.stories.load(), seed = library.snapshot().historyEpochs?.[actor.characterId] ? null
+      : saved.cards['character:' + actor.characterId] || saved.cards[storyKey(profile.card)];
+    const storyLedger = await library.store.call('story-ledger', { characterId: actor.characterId, seed });
+    const timeline = await library.store.call('lore-context', { characterId: actor.characterId, roomId: directRoom(actor.id), limit: 128 });
+    return { ...input, profile, sessionProjection: sessionProjection(timeline.messages, context.plan), memories: context.memories, knowledge: context.knowledge, plan: context.plan, lore: context.lore, examples: context.examples, storyLedger, prepareFocus: selected => conversationEngine.focus(context, selected),
+      system: context.prompt, speakerStyle: input.speakerStyle || '',
+      heardTextHashes: Object.keys(storyLedger.heard?.[directRoom(actor.id)] || {}), clearEpoch: library.snapshot().historyEpochs?.[actor.characterId] || 'start',
       history: [...(input.history || []), ...progress.slice(-100).map(e => ({ role: 'assistant', content: e.text, source: { kind: 'idle', id: e.id, topicId: e.topicId, topicFinal: e.topicFinal } }))],
-      forgottenTextHashes: library.snapshot().forgottenTextHashesByCharacter?.[actor.characterId] || [], personaKey: 'character:' + actor.characterId, storyCard: profile.card, requireDeliveryAck: true, cacheStyle: profile.preset?.style || '', cacheActor: actor.characterId, cacheRevision: revision + ':' + profile.memoryRevision, cacheEpoch: epoch,
+      forgottenTextHashes: library.snapshot().forgottenTextHashesByCharacter?.[actor.characterId] || [], personaKey: 'character:' + actor.characterId, storyCard: profile.card, requireDeliveryAck: true, canonicalOutbox: true, cacheStyle: profile.preset?.style || '', cacheActor: actor.characterId, cacheRevision: revision + ':' + profile.memoryRevision + ':' + profile.promptSettings?.revision, cacheEpoch: epoch,
       storyBatch: process.env.SP_COMPANION_SINGLE_TEST !== '1',
-      onPrepared: packets => library.stage(body.pet, packets),
+      onPrepared: async packets => {
+        markPhase(context.plan, 'ready');
+        if (['local', 'model-cache'].includes(packets[0]?.origin)) await library.store.call('job', { taskId: context.plan.id, petId: body.pet, characterId: actor.characterId,
+          source: packets[0].origin === 'local' ? 'local-opening' : 'model-cache', status: 'ready', attempts: 0, outputTokens: null,
+          contextMs: context.plan.contextMs, elapsedMs: Math.max(0, performance.now() - startedMono - context.plan.contextMs) });
+        await library.store.call('generation-plan', { characterId: actor.characterId, plan: context.plan });
+        await library.stage(body.pet, packets.map(packet => ({ ...packet, taskId: packet.taskId || context.plan.id })), { revalidate: packets.every(p => p.revalidated === true) });
+      },
       onDisplayed: event => library.event(actor.id, directRoom(actor.id), { ...event, type: 'assistant', sourceKind: event.sourceKind || 'idle', deliveryState: 'displayed',
-        expectedCardId: actor.assetId, expectedRevision: revision, expectedContextEpoch: epoch }) };
+        expectedCardId: actor.assetId, expectedRevision: revision, expectedContextEpoch: epoch, expectedPromptRevision: profile.promptSettings.revision }) };
   };
   if (method === 'PATCH') {
+    const library = companionLibrary(assistantDataDir()); await library.ready(); const characterId = library.actor(body.pet).characterId;
+    const metrics = { characterId, id: body.deliveryId, renderedAt: body.renderedAt, displayMs: body.displayMs };
+    if ((await library.store.call('display-metrics', metrics)).ok) return result(200, { ok: true, duplicate: true });
+    const input = await build();
+    if (input) idle.restore(input, await library.store.call('pending-deliveries', { characterId }));
     const ack = await idle.acknowledge(body.deliveryId);
+    if (ack.ok) await library.store.call('display-metrics', metrics);
     if (ack.ok && body.warmStart) void idle.prefetch(build, generate);
     return result(200, ack);
   }
   const input = await build();
   if (!input) { idle.activity(); return result(200, { skipped: true }); }
+  const pending = await companionLibrary(assistantDataDir()).store.call('pending-deliveries', { characterId: input.plan?.characterId || petProfile(body.pet).characterId });
+  idle.restore(input, pending);
+  if (!idle.ready) await idle.resume(input, pending);
   const flags = { manual: body.manual === true, prepare: body.prepare === true };
   if (body.warmStart && input.storyBatch) {
     const cached = idle.warmPacket(input, flags);
-    if (cached) { if (cached.deliveryId) await input.onPrepared([{ id: cached.deliveryId, text: cached.text, taskId: generationJob()?.id }]); return result(200, cached); }
+    if (cached) { if (cached.deliveryId) await input.onPrepared([{ ...cached, id: cached.deliveryId, text: cached.text, plan: input.plan,
+      expires: Date.now() + 180000, taskId: generationJob()?.id }]); return result(200, cached); }
     if (idle.now() < idle.retryAt) return result(200, { prepared: true, retryAfterMs: idle.retryAt - idle.now() });
   }
-  return result(200, await idle.run(async () => input, generate, signal, flags));
+  const out = await idle.run(async () => input, generate, signal, flags);
+  if (!out.error || !['network','timeout','rate','server','response','empty','proxy','recovering','auth','quota','request','endpoint'].includes(out.failure?.kind)) return result(200, out);
+  idle.retryAt = idle.now() + Math.max(out.failure.retryAfterMs || 0, out.failure.kind === 'rate' ? 30000 : 15000);
+  // Revalidate the current actor/epoch through the existing outbox; never replay heard lines or answer a question with an old story.
+  const cached = idle.warmPacket(input, flags);
+  if (cached?.deliveryId) {
+    await input.onPrepared([{ ...cached, id: cached.deliveryId, text: cached.text, plan: input.plan, expires: Date.now() + 180000, taskId: generationJob()?.id }]);
+    return result(200, { ...cached, recovering: true });
+  }
+  return result(200, { prepared: true, recovering: true, retryAfterMs: idle.retryAt - idle.now() });
 }

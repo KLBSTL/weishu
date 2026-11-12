@@ -1,5 +1,5 @@
 import { chatOptionsPrompt, chatProfile, replyResult } from '../match/replyStyle.js';
-import { localizeGenerationResult } from './ai-request.js';
+import { classifyAiFailure, localizeGenerationResult } from './ai-request.js';
 import { hasGameConnection, relayGameChat, withConversationScope } from './conversation.js';
 import { chatOptionsFile, readChatOptions, saveChatOptions } from './chat-preferences.js';
 import { noteConversationActivity, stopIdleChat, recentIdleContext } from './idle-chat.js';
@@ -13,6 +13,9 @@ import { speechProblem, speechFailure } from '../companion/speech.js';
 import { conversationEngine } from '../companion/engine.js';
 import { knowledgeProblem, extensionProposals } from '../companion/knowledge.js';
 import { runGenerationJob } from '../companion/broker.js';
+import { markPhase } from '../companion/plan.js';
+import { isGameQuestion } from '../match/chatContext.js';
+import { recoveryReply } from './recovery.js';
 export { chatOptionsFile, readChatOptions, saveChatOptions } from './chat-preferences.js';
 
 export async function chatOptionsRoute(method, raw = '', file = chatOptionsFile()) {
@@ -36,24 +39,31 @@ async function generatePetChatInner(generate, input) {
   const petId = input.companionPetId || 'main';
   let profile = hasLibrary() ? petProfile(petId) : null;
   if (profile?.library) {
-    const context = await conversationEngine.prepare(profile.library, petId, input.userText);
-    profile = context.profile; input = { ...input, system: input.system + '\n' + context.prompt, recallContext: context.prompt };
+    const context = await conversationEngine.prepare(profile.library, petId, input.userText, { promptKind: isGameQuestion(input.userText) ? 'game' : 'chat', fallbackSystem: input.system });
+    profile = context.profile; input = { ...input, system: context.prompt, recallContext: context.prompt, plan: context.plan, lore: context.lore, anchor: context.anchor, examples: context.examples };
   }
   let chatEpoch;
   if (profile?.card && compileCard(profile.card).needsSpeaker) return { ok: false, message: '这张剧情卡还没有固定人物，请在「角色扮演 → 资料管理」选择实际扮演人物。', failure: { kind: 'speaker' } };
   if (profile?.library) {
-    const history = profile.library.visibleHistory(profile.actorId).filter(e => ['user', 'assistant'].includes(e.type)).slice(-12);
+    let history = profile.library.visibleHistory(profile.actorId).filter(e => ['user', 'assistant'].includes(e.type)).slice(-12);
+    if (input.anchor) history = history.filter(event => event.id === input.anchor.id);
     input = { ...input, history: history.map(e => ({ role: e.type, content: e.text, ts: e.at })) };
     if (input.userText) await profile.library.event(profile.actorId, directRoom(profile.actorId), { type: 'user', text: input.userText });
     chatEpoch = profile.library.contextEpoch(profile.actorId);
+    if (input.plan) { input.plan.memoryEpoch = chatEpoch; input.plan.contextCursor = chatEpoch; }
   }
+  const visibleReply = result => replyResult(recoveryReply(result), result.complex && options.mode === 'daily' ? { ...options, maxChars: Math.max(300, options.maxChars) } : options);
   const finish = async result => {
-    const out = replyResult(result, result.complex && options.mode === 'daily' ? { ...options, maxChars: Math.max(300, options.maxChars) } : options);
+    const out = visibleReply(result);
     if (profile?.library && out.ok && out.text) {
+      markPhase(input.plan, 'ready');
+      if (input.plan) await profile.library.store.call('generation-plan', { characterId: profile.characterId, plan: input.plan });
       const id = randomUUID();
-      await profile.library.event(profile.actorId, directRoom(profile.actorId), { id, type: 'assistant', text: out.text, sourceKind: 'chat', deliveryState: 'generated',
-        extensionProposals: extensionProposals(out.text, profile.card),
-        expectedCardId: profile.actor.assetId, expectedRevision: profile.revision, expectedContextEpoch: chatEpoch });
+      await profile.library.event(profile.actorId, directRoom(profile.actorId), { id, type: 'assistant', text: out.text, sourceKind: out.degraded ? 'local-recovery' : 'chat', deliveryState: 'generated',
+        ...(input.anchor?.sourceEvidence && { sourceEvidence: input.anchor.sourceEvidence }),
+        extensionProposals: out.degraded ? [] : extensionProposals(out.text, profile.card),
+        loreProposal: input.lore?.proposed, taskId: input.plan?.id,
+        expectedCardId: profile.actor.assetId, expectedRevision: profile.revision, expectedContextEpoch: chatEpoch, expectedPromptRevision: profile.promptSettings.revision });
       return { ...out, deliveryId: id };
     }
     return out;
@@ -70,18 +80,30 @@ async function generatePetChatInner(generate, input) {
         let correction = '';
         for (let attempt = 0; attempt < 2; attempt++) {
           if (controller.signal.aborted) return { ok: false, message: '本次回复已取消或超时。' };
-          const out = await generate({ ...input, system: input.system + recentIdleContext(petId, input.userText) + chatOptionsPrompt(options) + correction,
+          const out = await generate({ ...input, system: input.system + (input.plan ? '' : recentIdleContext(petId, input.userText)) + chatOptionsPrompt(options) + correction,
             ...(options.mode === 'daily' && { pool: [] }) });
-          if (!out.ok || (!speechProblem(out.text, profile ? compileCard(profile.card).speaker?.name : '', { allowImages: options.mode === 'unlimited' })
-            && !knowledgeProblem(out.text, profile?.card))) return out;
+          markPhase(input.plan, 'validationStarted');
+          const validationMono = performance.now();
+          const accepted = !out.ok || (!speechProblem(out.text, profile ? compileCard(profile.card).speaker?.name : '', { allowImages: options.mode === 'unlimited' })
+            && !knowledgeProblem(out.text, profile?.card));
+          markPhase(input.plan, 'validationReady');
+          if (input.plan) input.plan.validationMs = (input.plan.validationMs || 0) + performance.now() - validationMono;
+          if (accepted) return out;
           correction = '\n【请重写】上一版未通过口语或人物事实校验。只返回人物亲口说的自然台词，使用“我”，不写动作或人物名标签；重大身世/关系和明确偏好遵守原卡，可以改聊不冲突的日常小事。';
         }
         return speechFailure();
-      }, { chatOptions: options, petId, signal: controller.signal, extendDeadline: () => {
+      }, { chatOptions: options, petId, question: input.userText, visibleReply,
+        displayHistory: [...(input.history || []).map(({ role, content }) => ({ role, content })), { role: 'user', content: input.userText || '' }],
+        signal: controller.signal, plan: input.plan, contextChars: input.system.length, loreBlocks: input.lore?.blocks, examples: input.examples, extendDeadline: () => {
         clearTimeout(timer); timer = setTimeout(() => controller.abort(), Math.max(0, started + budget.extendedTimeoutMs - Date.now())); timer.unref?.();
       } }));
       return await finish(result);
     } finally { clearTimeout(timer); }
+  } catch (error) {
+    const failure = classifyAiFailure(error);
+    const result = recoveryReply({ ok: false, failure });
+    if (!result.ok) throw error;
+    return finish(result);
   } finally { noteConversationActivity(); }
 }
 export async function generatePetWhisper(generate, ctx, input) {

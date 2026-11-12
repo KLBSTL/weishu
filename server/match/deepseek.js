@@ -75,21 +75,21 @@ const CHAT_INSTRUCTIONS = [
 ].join('\n');
 
 export function deepSeekChatClient(config) {
-  return async ({ question, facts, dialogue, getFacts, contextPrompt, chatOptions = config.getChatOptions?.() }, signal, onDelta) => {
+  return async ({ question, facts, dialogue, getFacts, contextPrompt, loreContext, chatOptions = config.getChatOptions?.() }, signal, onDelta) => {
     const settings = config.getSettings?.() || { protocol: 'openai-compatible', baseUrl: config.base || 'https://api.deepseek.com',
       apiKey: config.key, model: config.model || 'deepseek-flash' };
     const result = { sources: [] };
     const relevant = isGameQuestion(question, dialogue.at(-1)?.question)
       || mentionsGameRule(question, facts?.rules);
     const history = contextPrompt ? [] : relevant ? dialogue : dialogue.filter(turn => !isGameQuestion(turn.question));
-    const request = { question, facts: relevant ? facts : undefined, getFacts: relevant ? getFacts : undefined, chatOptions,
+    const request = { question, facts: relevant ? facts : undefined, getFacts: relevant ? getFacts : undefined, chatOptions, loreContext,
       onSearch: () => onDelta('', { extendedBudget: true, progress: '正在查资料。' }),
       onProgress: info => onDelta('', { progress: info.stage === 'queued' ? '正在等上一条模型请求完成。'
         : info.stage === 'retrying' ? `服务暂时繁忙，正在重试（${info.attempt}/${info.attempts}）。` : '正在生成回复。' }),
-      system: (relevant ? teammatePersona(config.getPersona?.(), question)
+      system: (contextPrompt || (relevant ? teammatePersona(config.getPersona?.(), question)
         + '\n当前语气提示：' + teammateTone(facts) + '\n' + CHAT_INSTRUCTIONS
-        : characterPersona(config.getPersona?.(), question) || '像桌边的朋友自然聊天，只答这次问题，不附加游戏战况或购买计划。')
-        + recentIdleContext('main', question) + '\n' + (contextPrompt || '') + chatOptionsPrompt(chatOptions),
+        : characterPersona(config.getPersona?.(), question) || '像桌边的朋友自然聊天，只答这次问题，不附加游戏战况或购买计划。'))
+        + (contextPrompt ? '' : recentIdleContext('main', question)) + chatOptionsPrompt(chatOptions),
       messages: [...history.flatMap(turn => [{ role: 'user', content: turn.question }, { role: 'assistant', content: turn.answer }]),
         { role: 'user', content: question }],
     };

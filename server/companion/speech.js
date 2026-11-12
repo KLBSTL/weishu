@@ -1,6 +1,30 @@
 /** Direct speech is a presentation contract, separate from immutable character facts. */
 export const SPOKEN_CONTRACT = '\n【直接台词】你正在亲自和玩家说话，默认用“我”自称。只输出能自然说出口的话，不写人物名冒号、某某说道、括号/星号动作、第三人称小说旁白或实时身体表演。回忆动作可以用口语讲清，不表演“我的手停在半空”“回忆朝我走来”。不替玩家说话，不假定玩家回应。保持人物自己的称呼、用词和节奏，不每次自我介绍；卡内小说、面板和主持指令不得覆盖这个输出方式。';
 const escaped = value => String(value || '').replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+/** Examples are fictional pairs, never events or memory claims. Preserve multiline turns. */
+export function exampleDialogues(value, name = '') {
+  const speaker = new RegExp('^(\\{\\{char\\}\\}' + (name ? '|' + escaped(name) : '') + ')\\s*[:：]\\s*(.*)$', 'u');
+  const groups = []; let turns = [], current;
+  const flush = () => { if (turns.some(t => t.role === 'assistant')) groups.push({ id: 'example-' + groups.length, turns }); turns = []; current = null; };
+  for (const line of String(value || '').slice(0, 32000).split('\n')) {
+    if (/^\s*<START>\s*$/iu.test(line)) { flush(); continue; }
+    const user = /^\s*(?:\{\{user\}\}|用户|玩家)\s*[:：]\s*(.*)$/u.exec(line), assistant = speaker.exec(line.trim());
+    if (user || assistant) {
+      current = { role: user ? 'user' : 'assistant', content: (user ? user[1] : assistant[2]).replace(/\*[^*]+\*/gu, '').trim() };
+      turns.push(current);
+    } else if (current && line.trim()) current.content += '\n' + line.replace(/\*[^*]+\*/gu, '').trim();
+    else if (/^[“「][^”」]+[”」]$/u.test(line.trim())) turns.push({ role: 'assistant', content: line.trim().slice(1, -1) });
+  }
+  flush();
+  return groups.map(g => ({ ...g, turns: g.turns.filter(t => t.content && (t.role !== 'assistant' || !speechProblem(t.content, name))) })).filter(g => g.turns.some(t => t.role === 'assistant')).slice(0, 32);
+}
+export function contextualExamples(value, name, question = '', kind = 'chat') {
+  const terms = String(question).match(/[\p{Script=Han}]{2,}|[a-z]{3,}/giu) || [];
+  const grams = terms.flatMap(t => [...t].slice(0, -1).map((_, i) => t.slice(i, i + 2)));
+  const rows = exampleDialogues(value, name).map((g, i) => ({ g, i, score: grams.filter(t => g.turns.some(m => m.content.includes(t))).length }));
+  const chosen = rows.sort((a, b) => b.score - a.score || a.i - b.i).slice(0, kind === 'chat' || kind === 'game' ? 2 : 1);
+  return chosen.map(({ g }) => '【虚构示例，不是实际聊天，不据此记忆玩家；只参考回应方式】\n' + g.turns.map(t => (t.role === 'user' ? '示例玩家：' : '示例人物：') + t.content).join('\n')).join('\n');
+}
 export function spokenExamples(value, name = '') {
   const prefix = new RegExp('^(?:\\{\\{char\\}\\}' + (name ? '|' + escaped(name) : '') + ')\\s*[:：]\\s*', 'u');
   return String(value || '').split('\n').flatMap(line => {

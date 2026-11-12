@@ -51,7 +51,7 @@ async function providerSlot(settings, signal, task, { background = false, onWait
     const remaining = Number(cooldown?.until) - Date.now();
     if (remaining > 0 && remaining <= 300000) {
       onWait();
-      if (background) throw Object.assign(new Error('Provider cooldown'), { code: 'SP_PROVIDER_BUSY' });
+      if (background) throw Object.assign(new Error('Provider cooldown'), { code: 'SP_RECOVERING', recoveryKind: 'rate', retryAfterMs: remaining });
       await delay(remaining, undefined, { signal });
     }
     claimAttempt(); const result = await task(signal);

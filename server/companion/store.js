@@ -19,19 +19,21 @@ export class CompanionStore {
   }
   call(operation, payload) {
     if (!this.worker) {
-      this.worker = new Worker(new URL('./store-worker.js', import.meta.url), { execArgv: [] });
-      this.worker.on('message', message => {
+      const worker = new Worker(new URL('./store-worker.js', import.meta.url), { execArgv: [] }); this.worker = worker;
+      worker.on('message', message => {
         const item = this.pending.get(message.id); if (!item) return;
         this.pending.delete(message.id);
         if (message.error) item.reject(Object.assign(new Error(message.error.message), message.error)); else item.resolve(message.result);
         if (!this.pending.size) this.worker?.unref();
       });
-      this.worker.on('error', error => { for (const item of this.pending.values()) item.reject(error); this.pending.clear(); this.worker = null; });
-      this.worker.unref();
+      const stopped = error => { if (this.worker !== worker) return; for (const item of this.pending.values()) item.reject(error); this.pending.clear(); this.worker = null; };
+      worker.on('error', stopped);
+      worker.on('exit', () => stopped(Object.assign(new Error('本地资料服务已停止，请重试。'), { code: 'SP_STORE_EXIT' })));
+      worker.unref();
     }
     this.worker.ref(); const id = ++this.serial;
     return new Promise((resolve, reject) => { this.pending.set(id, { resolve, reject }); this.worker.postMessage({ id, directory: this.directory, operation, payload }); });
   }
-  ready() { return this.started ||= this.call('init', this.seed).then(data => { this.cache = data; return this; }); }
+  ready() { return this.started ||= this.call('init', this.seed).then(data => { this.cache = data; return this; }).catch(error => { this.started = null; throw error; }); }
   async close() { await this.worker?.terminate(); this.worker = null; }
 }

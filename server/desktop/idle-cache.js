@@ -1,8 +1,9 @@
-import { readFileSync, mkdirSync, writeFileSync, renameSync, rmSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync, renameSync, rmSync, statSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { compileCard, fingerprint, hasInventedUserHistory } from '../companion/materials.js';
 import { spokenExamples, speechProblem } from '../companion/speech.js';
+import { batchExpiresAt } from '../companion/batch-policy.js';
 
 const present = [
   '这会儿正好能歇一歇，我想陪你聊点轻松的事。',
@@ -15,7 +16,7 @@ export function localOpeningLines(card) {
   const data = card?.data || card || {};
   rows.push(...spokenExamples(data.mes_example || '', name).split('\n'));
   for (const unit of c.units) {
-    if (unit.kind !== 'background' || unit.ownership !== 'self' || unit.facet === 'appearance'
+    if (unit.kind !== 'background' || unit.ownership !== 'self' || unit.facet === 'appearance' || unit.proactive === false
       || ['first_mes', 'mes_example'].includes(unit.title)) continue;
     for (let line of unit.text.split('\n')) {
       line = line.trim().replace(/^[-*]\s*/u, '').replace(/^(?:习惯|爱好|口头禅|性格)\s*[:：]\s*/u, '');
@@ -38,43 +39,63 @@ export function localOpeningLines(card) {
 export class IdleCache {
   constructor(file, now = Date.now) { this.path = file; this.now = now; }
   get file() { return typeof this.path === 'function' ? this.path() : this.path; }
+  signature(file) { try { const s = statSync(file); return `${s.mtimeMs}:${s.ctimeMs}:${s.size}`; } catch { return 'missing'; } }
   read() {
-    try { const data = JSON.parse(readFileSync(this.file, 'utf8')); if (data.version === 1 && data.entries) return data; } catch { /* first launch */ }
-    return { version: 1, entries: {} };
+    const file = this.file, signature = this.signature(file);
+    if (this.snapshot && this.snapshotFile === file && this.snapshotSignature === signature) return this.snapshot;
+    let data;
+    try { data = JSON.parse(readFileSync(file, 'utf8')); } catch { /* first launch or optional read-only cache */ }
+    this.snapshot = data?.version === 1 && data.entries ? data : { version: 1, entries: {} };
+    this.snapshotFile = file; this.snapshotSignature = signature; this.serialized = JSON.stringify(this.snapshot);
+    return this.snapshot;
   }
   save(data) {
-    const temporary = this.file + '.' + randomUUID() + '.tmp';
+    const file = this.file, serialized = JSON.stringify(data);
+    if (this.snapshotFile === file && this.serialized === serialized && this.snapshotSignature === this.signature(file)) return;
+    const temporary = file + '.' + randomUUID() + '.tmp';
     try {
-      mkdirSync(dirname(this.file), { recursive: true }); writeFileSync(temporary, JSON.stringify(data)); renameSync(temporary, this.file);
+      mkdirSync(dirname(file), { recursive: true }); writeFileSync(temporary, serialized); renameSync(temporary, file);
     } catch { /* The in-memory generation path remains available if a profile is read-only. */ }
-    finally { try { rmSync(temporary, { force: true }); } catch { /* optional cache */ } }
+    finally {
+      this.snapshot = data; this.snapshotFile = file; this.snapshotSignature = this.signature(file); this.serialized = serialized;
+      try { rmSync(temporary, { force: true }); } catch { /* optional cache */ }
+    }
   }
-  key(input) { return fingerprint([input.companionPetId, input.cacheActor, input.storyCard, input.cacheStyle ?? input.speakerStyle, input.cacheRevision, input.cacheEpoch || 'start']); }
+  key(input) { return fingerprint([input.companionPetId, input.cacheActor, input.storyCard, input.cacheStyle ?? input.speakerStyle, input.cacheRevision, input.cacheEpoch || 'start', input.clearEpoch || 'start']); }
+  heardKey(input) { return fingerprint([input.companionPetId, input.cacheActor || input.personaKey, input.clearEpoch || 'start']); }
   warm(input) {
     const data = this.read(), key = this.key(input), heard = new Set((input.history || []).filter(m => m.role === 'assistant').map(m => plain(m.content)));
+    for (const text of data.heard?.[this.heardKey(input)] || []) heard.add(text);
+    const durable = new Set(input.heardTextHashes || []);
+    const wasHeard = text => heard.has(plain(text)) || durable.has(fingerprint(plain(text)).slice(0, 24));
     const entry = data.entries[key] ||= { rows: [], used: [], at: this.now() };
-    entry.rows = entry.rows.filter(row => row.expires > this.now() && !heard.has(plain(row.text)));
+    entry.rows = entry.rows.filter(row => row.expires > this.now() && !wasHeard(row.text) && (!input.canonicalOutbox || row.origin === 'local'));
     for (const text of localOpeningLines(input.storyCard)) {
       if (entry.rows.filter(row => row.origin === 'local').length >= 3) break;
-      if (heard.has(plain(text)) || entry.used.includes(plain(text)) || entry.rows.some(row => plain(row.text) === plain(text))) continue;
+      if (wasHeard(text) || entry.used.includes(plain(text)) || entry.rows.some(row => plain(row.text) === plain(text))) continue;
       entry.rows.push({ id: randomUUID(), text, origin: 'local', expires: this.now() + 21600000 });
     }
-    entry.at = this.now();
+    if (this.now() - entry.at >= 30000) entry.at = this.now();
     for (const [old] of Object.entries(data.entries).sort((a, b) => b[1].at - a[1].at).slice(16)) delete data.entries[old];
     this.save(data); return entry.rows.sort((a, b) => Number(b.origin === 'model-cache') - Number(a.origin === 'model-cache'));
   }
   remember(input, batch, selected) {
-    if (!batch.grounded) return;
+    if (!batch.grounded || input.canonicalOutbox) return;
     const data = this.read(), key = this.key(input), entry = data.entries[key] ||= { rows: [], used: [], at: this.now() };
     const additions = batch.segments.map((part, index) => ({ ...part, origin: 'model-cache', topicId: selected.topic,
       sourceEvidence: { text: selected.text, timeState: selected.timeState, eventId: selected.eventId },
-      topicFinal: index === batch.segments.length - 1 && !batch.incomplete, expires: this.now() + 900000 }));
-    entry.rows = [...entry.rows.filter(row => !additions.some(part => part.id === row.id)), ...additions].slice(-6);
+      topicFinal: index === batch.segments.length - 1 && !batch.incomplete, expires: batchExpiresAt(this.now(), batch.segments.length) }));
+    // Evict whole oldest drafts by character budget, never slice a batch's opening away.
+    entry.rows = [...entry.rows.filter(row => !additions.some(part => part.id === row.id)), ...additions];
+    while (entry.rows.reduce((n, row) => n + row.text.length, 0) > 12000) {
+      const oldest = entry.rows[0].id.split(':')[0]; entry.rows = entry.rows.filter(row => row.id.split(':')[0] !== oldest);
+    }
     this.save(data);
   }
   consume(input, id, text) {
     const data = this.read(), entry = data.entries[this.key(input)]; if (!entry) return;
     entry.rows = entry.rows.filter(row => row.id !== id);
-    entry.used = [...entry.used, plain(text)].slice(-32); this.save(data);
+    entry.used = [...entry.used, plain(text)].slice(-32);
+    data.heard ||= {}; data.heard[this.heardKey(input)] = [...new Set([...(data.heard[this.heardKey(input)] || []), plain(text)])].slice(-256); this.save(data);
   }
 }

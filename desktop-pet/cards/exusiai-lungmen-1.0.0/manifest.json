@@ -1,0 +1,54 @@
+{
+  "version": "1.0.0",
+  "character": "能天使",
+  "checkedAt": "2026-11-12",
+  "formats": [
+    "PNG chara v2 + ccv3",
+    "character JSON v2",
+    "character-book entries JSON",
+    "ark-companion-prompt v1"
+  ],
+  "validation": {
+    "pngRoundtrip": true,
+    "artworkPreserved": true,
+    "singleSpeaker": true,
+    "loreEntries": 16,
+    "keywordIsolation": true,
+    "idleBookExcluded": true,
+    "promptBlocks": 4,
+    "embeddedPreset": true,
+    "embeddedReadme": true
+  },
+  "files": [
+    {
+      "file": "能天使-下班后的龙门.png",
+      "bytes": 1576679,
+      "sha256": "9ed65be7198f86906a8e915ffb951b4b6e900567d6aaaa64fc1c959bb15d1f36"
+    },
+    {
+      "file": "能天使.character.json",
+      "bytes": 14979,
+      "sha256": "9eb1301d296425901040c9719bfe754c94aa3deb467e0620812763a6b3866672"
+    },
+    {
+      "file": "龙门日常.worldbook.json",
+      "bytes": 9980,
+      "sha256": "a10b1f5ce3bc9ea830b579b4bf3c4c5fde7141916a12b3b942e2648a70ac44a5"
+    },
+    {
+      "file": "能天使.prompt.json",
+      "bytes": 4098,
+      "sha256": "095cc820f453d19b32971e831006ee4c6fffcd93bffbae639072f9b7678efb0f"
+    },
+    {
+      "file": "cover.png",
+      "bytes": 1509772,
+      "sha256": "93f1d8258bb3e94d80adca0300c90a68be1b0b7fab4c70ac3a3eb4467323a575"
+    },
+    {
+      "file": "使用与来源.md",
+      "bytes": 6902,
+      "sha256": "0d89159b9fb3e49635da8626773681ae95594c98558646f340856bd6381dbb87"
+    }
+  ]
+}

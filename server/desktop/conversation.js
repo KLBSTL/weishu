@@ -5,16 +5,20 @@ import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { assembleLore } from '../companion/lore.js';
 import { setTimeout as delay } from 'node:timers/promises';
 import { getData } from '../data.js';
 import { gamePrimer, lookupRules, isGameQuestion, mentionsGameRule } from '../match/chatContext.js';
 import { chatProfile } from '../match/replyStyle.js';
 import { createProxyFetch } from './proxy-fetch.js';
-import { classifyAiFailure, normalizeAiFailure, resilientTextStream } from './ai-request.js';
+import { classifyAiFailure, normalizeAiFailure, resilientTextStream, retryDelay } from './ai-request.js';
+import { mergeJobSnapshot } from '../companion/metrics.js';
 import { withProviderSlot } from './provider-queue.js';
 import { readChatOptions } from './chat-preferences.js';
 import { companionLibrary } from '../companion/library.js';
 import { generationJob, createGenerationJob, inGenerationJob, enableSearchBudget } from '../companion/broker.js';
+import { rememberPromptRequest } from '../companion/prompts.js';
+import { harnessCompletion } from './dsh-transport.js';
 
 export const assistantDataDir = () => join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'dsh-pet');
 let hostRuntime;
@@ -23,22 +27,53 @@ const actorSources = new Map();
 const metrics = [];
 export const conversationMetrics = () => metrics.slice(-100);
 const generationScope = new AsyncLocalStorage();
+async function saveMetric(row) {
+  const index = metrics.findIndex(item => item.taskId === row.taskId);
+  const merged = mergeJobSnapshot(index < 0 ? {} : metrics[index], row);
+  if (index >= 0) metrics.splice(index, 1);
+  metrics.push(merged); if (metrics.length > 100) metrics.shift();
+  if (existsSync(join(assistantDataDir(), 'companion.sqlite'))) {
+    try { const library = companionLibrary(assistantDataDir()); await library.ready(); await library.store.call('job', row); } catch { /* Diagnostics must not suppress a valid answer. */ }
+  }
+}
+export async function recordGenerationOutcome(plan, stage, status, details = {}) {
+  if (!plan) return;
+  const job = generationJob(), now = Date.now();
+  await saveMetric({ taskId: job?.id || plan.id, startedAt: Math.min(job?.started ?? Infinity, plan.phases?.contextStarted || plan.createdAt), finishedAt: now,
+    elapsedMs: Number.isFinite(job?.startedMono ?? plan.contextStartedMono) ? performance.now() - Math.min(job?.startedMono ?? Infinity, plan.contextStartedMono ?? Infinity) : Math.max(0, now - plan.createdAt),
+    status, events: [{ id: randomUUID(), stage, at: now, ...details }] });
+}
 export async function withConversationScope(task, options = {}) {
-  const state = { complex: false, sources: [], timings: { started: Date.now() }, ...options };
+  const state = { complex: false, sources: [], startedMono: performance.now(), timings: { started: Date.now() }, ...options };
   return generationScope.run(state, async () => {
     let result;
     try { result = await task(); }
     finally {
       const job = generationJob();
-      const row = { petId: state.petId || 'main', kind: state.proactive ? 'background' : 'chat', ...state.timings, elapsedMs: Date.now() - state.timings.started,
+      const scopeMs = performance.now() - state.startedMono, status = result?.ok ? 'generated' : result?.failure?.kind === 'timeout' ? 'timeout' : state.signal?.aborted ? 'cancelled' : 'failed';
+      const row = { petId: state.petId || 'main', kind: state.proactive ? 'background' : 'chat', ...state.timings,
+        startedAt: Math.min(job?.started ?? Infinity, state.plan?.phases?.contextStarted ?? state.timings.started), finishedAt: Date.now(),
+        elapsedMs: performance.now() - Math.min(job?.startedMono ?? state.startedMono, state.plan?.contextStartedMono ?? state.startedMono),
+        scopes: [{ id: randomUUID(), startedAt: state.timings.started, elapsedMs: scopeMs, status }], status,
+        source: state.batch ? 'batch' : state.proactive ? 'proactive' : state.complex ? 'search-or-complex' : 'new-chat',
         ...(job && { taskId: job.id, attempts: job.attempts, queueMs: job.queueMs }) };
-      delete row.started; metrics.push(row); if (metrics.length > 100) metrics.shift();
-      if (existsSync(join(assistantDataDir(), 'companion.sqlite'))) {
-        try { const library = companionLibrary(assistantDataDir()); await library.ready(); await library.store.call('job', { ...row, taskId: row.taskId || randomUUID(), status: result?.ok ? 'generated' : 'failed' }); } catch { /* Metrics never suppress a valid answer. */ }
+      if (state.plan) {
+        row.taskId ||= state.plan.id; row.characterId = state.plan.characterId; row.phases = { ...state.plan.phases };
+        row.contextMs = state.plan.contextMs;
+        row.validationMs = state.plan.validationMs;
+        row.contextChars = state.contextChars; row.loreChars = (state.loreBlocks || []).reduce((n, b) => n + b.text.length, 0);
       }
+      delete row.started; row.taskId ||= randomUUID(); await saveMetric(row);
     }
-    if (!result.ok && state.failure) return { ...result, failure: state.failure };
-    return result.ok && (state.complex || state.sources.length) ? { ...result, complex: state.complex, sources: state.sources } : result;
+    if (!result.ok && state.failure) result = { ...result, failure: state.failure };
+    const out = result.ok && (state.complex || state.sources.length) ? { ...result, complex: state.complex, sources: state.sources } : result;
+    if (state.projectHarnessReply && state.visibleReply) {
+      const visible = state.visibleReply(out);
+      // Native control-marker parsing is already reflected in out.text. A subsequent truncation is not
+      // an acknowledged full answer: discard that native candidate instead of retaining its unheard tail.
+      await state.projectHarnessReply(visible.ok && !visible.degraded && visible.text === out.text ? visible.text : null);
+    }
+    return out;
   });
 }
 export const sourcesRoute = (petId = 'main') => ({ kind: 'json', status: 200, obj: { sources: actorSources.get(petId) || [] } });
@@ -107,7 +142,8 @@ export async function relayGameChat(input) {
   if (hostRuntime) hostRuntime.active = controller;
   const requestId = randomUUID();
   try {
-    await localCall(c, '/pet/ask', { matchId: c.matchId, text: input.userText, requestId, delivery: 'native', contextPrompt: input.recallContext?.slice(0, 4500) }, controller.signal);
+    await localCall(c, '/pet/ask', { matchId: c.matchId, text: input.userText, requestId, delivery: 'native', contextPrompt: input.recallContext?.slice(0, 32000),
+      loreContext: { blocks: input.lore?.blocks || [], examples: input.examples || '' } }, controller.signal);
     while (!controller.signal.aborted) {
       if (stamp !== personaStamp()) throw new Error('Persona changed');
       const status = await localCall(c, '/pet/status', null, controller.signal);
@@ -203,7 +239,7 @@ export async function searchWeb(query, settings, signal, fetcher) {
   const configured = process.env.SP_SEARCH_BASE;
   const base = (configured || settings.baseUrl).replace(/\/+$/u, '');
   const key = configured ? process.env.SP_SEARCH_API_KEY : settings.apiKey;
-  try {
+  if (settings.auth !== 'deepseek-account' || configured) try {
     const endpoint = base + (base.endsWith('/v1') ? '/tools/search' : '/v1/tools/search');
     const res = await fetcher(endpoint, { method: 'POST', signal, redirect: 'error',
       headers: { 'Content-Type': 'application/json', ...(key && { Authorization: 'Bearer ' + key }) },
@@ -253,6 +289,27 @@ function toAnthropic(messages) {
 }
 
 async function completion(settings, messages, tools, signal, fetcher, maxTokens, profile) {
+  const attemptMono = performance.now(), scope = generationScope.getStore();
+  const attempt = { id: randomUUID(), startedAt: Date.now(), outputTokens: null }, scopeTiming = scope?.timings;
+  if (scopeTiming) (scopeTiming.httpAttempts ||= []).push(attempt);
+  try {
+  if (settings.backend === 'dsh') {
+    attempt.backend = 'dsh';
+    const plan = scope?.plan;
+    const scopeKey = [plan?.characterId || scope?.petId || 'main', plan?.actorId, plan?.roomId,
+      plan?.cardRevision, plan?.memoryRevision, plan?.historyEpoch, plan?.styleRevision];
+    const result = await harnessCompletion(settings, messages, { directory: assistantDataDir(), scopeKey,
+      background: !!scope?.proactive, displayHistory: scope?.displayHistory, maxTokens, effort: profile.effort, signal });
+    if (scope && !scope.proactive) scope.projectHarnessReply = result.projectVisible;
+    const http = result.timings.http[0];
+    Object.assign(attempt, { httpStatus: http?.status, headersMs: http?.headersMs, startupMs: result.timings.startupMs,
+      firstTextMs: result.timings.hostFirstTextMs, outputTokens: result.outputTokens ?? null, resumed: result.resumed,
+      sessionId: result.sessionId, status: 'completed' });
+    if (scopeTiming) { scopeTiming.firstTextMs ??= performance.now() - scope.startedMono - result.timings.processMs + (result.timings.hostFirstTextMs || 0); scopeTiming.outputTokens = result.outputTokens ?? null; }
+    const answer = { role: 'assistant', content: result.content };
+    Object.defineProperty(answer, 'generatedTokens', { value: result.outputTokens ?? Math.ceil(result.content.length / 2) });
+    return answer;
+  }
   const anthropic = settings.protocol === 'anthropic';
   // This gateway's V4.1 template has no "medium" level; keep UI levels distinct.
   const effort = /^deepseek-v4\.1(?:-|$)/iu.test(settings.model)
@@ -260,24 +317,25 @@ async function completion(settings, messages, tools, signal, fetcher, maxTokens,
   const base = settings.baseUrl.replace(/\/+$/u, '');
   const beta = anthropic && new URL(base).origin === 'https://api.anthropic.com' && settings.model === 'claude-opus-5-5';
   const suffix = anthropic ? (base.endsWith('/v1') ? '/messages' : '/v1/messages') : '/chat/completions';
-  const res = await jsonResponse(await fetcher(base + suffix + (beta ? '?beta=true' : ''), {
+  const payload = anthropic ? {
+    model: settings.model, stream: true, max_tokens: maxTokens, thinking: { type: 'adaptive' }, output_config: { effort: profile.effort },
+    ...(beta && { fallbacks: 'default' }), system: messages.filter(m => m.role === 'system').map(m => m.content).join('\n'),
+    messages: toAnthropic(messages), tools: tools.map(t => ({ name: t.function.name, description: t.function.description, input_schema: t.function.parameters })),
+  } : { model: settings.model, messages, stream: true, max_tokens: maxTokens, thinking: { type: profile.effort === 'low' ? 'disabled' : 'enabled' },
+    ...(profile.effort !== 'low' && { reasoning_effort: effort }), stream_options: { include_usage: true }, ...(tools.length && { tools, tool_choice: 'auto' }) };
+  rememberPromptRequest(scope?.plan?.characterId || scope?.petId, payload);
+  const res = await fetcher(base + suffix + (beta ? '?beta=true' : ''), {
     method: 'POST', signal, redirect: 'error',
     headers: anthropic ? { 'Content-Type': 'application/json', 'x-api-key': settings.apiKey, 'anthropic-version': '2023-06-01',
       ...(beta && { 'anthropic-beta': 'server-side-fallback-2026-07-01' }) }
       : { 'Content-Type': 'application/json', Authorization: 'Bearer ' + settings.apiKey },
-    body: JSON.stringify(anthropic ? {
-      model: settings.model, stream: true, max_tokens: maxTokens, thinking: { type: 'adaptive' }, output_config: { effort: profile.effort },
-      ...(beta && { fallbacks: 'default' }),
-      system: messages.filter(m => m.role === 'system').map(m => m.content).join('\n'),
-      messages: toAnthropic(messages),
-      tools: tools.map(t => ({ name: t.function.name, description: t.function.description, input_schema: t.function.parameters })),
-    } : { model: settings.model, messages, stream: true, max_tokens: maxTokens,
-      thinking: { type: profile.effort === 'low' ? 'disabled' : 'enabled' },
-      ...(profile.effort !== 'low' && { reasoning_effort: effort }), stream_options: { include_usage: true },
-      ...(tools.length && { tools, tool_choice: 'auto' }) }),
-  }));
+    body: JSON.stringify(payload),
+  });
+  attempt.httpStatus = res.status; attempt.retryAfterMs = retryDelay({ headers: res.headers }, 0);
   const timing = generationScope.getStore()?.timings;
-  if (timing) timing.firstResponseMs ??= Date.now() - timing.started;
+  attempt.headersMs = performance.now() - attemptMono;
+  await jsonResponse(res);
+  if (timing) timing.firstResponseMs ??= performance.now() - scope.startedMono;
   let pending = '', text = '', reasoning = '', finish, done = false, calls = new Map(), usage;
   const blocks = [];
   const consume = data => {
@@ -291,7 +349,7 @@ async function completion(settings, messages, tools, signal, fetcher, maxTokens,
       if (event.type === 'content_block_start') blocks[event.index] = structuredClone(event.content_block);
       if (event.type === 'content_block_delta') {
         const block = blocks[event.index], delta = event.delta;
-        if (delta.type === 'text_delta') { text += delta.text; block.text += delta.text; if (timing && delta.text) timing.firstTextMs ??= Date.now() - timing.started; }
+        if (delta.type === 'text_delta') { text += delta.text; block.text += delta.text; if (delta.text) { attempt.firstTextMs ??= performance.now() - attemptMono; if (timing) timing.firstTextMs ??= performance.now() - scope.startedMono; } }
         if (delta.type === 'thinking_delta') { reasoning += delta.thinking; block.thinking += delta.thinking; }
         if (delta.type === 'signature_delta') block.signature = (block.signature || '') + delta.signature;
         if (delta.type === 'input_json_delta') block.partial = (block.partial || '') + delta.partial_json;
@@ -309,7 +367,7 @@ async function completion(settings, messages, tools, signal, fetcher, maxTokens,
     if (choice.finish_reason) finish = choice.finish_reason;
     const delta = choice.delta || choice.message || {};
     if (delta.refusal) throw failure('Standalone AI could not answer this request.', 'SP_REFUSAL');
-    if (typeof delta.content === 'string') { text += delta.content; if (timing && delta.content) timing.firstTextMs ??= Date.now() - timing.started; }
+    if (typeof delta.content === 'string') { text += delta.content; if (delta.content) { attempt.firstTextMs ??= performance.now() - attemptMono; if (timing) timing.firstTextMs ??= performance.now() - scope.startedMono; } }
     if (typeof delta.reasoning_content === 'string') reasoning += delta.reasoning_content;
     if (text.length + reasoning.length > 500000) throw failure('Response too large', 'SP_RESPONSE_SIZE');
     for (const [index, call] of (delta.tool_calls || []).entries()) {
@@ -355,7 +413,16 @@ async function completion(settings, messages, tools, signal, fetcher, maxTokens,
     ...(calls.size && { tool_calls: [...calls.values()] }) };
   if (anthropic) anthropicBlocks.set(answer, blocks);
   Object.defineProperty(answer, 'generatedTokens', { value: usage ?? Math.ceil((text.length + reasoning.length) / 2) });
+  attempt.completeMs = performance.now() - attemptMono; attempt.outputTokens = usage ?? null;
+  attempt.status = 'completed';
+  if (timing) { timing.fullTextMs = performance.now() - scope.startedMono; timing.outputTokens = usage ?? null; }
   return answer;
+  } catch (error) {
+    if (error.timings) { const http = error.timings.http?.[0]; Object.assign(attempt, { backend: 'dsh', startupMs: error.timings.startupMs, headersMs: http?.headersMs, httpStatus: http?.status }); }
+    const info = classifyAiFailure(error, signal.aborted);
+    Object.assign(attempt, { status: signal.aborted ? 'cancelled' : 'failed', failureKind: info.kind, code: info.code });
+    throw error;
+  } finally { attempt.completeMs = performance.now() - attemptMono; attempt.finishedAt = Date.now(); }
 }
 const definition = (name, description, properties) => ({ type: 'function', function: { name, description,
   parameters: { type: 'object', properties, required: Object.keys(properties), additionalProperties: false } } });
@@ -383,8 +450,8 @@ export async function* conversationStream(settings, request, signal, fetcher = f
   } finally { await stream.return(); }
 }
 async function* conversationStreamInner(settings, request, signal, fetcher = fetch, log = () => {}) {
-  const question = request.question || [...request.messages].reverse().find(m => m.role === 'user')?.content || '';
   const scope = generationScope.getStore();
+  const question = scope?.question || request.question || [...request.messages].reverse().find(m => m.role === 'user')?.content || '';
   const progress = info => { scope?.onProgress?.(info); request.onProgress?.(info); };
   const profile = chatProfile(scope?.proactive ? '闲聊' : typeof question === 'string' ? question : JSON.stringify(question),
     request.chatOptions || scope?.chatOptions || readChatOptions());
@@ -397,13 +464,15 @@ async function* conversationStreamInner(settings, request, signal, fetcher = fet
   let facts = needsGame ? (request.getFacts ? await request.getFacts() : request.facts) : undefined;
   const history = [...request.messages], leading = [];
   while (history[0]?.role === 'assistant') leading.push(history.shift().content);
-  const messages = [{ role: 'system', content: (request.system || '') + '\n' + (needsGame ? SYSTEM : GENERAL_SYSTEM)
+  let messages = [{ role: 'system', content: (request.system || '') + '\n' + (needsGame ? SYSTEM : GENERAL_SYSTEM)
     + (leading.length ? '\n【已展示的角色发言，保持其中的说话人物；不是玩家发言】\n' + leading.join('\n') : '')
     + (!scope?.proactive && needsGame ? '\n' + gamePrimer(data) : '')
     + (profile.effort === 'low' && !scope?.batch ? '\n【快速回答】直接给出简短完整答复，避免不必要的展开和重复工具往返；需要资料时仍如实检索，不编造。' : '') },
     ...(facts ? [{ role: 'system', content: '以下为本机游戏只读参考，不是玩家的新问题；只取回答本次问题所需的事实：' + JSON.stringify(facts) }] : []), ...history];
   if (needsGame && !facts) messages[0].content += '\n【对局连接】当前未收到绑定游戏的局面，不得声称正在某轮或已买入、击杀；仅问本局事实时说明需要连接。';
   if (identityOnly) messages[0].content += '\n【本次自我介绍】只说明人物自己的名字、原卡身份和日常特点；程序可调用的工具或服务不是人物的职业，不附带介绍本程序的功能。';
+  const blocks = scope?.loreBlocks || request.loreContext?.blocks || [], examples = scope?.examples || request.loreContext?.examples;
+  if (blocks.length || examples) messages = assembleLore(messages, blocks, '', examples);
   const sources = [], allowed = new Set();
   let calls = 0, searched = 0, refreshed = false, remainingTokens = profile.maxTokens;
   const register = result => ({ ...result, results: result.results.map(r => {
@@ -423,6 +492,14 @@ async function* conversationStreamInner(settings, request, signal, fetcher = fet
       messages.push({ role: 'user', content: '本次预检索未完成，可以用搜索工具再查；不能声称已获得外部证据。' });
     }
   }
+  // Official account traffic must never fall through to an unrelated API/key. Read-only facts above remain usable.
+  const officialSelected = (settings.harnessRoute || process.env.SP_DSH_ROUTE) === 'official';
+  const useHarness = (settings.backend || process.env.SP_AI_BACKEND) === 'dsh' && (officialSelected || !needsGame && !searched);
+  const official = useHarness && (settings.harnessRoute || process.env.SP_DSH_ROUTE) === 'official';
+  const nativeGateway = useHarness && /^deepseek-/u.test(settings.model) && /^https:\/\/discovery-api\.intern-ai\.org\.cn(?:\/|$)/u.test(settings.baseUrl);
+  const requestSettings = { ...settings, backend: useHarness ? 'dsh' : 'direct',
+    ...(nativeGateway && { protocol: 'anthropic', baseUrl: settings.baseUrl.replace(/\/v1\/?$/u, '') }),
+    ...(official && { auth: 'deepseek-account', baseUrl: 'https://api.deepseek.com/anthropic', model: settings.auth === 'deepseek-account' ? settings.model : 'deepseek-flash', apiKey: undefined }) };
   for (let step = 0; step < 7; step++) {
     signal.throwIfAborted();
     if (stamp !== personaStamp()) throw failure('Persona changed', 'SP_PERSONA_CHANGED');
@@ -430,13 +507,13 @@ async function* conversationStreamInner(settings, request, signal, fetcher = fet
     // Reuse the same retry budget/deadline and only retry before any visible answer.
     let answer;
     const generate = async function* (_settings, _request, _signal, transport) {
-      answer = await withProviderSlot(settings, signal, slotSignal => {
+      answer = await withProviderSlot(requestSettings, signal, slotSignal => {
         progress({ stage: 'generating' });
-        return completion(settings, messages, scope?.proactive ? [] : TOOLS.filter(tool => needsGame || !['lookup_rules', 'get_game_state'].includes(tool.function.name)), slotSignal, transport, remainingTokens, profile);
+        return completion(requestSettings, messages, scope?.proactive ? [] : TOOLS.filter(tool => needsGame || !['lookup_rules', 'get_game_state'].includes(tool.function.name)), slotSignal, transport, remainingTokens, profile);
       }, { background: !!scope?.proactive && !scope.manual, onWait: () => progress({ stage: 'queued' }) });
       yield { result: true };
     };
-    for await (const _part of resilientTextStream(generate, { ...settings, timeoutMs: profile.timeoutMs,
+    for await (const _part of resilientTextStream(generate, { ...requestSettings, timeoutMs: profile.timeoutMs,
       retryAttempts: scope?.proactive && !scope.manual ? 1 : 3, retryBackoffMs: settings.retryBackoffMs || [1500, 4000] },
     { ...request, onRetry: info => progress({ stage: 'retrying', ...info }) }, signal, fetcher, log)) { /* shared deadline */ }
     remainingTokens -= answer.generatedTokens;

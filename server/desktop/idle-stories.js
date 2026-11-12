@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync, mkdirSync, writeFileSync, renameSync, rmSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { expressionCost, expressionProblem } from '../companion/expression.js';
 
 const digest = value => createHash('sha256').update(value).digest('hex').slice(0, 24);
 const normalize = text => String(text).normalize('NFKC').toLowerCase().replace(/[\p{P}\p{S}\s\d]/gu, '');
@@ -113,8 +114,12 @@ export class StoryMemory {
   }
   select(entry, catalog, grounded, excluded = new Set()) {
     const choices = grounded ? catalog : creativeAngles.map((text, index) => ({ id: 'creative-' + index, topic: 'creative-' + index, text }));
-    const next = choices.filter(row => !entry.used[row.topic] && !excluded.has(row.topic) && (entry.rejected[row.topic] || 0) < 2)
-      .sort((a, b) => (entry.attempted[a.topic] || 0) - (entry.attempted[b.topic] || 0))[0];
+    const next = choices.filter(row => !entry.used[row.topic] && !excluded.has(row.topic) && (entry.rejected[row.topic] || 0) < 2
+      && (!row.factPoints?.length || !row.factPoints.every(p => entry.coverage?.[p.id])))
+      .sort((a, b) => Number(!!entry.progress?.[b.topic]?.heard.length && !entry.progress[b.topic].completed)
+        - Number(!!entry.progress?.[a.topic]?.heard.length && !entry.progress[a.topic].completed)
+        || expressionCost(a.text, entry.recent, a.anchors) - expressionCost(b.text, entry.recent, b.anchors)
+        || (entry.attempted[a.topic] || 0) - (entry.attempted[b.topic] || 0))[0];
     if (!next && !grounded && choices.length) {
       // Rotate to a new cycle without erasing background coverage or repeating the last angle.
       const recentTopics = new Set(entry.recent.slice(-6).map(row => row.topic));
@@ -127,6 +132,7 @@ export class StoryMemory {
     return next;
   }
   repeated(text, entry, catalog, selected) {
+    if (expressionProblem(text, entry.recent, { topic: selected.topic, anchors: selected.anchors })) return true;
     if (repeatsStory(text, entry.recent)) return true;
     // Source coverage is authoritative. Weak lexical anchors are not proof that a new event repeats an old one.
     return !!entry.used[selected.topic] || catalog.some(row => entry.used[row.topic]
@@ -141,11 +147,14 @@ export class StoryMemory {
     entry.recent = [...entry.recent, { text, topic: selected.topic, summary: selected.text.slice(0, 100) }].slice(-48);
     try { this.persist(); } catch { /* a disk failure must not hide generated speech */ }
   }
-  recordPart(entry, selected, text, { id, final }) {
+  recordPart(entry, selected, text, { id, final, informationPoints = [] }) {
     entry.progress ??= {};
     const progress = entry.progress[selected.topic] ||= { heard: [], ids: [], completed: false };
     if (progress.ids.includes(id)) return;
-    progress.ids.push(id); progress.heard.push(text); progress.completed = final;
+    progress.ids.push(id); progress.heard.push(text); progress.completed = final; progress.status = final ? 'completed' : 'paused';
+    progress.informationPoints = [...(progress.informationPoints || []), ...text.split(/[。！？]/u).filter(Boolean)].slice(-24);
+    entry.coverage ||= {};
+    for (const point of informationPoints) entry.coverage[point.id] = { deliveryId: id, sourceIds: point.sourceIds || [] };
     if (final) entry.used[selected.topic] = true;
     entry.recent = [...entry.recent, { text, topic: selected.topic, summary: text.slice(0, 100), segmentId: id }].slice(-48);
     this.persist();

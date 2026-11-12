@@ -13,6 +13,7 @@ const conversationHelper = new URL('./conversation.js', import.meta.url).href;
 const idleHelper = new URL('./idle-chat.js', import.meta.url).href;
 const libraryHelper = new URL('../companion/routes.js', import.meta.url).href;
 const profileHelper = new URL('../companion/profile.js', import.meta.url).href;
+const connectionHelper = new URL('./ai-connection.js', import.meta.url).href;
 const marker = 'const system = petSystemPrompt(found, { historyTimes: list.length > 0 });';
 const routeMarker = 'return async (url, rest, method, body, signal) => {';
 const limitMarker = 'const limit = pathname === "/standalone-ai/settings" ? MAX_SETTINGS_BYTES : MAX_REQUEST_BYTES;';
@@ -24,13 +25,15 @@ const transport = 'async function* sdkTextStream(settings, request, signal, fetc
 const normalize = 'function normalizeFailure(runtime, controller, error) {';
 const textFactory = 'function createTextStream(runtime) {';
 const leadingHistoryGuard = ' || messages[0].role !== "user"';
+const memoryStart = 'const now = Date.now();\n\t\tentry.messages.push({';
+const memoryEnd = 'await writeMemory(mem);\n\t\tif (generated.action !== void 0)';
 
 registerHooks({
   load(url, context, nextLoad) {
     const loaded = nextLoad(url, context);
     if (url !== entry) return loaded;
     const source = typeof loaded.source === 'string' ? loaded.source : Buffer.from(loaded.source).toString('utf8');
-    if ([marker, routeMarker, limitMarker, bodyMarker, chatGenerator, whisperGenerator, transport, normalize, textFactory, leadingHistoryGuard].some(text => source.split(text).length !== 2)
+    if ([marker, routeMarker, limitMarker, bodyMarker, chatGenerator, whisperGenerator, transport, normalize, textFactory, leadingHistoryGuard, memoryStart, memoryEnd].some(text => source.split(text).length !== 2)
       || source.split(whisperMarker).length !== 3) {
       throw new Error('dsh-pet 人设适配点已改变，请使用 v0.4.1 并更新适配器。');
     }
@@ -39,6 +42,7 @@ registerHooks({
     }, { historyTimes: list.length > 0 });`)
       .replaceAll(whisperMarker, 'const system = petSystemPrompt({ ...found, pet: strongholdDailyPersonaPet(found.pet) });')
       .replace(routeMarker, routeMarker + '\n if (rest === "stronghold/persona") return strongholdPersonaRoute(method, body);'
+        + '\n if (rest === "stronghold/ai-connection") return strongholdAiConnectionRoute(method, body, signal);'
         + '\n if (rest.startsWith("stronghold/library")) return strongholdLibraryRoute(url, rest, method, body, signal, {getInput: petId => strongholdCompanionInput(deps, petId), generate: strongholdBaseChat, petIds: () => [...new Set(Object.values(readAllConfig(deps.configPaths)).flatMap(conf => (conf.pets || []).map(p => p.id)))]});'
         + '\n if (rest === "stronghold/chat-options") return strongholdChatOptionsRoute(method, body);'
         + '\n if (rest === "stronghold/idle-status" && method === "GET") return strongholdIdleStatusRoute(url.searchParams.get("pet") || "main");'
@@ -47,7 +51,9 @@ registerHooks({
         + '\n if (rest === "stronghold/open-source") return strongholdOpenSourceRoute(method, body);'
         + '\n if (rest === "stronghold/cancel" && method === "POST") return strongholdCancelConversation();')
       .replace('const generated = await generateChat({', 'const generated = await generateChat({ companionPetId: found.pet.id,')
-      .replaceAll('text: generated.text,', 'text: generated.text, ...(generated.deliveryId ? { deliveryId: generated.deliveryId } : {}),')
+      .replaceAll('text: generated.text,', 'text: generated.text, ...(generated.deliveryId ? { deliveryId: generated.deliveryId } : {}), ...(generated.origin ? { origin: generated.origin } : {}), ...(generated.degraded ? { degraded: true, recovery: generated.recovery } : {}),')
+      .replace(memoryStart, 'if (!generated.degraded) { ' + memoryStart)
+      .replace(memoryEnd, 'await writeMemory(mem);\n\t\t}\n\t\tif (generated.action !== void 0)')
       .replace(leadingHistoryGuard, '')
       .replace(chatGenerator, 'async function strongholdBaseChat(input) {')
       .replace(whisperGenerator, 'async function strongholdBaseWhisper(ctx, request) {')
@@ -73,7 +79,8 @@ registerHooks({
       + `import { petProfile as strongholdPetProfile, hasLibrary as strongholdHasLibrary } from ${JSON.stringify(profileHelper)};\n`
       + `import { idleChatRoute as strongholdIdleChatRoute, idleStatusRoute as strongholdIdleStatusRoute, warmIdleStartup } from ${JSON.stringify(idleHelper)};\nawait warmIdleStartup();\n`
       + `import { createAssistantTextStream, sourcesRoute as strongholdSourcesRoute, openSourceRoute as strongholdOpenSourceRoute, cancelConversation as strongholdCancelConversation } from ${JSON.stringify(conversationHelper)};\n`
-      + 'function createTextStream(runtime) { return createAssistantTextStream(runtime, parseRequest); }\n'
+      + `import { attachAiConnection, aiConnectionRoute as strongholdAiConnectionRoute } from ${JSON.stringify(connectionHelper)};\n`
+      + 'function createTextStream(runtime) { attachAiConnection(runtime, strongholdBaseTextStream); return createAssistantTextStream(runtime, parseRequest); }\n'
       + 'async function* sdkTextStream(settings, request, signal, fetcher) { yield* resilientTextStream(strongholdBaseTextStream, settings, request, signal, fetcher, defaultLog); }\n'
       + 'function normalizeFailure(runtime, controller, error) { return normalizeAiFailure(error, strongholdBaseNormalizeFailure(runtime, controller, error), controller.signal, defaultLog); }\n';
     const inputFactory = `async function strongholdCompanionInput(deps, petId) {

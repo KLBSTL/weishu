@@ -1,5 +1,6 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { createProxyFetch } from './proxy-fetch.js';
+import { providerRecovery } from './recovery.js';
 
 const NETWORK_CODES = new Set(['ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'ETIMEDOUT',
   'UND_ERR_SOCKET', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT', 'ERR_STREAM_PREMATURE_CLOSE']);
@@ -10,7 +11,7 @@ const proxyFetchers = new WeakMap();
 
 /** Never include remote messages, URLs, headers or bodies in diagnostics. */
 export function classifyAiFailure(error, aborted = false) {
-  let status, code, node = error, endpoint = false;
+  let status, code, recovery, node = error, endpoint = false;
   const pending = [];
   const seen = new Set();
   for (let depth = 0; node && depth < 12; depth++, node = pending.shift()) {
@@ -21,13 +22,19 @@ export function classifyAiFailure(error, aborted = false) {
     if (!status && Number.isInteger(candidate) && candidate >= 400 && candidate <= 599) status = candidate;
     if (NETWORK_CODES.has(node.code) || CONTEXT_CODES.has(node.code)
       || ['SP_PROXY_UNAVAILABLE', 'max_tokens_exceeded', 'SP_PROTOCOL', 'SP_PERSONA_CHANGED', 'SP_GAME_CONTEXT', 'SP_CANCELLED',
-        'SP_TOOL_LIMIT', 'SP_ATTEMPT_BUDGET', 'SP_RESPONSE_SIZE', 'SP_REFUSAL', 'SP_EMPTY', 'SP_PROVIDER_BUSY'].includes(node.code)) code ??= node.code;
+        'SP_TOOL_LIMIT', 'SP_ATTEMPT_BUDGET', 'SP_RESPONSE_SIZE', 'SP_REFUSAL', 'SP_EMPTY', 'SP_PROVIDER_BUSY', 'SP_RECOVERING',
+        'SP_DSH_UNAVAILABLE', 'SP_DSH_RUNTIME'].includes(node.code)) code ??= node.code;
     if (Object.hasOwn(REMOTE_CODES, node.code)) code ??= node.code;
     if (Object.hasOwn(REMOTE_CODES, node.type)) code ??= node.type;
+    if (node.code === 'SP_RECOVERING') recovery = {
+      recoveryKind: ['network','timeout','rate','server','response','empty','proxy','auth','quota','request','endpoint'].includes(node.recoveryKind) ? node.recoveryKind : undefined,
+      retryAfterMs: Number.isFinite(node.retryAfterMs) ? Math.max(0, Math.min(2147483647, node.retryAfterMs)) : 1000,
+    };
     if (node.message === 'Unexpected standalone AI endpoint.') endpoint = true;
   }
   let kind = 'unknown';
   if (code === 'SP_CANCELLED') kind = 'cancelled';
+  else if (code === 'SP_RECOVERING') kind = 'recovering';
   else if (code === 'SP_PROVIDER_BUSY') kind = 'busy';
   else if (code === 'SP_PERSONA_CHANGED') kind = 'persona';
   else if (code === 'SP_GAME_CONTEXT') kind = 'game';
@@ -53,20 +60,22 @@ export function classifyAiFailure(error, aborted = false) {
   else if (error?.message === 'Standalone AI could not answer this request.') kind = 'refused';
   else if (error?.message === 'Standalone AI response exceeds limits.') kind = 'output';
   else if (code === 'max_tokens_exceeded') kind = 'output';
-  else if (code === 'SP_PROTOCOL') kind = 'request';
+  else if (['SP_PROTOCOL', 'SP_DSH_UNAVAILABLE'].includes(code)) kind = 'request';
+  else if (code === 'SP_DSH_RUNTIME') kind = 'response';
   else if (code === 'SP_ATTEMPT_BUDGET') kind = 'tools';
   else if (['SP_PERSONA_CHANGED', 'SP_GAME_CONTEXT'].includes(code)) kind = 'timeout';
   return { kind, status, code,
+    ...(kind === 'recovering' && recovery),
     retryable: ['network', 'rate', 'response'].includes(kind)
       || (kind === 'server' && (!status || [500, 502, 503, 504].includes(status))) };
 }
 
-function retryDelay(error, fallback = 600) {
+export function retryDelay(error, fallback = 600) {
   const raw = error?.headers?.get?.('retry-after') ?? error?.headers?.['retry-after'];
   if (raw === undefined || raw === null) return fallback;
   const seconds = Number(raw);
   const ms = Number.isFinite(seconds) ? Math.max(0, seconds * 1000) : Date.parse(raw) - Date.now();
-  return Number.isFinite(ms) && ms >= 0 && ms <= 60000 ? ms : null;
+  return Number.isFinite(ms) && ms >= 0 ? Math.min(ms, 2147483647) : null;
 }
 
 export async function* resilientTextStream(generate, settings, request, signal, fetcher,
@@ -79,6 +88,10 @@ export async function* resilientTextStream(generate, settings, request, signal, 
   }
   let emitted = 0;
   const attempts = Math.max(1, Math.min(3, settings.retryAttempts ?? 2));
+  signal.throwIfAborted();
+  // Without an explicit provider identity there is no safe cross-request scope (e.g. local test generators).
+  const lease = settings.baseUrl && settings.model ? providerRecovery.acquire(settings) : { success() {}, failure() {}, cancel() {} };
+  try {
   for (let attempt = 0; attempt < attempts; attempt++) {
     signal.throwIfAborted();
     try {
@@ -86,18 +99,19 @@ export async function* resilientTextStream(generate, settings, request, signal, 
         if (part.text) emitted += part.text.length;
         yield part;
       }
-      return;
+      lease.success(); return;
     } catch (error) {
       const info = classifyAiFailure(error, signal.aborted);
       const pause = retryDelay(error, settings.retryBackoffMs?.[attempt] ?? 600);
       const retry = attempt < attempts - 1 && !emitted && !signal.aborted && info.retryable
         && pause !== null && Date.now() + pause + 1000 < deadline;
       log('warn', `[desktop-ai] kind=${info.kind} status=${info.status ?? '-'} code=${info.code ?? '-'} attempt=${attempt + 1} retry=${retry} emitted=${emitted}`);
-      if (!retry) throw error;
+      if (!retry) { if (signal.aborted) lease.cancel(); else lease.failure(info, pause); throw error; }
       request.onRetry?.({ attempt: attempt + 2, attempts, delayMs: pause });
       await wait(pause, { signal });
     }
   }
+  } finally { lease.cancel(); }
 }
 
 export function normalizeAiFailure(error, fallback, signal, log = () => {}) {
@@ -107,6 +121,7 @@ export function normalizeAiFailure(error, fallback, signal, log = () => {}) {
   const messages = {
     timeout: '请求已取消或超时，请稍后重试。',
     busy: '模型正在处理另一条请求，稍等即可继续。',
+    recovering: '连接正在恢复，桌宠会先使用本地内容继续陪伴。',
     cancelled: '本次回复已取消。',
     persona: '人设已切换，已取消旧回复，请重新提问。',
     game: '对局已结束或更换，未发送旧局回答，请重新提问。',

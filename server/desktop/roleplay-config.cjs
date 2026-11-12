@@ -18,7 +18,7 @@ const dockSize = value => ({ width: value.gemSize + 32, height: value.lineLength
 function shellLayout(value, display, anchor) {
   const a=display.workArea,b=display.bounds,tail=dockSize(value).height+12;
   const width=Math.min(value.width,a.width-16), height=Math.min(value.height,a.y+a.height-b.y-tail);
-  const padding=Math.ceil(Math.sin(Math.PI/30)*(value.lineLength+value.gemSize*1.2))+16;
+  const padding=Math.ceil(Math.sin(Math.PI/10)*(value.lineLength+value.gemSize*1.2+8))+16;
   const margin=value.gemSize/2+padding;
   const desired=Number.isFinite(anchor)?anchor:a.x+a.width-margin-16;
   const x=Math.round(Math.max(a.x+8,Math.min(desired-(width-margin),a.x+a.width-width-8)));
