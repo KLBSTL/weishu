@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
+import panelThemes from '../desktop/roleplay-themes.cjs';
 import { companionLibrary, safeStatePatch, directRoom, actorSessionKey } from './library.js';
 import { renderReadOnlyTemplate } from './template.js';
 import { companionDirectory } from './profile.js';
@@ -21,6 +22,24 @@ import { summarizeJobs } from './metrics.js';
 
 const result = (status, obj) => ({ kind: 'json', status, obj });
 const clearConfirmations = new Map();
+// Use the same speaker and material filtering as the conversation, including for mixed-author cards.
+function panelExcerpts(compiled) {
+  const groups = new Map();
+  for (const unit of compiled.units) {
+    if (!unit.rule || unit.rule.extensions?.ark_companion?.conditions?.length) continue;
+    if (!groups.has(unit.path)) groups.set(unit.path, { passages: [], broadcast: unit.rule.extensions?.ark_companion?.broadcastExcerpt });
+    const entry = groups.get(unit.path);
+    if (unit.ownership === 'self' || unit.ownership === 'world') entry.passages.push(unit.text);
+    else entry.broadcast = undefined;
+  }
+  const reading = [], broadcast = [];
+  for (const entry of groups.values()) {
+    if (!entry.passages.length) continue;
+    reading.push(entry.passages.join('\n\n'));
+    if (typeof entry.broadcast === 'string' && entry.broadcast.trim()) broadcast.push(entry.broadcast.trim());
+  }
+  return { reading, broadcast };
+}
 const validId = value => typeof value === 'string' && /^[\p{L}\p{N}_:-]{1,80}$/u.test(value) && !['__proto__', 'constructor', 'prototype'].includes(value);
 const bad = message => { throw Object.assign(new Error(message), { status: 400 }); };
 const text = (value, max = 16000) => { if (typeof value !== 'string' || value.length > max) bad('文字内容无效或过长'); return value; };
@@ -32,17 +51,23 @@ export function staticCardDocument(html) {
   return '<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'none\'; style-src \'unsafe-inline\'; img-src data:; form-action \'none\'; base-uri \'none\'"></head><body>' + safe + '</body></html>';
 }
 
-/** Sensitive material only travels through authenticated POST; GET serves static UI only. */
-export async function libraryRoute(url, rest, method, raw, signal, deps = {}) {
-  const staticFiles = { 'stronghold/library-ui': 'manager.html', 'stronghold/library-client.js': 'manager.js', 'stronghold/library-style.css': 'manager.css',
+const staticFiles = Object.freeze({ 'stronghold/library-ui': 'manager.html', 'stronghold/library-client.js': 'manager.js', 'stronghold/library-style.css': 'manager.css',
+    'stronghold/library-broadcast.js':'broadcast-panel.js', 'stronghold/library-broadcast-view.js':'broadcast-view.js',
     'stronghold/library-prompts.js': 'prompt-editor.js', 'stronghold/library-prompt-transfer.js': 'prompt-transfer.js', 'stronghold/library-motion.js': 'motion.js',
     'stronghold/library-panel.js': 'panel.js', 'stronghold/library-rounds.js': 'round-controls.js', 'stronghold/library-pagination.js': 'pagination.js', 'stronghold/library-shell.js': '../desktop/roleplay-dock.js',
     'stronghold/library-shell.css': '../desktop/roleplay-dock.css', 'stronghold/library-playing.webm': '../desktop/playing.webm',
+    'stronghold/library-panel-theme.css': 'panel-theme.css', 'stronghold/library-panel-ui.js': 'panel-ui.js',
+    'stronghold/library-pet-theme.css': 'pet-theme.css', 'stronghold/library-themes.js': '../desktop/roleplay-themes.cjs',
+    ...Object.fromEntries(Object.entries(panelThemes.themes).flatMap(([id, {assets}]) =>
+      ['theme.css', ...assets].map(name => ['stronghold/library-themes/' + id + '/' + name, id + '/' + name]))),
     'stronghold/library-ai-settings.js': 'ai-settings-ui.js', 'stronghold/library-i18n/i18n.js': '../../shared/i18n.js',
     'stronghold/library-i18n/i18nPacks.js': '../../shared/i18nPacks.js',
-    ...Object.fromEntries(['en', 'ja', 'ko', 'zh-TW'].map(lang => ['stronghold/library-i18n/' + lang + '.json', '../../public/i18n/' + lang + '.json'])) };
-  if (staticFiles[rest]) return method === 'GET' ? { kind: 'file', file: fileURLToPath(new URL('./' + staticFiles[rest], import.meta.url)),
-    contentType: rest.endsWith('.webm') ? 'video/webm' : rest.endsWith('.js') ? 'text/javascript' : rest.endsWith('.json') ? 'application/json' : rest.endsWith('.css') ? 'text/css' : 'text/html' } : result(405, { error: '只读页面' });
+    ...Object.fromEntries(['en', 'ja', 'ko', 'zh-TW'].map(lang => ['stronghold/library-i18n/' + lang + '.json', '../../public/i18n/' + lang + '.json'])) });
+
+/** Sensitive material only travels through authenticated POST; GET serves static UI only. */
+export async function libraryRoute(url, rest, method, raw, signal, deps = {}) {
+  if (Object.hasOwn(staticFiles, rest)) return method === 'GET' ? { kind: 'file', file: fileURLToPath(new URL('./' + staticFiles[rest], import.meta.url)),
+    contentType: rest.endsWith('.svg') ? 'image/svg+xml' : rest.endsWith('.avif') ? 'image/avif' : rest.endsWith('.png') ? 'image/png' : rest.endsWith('.webp') ? 'image/webp' : rest.endsWith('.webm') ? 'video/webm' : rest.endsWith('.js') ? 'text/javascript' : rest.endsWith('.json') ? 'application/json' : rest.endsWith('.css') ? 'text/css' : 'text/html' } : result(405, { error: '只读页面' });
   if (rest !== 'stronghold/library') return result(404, { error: '未知资料接口' });
   if (method !== 'POST') return result(405, { error: '资料接口必须使用POST' });
   const dir = companionDirectory(), library = companionLibrary(dir);
@@ -163,7 +188,7 @@ export async function libraryRoute(url, rest, method, raw, signal, deps = {}) {
     if (action === 'snapshot') {
       const data = library.snapshot();
       return result(200, { ...data, actors: data.actors.map(actor => { const compiled = compileCard(library.card(actor.id, data, true));
-        return { ...actor, sessionKey: actorSessionKey(actor), resolvedSpeaker: compiled.needsSpeaker ? null : compiled.speaker };
+        return { ...actor, sessionKey: actorSessionKey(actor), resolvedSpeaker: compiled.needsSpeaker ? null : compiled.speaker, panelExcerpts: panelExcerpts(compiled) };
       }), assets: data.assets.map(({ originalBytes: _bytes, ...asset }) => asset), events: data.events.slice(-80),
         embeddedBooks: data.actors.flatMap(actor => {
           const source = data.assets.find(a => a.id === actor.assetId)?.card, book = actor.embeddedBook || (source?.data || source)?.character_book;

@@ -7,6 +7,30 @@ import { IdleCache, localOpeningLines } from '../server/desktop/idle-cache.js';
 import { IdleChat } from '../server/desktop/idle-chat.js';
 import { DEFAULT_CHAT_OPTIONS } from '../server/match/replyStyle.js';
 
+test('manual playback prefers a different topic while a retry retains the issued packet and automatic playback continues it', async () => {
+  const idle = new IdleChat({ now: () => 9000, stamp: () => 'same', options: () => DEFAULT_CHAT_OPTIONS,
+    stories: { recordPart() {} }, save() {} });
+  function queued(topic, index) {
+    const segments = [0, 1, 2].map(i => ({ id: topic + i, index: i, text: (topic + '的故事。').repeat(14) }));
+    return { ...segments[index], selected: { topic, id: topic }, batch: { id: topic, segments },
+      stamp: 'same', expires: 100000, entry: { recent: [] }, notBefore: 0 };
+  }
+  idle.ready = queued('海边', 1); idle.nextReady = queued('龙门', 0);
+  const run = manual => idle.run(async () => null, async () => assert.fail('prepared topics need no generation'), undefined, { manual });
+  const first = await run(true);
+  assert.equal(first.sourceId, '龙门');
+  assert.equal(first.requestedAction, 'change-topic');
+  assert.equal((await run(true)).deliveryId, first.deliveryId);
+  assert.equal((await idle.acknowledge(first.deliveryId)).ok, true);
+  idle.ready.notBefore = 0;
+  const automatic = await run(false);
+  assert.equal(automatic.sourceId, '龙门');
+  assert.equal(automatic.segmentIndex, 1);
+  assert.equal((await run(true)).deliveryId, automatic.deliveryId);
+  assert.equal((await idle.acknowledge(automatic.deliveryId)).ok, true);
+  assert.equal((await run(true)).sourceId, '海边');
+});
+
 test('unchanged warm polls avoid rewriting disk and an external cache edit invalidates the in-memory view', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'idle-cache-poll-'));
   try {

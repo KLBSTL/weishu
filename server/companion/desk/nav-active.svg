@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="164" height="84" viewBox="0 0 164 84">
+<defs><linearGradient id="paper" x2=".3" y2="1"><stop stop-color="#8d8a63"/><stop offset=".55" stop-color="#737456"/><stop offset="1" stop-color="#53573d"/></linearGradient></defs>
+<path d="M20 7 65 7Q81-5 99 7H144L151 13 160 18V66L151 71 145 77H98L82 83 65 77H20L13 71 4 66V18L13 13Z" fill="#58492f" stroke="#97704e" stroke-width="3.7"/>
+<path d="M21 9H66L82 4 98 9H144L149 15 157 20V64L149 69 144 74H97L82 79 66 74H20L15 68 7 64V20L15 15Z" fill="url(#paper)" stroke="#ffe9c8" stroke-width="2.3"/>
+<path d="M23 13H66L82 8 98 13H141L146 18 153 22V62L146 65 141 70H98L82 75 67 70H23L18 65 11 62V22L18 18Z" fill="none" stroke="#e2b878" stroke-width="1.25"/>
+<g id="foliage" fill="#ebd0a0"><path d="M19 41q3 19 29 28-26-4-32-23zm1 7q-7-5-5-11 7 3 5 11zm4 8q-1-10 4-12 4 8-4 12zm5 5q-8 1-13-8 8 0 13 8zm3 1q-1-7 6-9 3 5-6 9zm8 4q-6 4-15-2 7-4 15 2z"/><path transform="translate(164) scale(-1 1)" d="M19 41q3 19 29 28-26-4-32-23zm1 7q-7-5-5-11 7 3 5 11zm4 8q-1-10 4-12 4 8-4 12zm5 5q-8 1-13-8 8 0 13 8zm3 1q-1-7 6-9 3 5-6 9zm8 4q-6 4-15-2 7-4 15 2z"/></g>
+<path d="m82 0 5 4-5 4-5-4zm0 76 4 3-4 4-4-4z" fill="#b1875a" stroke="#fae4bd" stroke-width=".9"/>
+</svg>

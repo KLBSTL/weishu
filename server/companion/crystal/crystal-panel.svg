@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120" viewBox="0 0 200 120">
+  <defs>
+    <linearGradient id="edge" x2=".8" y2="1"><stop stop-color="#eff8ff"/><stop offset=".2" stop-color="#8cb6d8"/><stop offset=".49" stop-color="#667296"/><stop offset=".78" stop-color="#c4bdff"/><stop offset="1" stop-color="#a5e9ff"/></linearGradient>
+    <linearGradient id="rim" x2=".7" y2="1"><stop stop-color="#a8e8ff" stop-opacity=".42"/><stop offset=".32" stop-color="#8cb3e4" stop-opacity=".08"/><stop offset=".78" stop-color="#a4a2e6" stop-opacity=".12"/><stop offset="1" stop-color="#d6eeff" stop-opacity=".45"/></linearGradient>
+    <linearGradient id="glass" x2=".4" y2="1"><stop stop-color="#9dadcc" stop-opacity=".05"/><stop offset=".55" stop-color="#182137" stop-opacity=".18"/><stop offset="1" stop-color="#bdcbef" stop-opacity=".08"/></linearGradient>
+  </defs>
+  <path d="M22 2H178L198 20V98L178 118H22L2 98V22Z" fill="url(#glass)"/>
+  <path d="M22 2H178L198 20V98L178 118H22L2 98V22ZM24 7 7 24V95L25 113H175L193 95V23L175 7Z" fill="url(#rim)" fill-rule="evenodd"/>
+  <path d="M22 2H178L198 20V98L178 118H22L2 98V22Z" fill="none" stroke="url(#edge)" stroke-width="1.25"/>
+  <path d="M25 7H175L193 23V95L175 113H25L7 95V24Z" fill="none" stroke="#c5dcf0" stroke-opacity=".35" stroke-width=".75"/>
+  <path d="M22 2 25 7M178 2 175 7M198 20 193 23M198 98 193 95M178 118 175 113M22 118 25 113M2 98 7 95M2 22 7 24" fill="none" stroke="#e2efff" stroke-opacity=".65" stroke-width=".8"/>
+  <path d="M25 3H174M3 25V55M27 117H170M197 62V96" fill="none" stroke="#d9f8ff" stroke-opacity=".48"/>
+</svg>

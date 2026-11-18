@@ -1,0 +1,21 @@
+:is(#broadcastPanel #liveChat .chat-record,.shell .history li)[data-role] {
+  --outline:#3e285d;--tail:#f7f0ff;
+  position:relative;align-self:flex-start;max-width:89%;margin:0 0 0 5px;padding:9px 15px 11px;
+  border:2px solid var(--outline);border-image:none;border-radius:8px 21px 17px 13px;
+  background:linear-gradient(112deg,var(--tail) 15%,#efe7ff);
+  box-shadow:0 2px #ad92dc,inset 0 1px white;
+}
+:is(#broadcastPanel #liveChat .chat-record,.shell .history li)[data-role=user] {
+  --outline:#612447;--tail:#ffd1e6;align-self:flex-end;margin:0 5px 0 0;
+  border-radius:18px 7px 13px 17px;background:linear-gradient(110deg,#ffebbd,var(--tail) 86%);
+  box-shadow:0 2px #d783b4,inset 0 1px #fff5e6;
+}
+:is(#broadcastPanel #liveChat .chat-record,.shell .history li)[data-role]::after {
+  content:"";position:absolute;display:block;inset:15px auto auto -6px;width:8px;height:8px;
+  box-sizing:content-box;pointer-events:none;background:var(--tail);
+  border:0;border-left:2px solid var(--outline);border-bottom:2px solid var(--outline);
+  border-bottom-left-radius:2px;transform:rotate(45deg);
+}
+:is(#broadcastPanel #liveChat .chat-record,.shell .history li)[data-role=user]::after {
+  inset:auto -6px 11px auto;transform:rotate(225deg);
+}

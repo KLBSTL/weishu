@@ -20,7 +20,7 @@ function Initialize-StrongholdNetwork {
 function Invoke-PowerShell7Launcher {
     param([string]$ScriptPath, [System.Collections.IDictionary]$Parameters)
     if ($PSVersionTable.PSVersion.Major -ge 7) { return $false }
-    $pwshPath = 'E:\university_class\Tools\PowerShell\7\pwsh.exe'
+    $pwshPath = Join-Path $env:ProgramFiles 'PowerShell/7/pwsh.exe'
     if (-not (Test-Path -LiteralPath $pwshPath)) {
         $command = Get-Command pwsh.exe -ErrorAction SilentlyContinue
         if (-not $command -or $command.Source -match '\\WindowsApps\\') { throw 'PowerShell 7 is required. Install it or run this script from pwsh.exe.' }

@@ -1,0 +1,55 @@
+:host { display:block;color:var(--ink);font:500 15px/1.55 "Barlow","Microsoft YaHei UI",sans-serif }
+.shell { display:flex;flex-direction:column;min-width:0;min-height:0;width:100%;max-width:none;height:100%;margin:0;padding:0 clamp(5px,.7vw,12px) 8px;border:0;border-radius:0;box-shadow:none;color:var(--ink) }
+.layout { grid-template-columns:minmax(0,40fr) minmax(0,60fr);gap:clamp(6px,.8vw,12px) }
+.shell-header { padding:clamp(5px,1vh,12px) 8px }
+.layout { flex:1;min-height:0 }
+.booth,.desk,.page { min-height:0 }
+.portrait { min-height:0 }
+.desk { min-height:0 }
+.page { padding:clamp(12px,1.8vw,25px);gap:8px;overflow:hidden }
+.page-heading { flex:none;padding-bottom:8px }
+.page-heading small:empty { display:none }
+.shell-header { flex:none }
+.shell-header .air { margin-left:auto }
+.nav { flex:none }
+slot[name=content] { min-height:0;display:flex;flex:1;flex-direction:column }
+slot[name=subnav] { display:block;min-width:0 }
+::slotted(.window-tools) { flex:none }
+.stage-card,button:disabled { cursor:var(--point) }
+.stage-card img { width:100%;height:100%;object-fit:cover;object-position:50% 14%;transform-origin:50% 14% }
+.stage-card:disabled { cursor:var(--arc-cursor) }
+.artist-name { flex:1;min-width:0;max-width:76%;transform:rotate(-3deg);transform-origin:left bottom }
+.artist-name strong {
+  display:block;align-self:stretch;max-width:100%;padding:.07em .28em .13em .1em;overflow:clip;overflow-clip-margin:4px;text-overflow:ellipsis;white-space:nowrap;
+  font:italic 950 clamp(32px,4.9vw,74px)/1.18 "Microsoft YaHei UI",sans-serif;letter-spacing:-.025em;
+}
+.choose-stage-card { position:absolute;z-index:2;top:12px;left:14px;padding:5px 11px;border:1.5px solid var(--ink);border-radius:12px 4px 10px 4px;background:#f7f1ff;color:var(--ink);box-shadow:2px 2px #35234f;font-size:12px;font-weight:800 }
+.choose-stage-card:hover,.choose-stage-card:focus-visible { background:var(--cyan) }
+@media(max-width:740px){
+  .shell { height:auto;min-height:100% }
+  .layout { flex:none;grid-template-columns:minmax(0,1fr) }
+  .portrait { height:clamp(160px,48vw,320px);min-height:0 }
+  .page { min-height:390px;overflow:visible }
+  .desk { min-height:440px }
+  .page-heading .meter { width:56px }
+  .shell[data-page=dialogue] { height:100%;min-height:0 }
+  .shell[data-page=dialogue] .layout { flex:1;grid-template-rows:auto minmax(0,1fr) }
+  .shell[data-page=dialogue] .booth { gap:6px }
+  .shell[data-page=dialogue] .portrait { height:48px;flex:none;border-radius:9px 18px 8px 12px }
+  .shell[data-page=dialogue] .stage-card { right:auto;width:58px }
+  .shell[data-page=dialogue] .stage-card img { object-fit:cover;mask-image:none }
+  .shell[data-page=dialogue] .portrait:after,.shell[data-page=dialogue] .portrait:before,
+  .shell[data-page=dialogue] .artist-name small,.shell[data-page=dialogue] .stage-hint { display:none }
+  .shell[data-page=dialogue] .portrait figcaption { inset:0 100px 0 64px;align-items:center }
+  .shell[data-page=dialogue] .artist-name { transform:none;max-width:100% }
+  .shell[data-page=dialogue] .artist-name strong { font-size:22px;text-shadow:1px 2px #432451 }
+  .shell[data-page=dialogue] .choose-stage-card { inset:50% 9px auto auto;transform:translateY(-50%) }
+  .shell[data-page=dialogue] .page,.shell[data-page=dialogue] .desk { min-height:0;overflow:hidden }
+}
+@media(max-height:550px) and (min-width:741px){
+  .shell-header { padding-block:8px }
+  .shell-header h1 { font-size:29px }
+  .page-heading h2 { font-size:24px }
+  .nav { padding-block:5px }
+  .page { padding-block:8px }
+}

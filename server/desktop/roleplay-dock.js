@@ -4,8 +4,8 @@
   const {Spring,Pendulum}=window.ArkMotion, panelSpring=new Spring(), pendulum=new Pendulum(), cordSpring=new Spring(0,12);
   const motion=document.createElement('div'),surface=document.createElement('div'),charm=document.createElement('button');
   motion.id='panelMotion';surface.id='panelSurface';charm.className='charm';charm.setAttribute('aria-label','角色面板');charm.setAttribute('aria-expanded','false');
-  charm.innerHTML='<svg class="cord" aria-hidden="true"><path fill="none" stroke="#eddba6" stroke-width="2"/></svg><svg class="gem" viewBox="0 0 80 96" aria-hidden="true"><defs><linearGradient id="pendantFacet" x2="1" y2="1"><stop stop-color="#cde9fb"/><stop offset=".5" stop-color="#8399cb"/><stop offset="1" stop-color="#b697c6"/></linearGradient></defs><path d="M33 14V9a7 7 0 0114 0v5" fill="none" stroke="#e9d9a0" stroke-width="2"/><path d="M40 13L9 37v18l31 34 31-34V37z" fill="url(#pendantFacet)" stroke="#f2e3ce" stroke-width="2"/><path d="M9 37l31 13 31-13M40 13v76M9 55l31-5 31 5" fill="none" stroke="#f3eef4b0"/><path class="gleam" d="M40 13L9 37l31 13z" fill="#fff" opacity=".2"/><path d="M40 31l5 13 13 6-13 6-5 14-5-14-13-6 13-6z" fill="#fff2dc" opacity=".95"/></svg>';
-  const cord=charm.querySelector('.cord'),rope=cord.querySelector('path'),gem=charm.querySelector('.gem'),gleam=charm.querySelector('.gleam');
+  charm.innerHTML='<svg class="cord" aria-hidden="true"><path fill="none" stroke-width="1.5" stroke-linecap="round"/></svg><span class="gem" aria-hidden="true"></span>';
+  const cord=charm.querySelector('.cord'),rope=cord.querySelector('path'),gem=charm.querySelector('.gem');
   surface.append(...document.body.children);motion.append(surface,charm);document.body.append(motion);
   document.documentElement.classList.add('native-shell');document.body.classList.add('native-shell');
   let prefs={gemSize:80,lineLength:72,sway:true,reducedMotion:false,moveEnabled:false};
@@ -18,7 +18,7 @@
   function paint(){if(!layout)return;motion.style.transform='translate3d(0,'+(y-layout.panelHeight)+'px,0)';charm.style.rotate=angle+'deg';motion.dataset.offset=String(y);motion.dataset.angle=String(angle);
     const length=prefs.lineLength+cordSpring.value,bend=Math.sin(pendulum.angle)*7;
     cord.style.height=length+'px';cord.setAttribute('viewBox','0 0 20 '+length);rope.setAttribute('d',`M10 0Q${10+bend} ${length*.5} 10 ${length}`);
-    gem.style.transform=`perspective(400px) rotateY(${angle*.65}deg) rotateZ(${-angle*.12}deg)`;gleam.style.opacity=String(.22+angle/100);
+    gem.style.transform=`perspective(400px) rotateY(${angle*.65}deg) rotateZ(${-angle*.12}deg)`;;
   }
   function schedule(){if(!frame){last=undefined;motion.dataset.resting='false';frame=requestAnimationFrame(step);}}
   function step(time){
@@ -61,7 +61,7 @@
   void bridge.status().then(s=>{hidden=s.hidden;configure(s.settings);if(!layout){geometry(s.layout,s.visible);open=s.panelOpen;y=s.progress*s.layout.panelHeight;target=open?s.layout.panelHeight:0;paint();}}).catch(()=>{});
   charm.addEventListener('pointerenter',()=>{if(swaying()){pendulum.kick(18);schedule();}});
   charm.addEventListener('pointerdown',e=>{
-    if(e.button!==0||!layout)return;charm.setPointerCapture(e.pointerId);
+    if(e.button!==0||!layout)return;e.preventDefault();charm.setPointerCapture(e.pointerId);
     activeMotion=undefined;drag={x:e.screenX,y:e.screenY,lastX:e.screenX,lastY:e.screenY,lastTime:e.timeStamp,base:y,open,anchor:window.screenX+layout.gemX,moving:prefs.moveEnabled&&e.altKey,dx:0,dy:0};
     void command({name:'motion-grab'});void command({name:'dock-drag',active:true});notify({phase:'drag'});
     schedule();

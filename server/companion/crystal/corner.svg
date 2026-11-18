@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="trim-silver" x2=".7" y2="1"><stop stop-color="#f2f9ff"/><stop offset=".23" stop-color="#8bb1cf"/><stop offset=".5" stop-color="#dee5ff"/><stop offset=".7" stop-color="#5b729b"/><stop offset="1" stop-color="#c8beff"/></linearGradient>
+<linearGradient id="trim-crystal" x2=".8" y2="1"><stop stop-color="#d7f6ff"/><stop offset=".28" stop-color="#7698bd" stop-opacity=".2"/><stop offset=".6" stop-color="#5a6696" stop-opacity=".18"/><stop offset=".82" stop-color="#b6adff" stop-opacity=".85"/><stop offset="1" stop-color="#c9f5ff"/></linearGradient>
+<symbol id="corner-trim" viewBox="0 0 100 100"><g stroke="url(#trim-silver)" stroke-width=".7" stroke-linejoin="round">
+<path d="m4 17 10-10 75-2-27 13L34 41 4 90Z" fill="url(#trim-crystal)"/>
+<path d="m4 17 20 10 10 14 8-24L89 5M14 7l10 20L4 53l30-12M24 27 42 17 33 8M4 90l11-40 19-9M4 17l10-10 10 20M42 17l20 1L89 5" fill="none"/>
+<path d="M14 7 24 27 17 12ZM42 17 62 18 89 5Z" fill="#cdd9ff" fill-opacity=".62"/>
+<path d="m4 90 11-40 2 20ZM24 27 34 41 42 17Z" fill="#9ecce9" fill-opacity=".3"/>
+<path d="m5 99 8-14 10-19-7 27Z" fill="url(#trim-crystal)" opacity=".6"/>
+<path d="m73 25 9 19-3-13-6-6Z" fill="url(#trim-crystal)"/>
+</g></symbol>
+<symbol id="avatar-trim" viewBox="0 0 300 300" overflow="visible"><g stroke="url(#trim-silver)" stroke-width="1" stroke-linejoin="round">
+<path d="M27 10H276L290 24V276L275 290H25L10 276V27ZM29 21 21 30V271L30 280H271L280 270V29L271 21Z" fill="url(#trim-crystal)" fill-rule="evenodd"/>
+<path d="M30 17H272L284 29V272L271 284H29L16 271V30Z" fill="none" opacity=".7"/>
+<path d="M10 27 21 30M27 10l2 11M276 10l-5 11M290 24l-10 5M290 276l-10-6M275 290l-4-10M25 290l5-10M10 276l11-5" fill="none"/>
+<path d="m7 65 27-34 22-47 26 16 30 25-13 0L75 9 61-2 43 36 14 76Z" fill="url(#trim-crystal)"/>
+<path d="m7 65 36-29 18-38 14 11 24 16M56-16l5 14M34 31l9 5M7 65l7 11" fill="none"/>
+<path d="M56-16 61-2 43 36 34 31Z" fill="#e1f6ff" fill-opacity=".38"/>
+<path d="m95 20 27-9 64 4 25-9-12 14M219 14l10-17h15l-25 17Z" fill="url(#trim-crystal)"/>
+<path d="m16 213 16 54 16 17-24-9-8-62ZM280 89l19 17-12 21-7-38Z" fill="url(#trim-crystal)"/>
+<path d="m299 106-12 21 0-25ZM16 213l16 54-8 8Z" fill="#b6ddff" fill-opacity=".3"/>
+<path d="M10 53V155M26 10H48M61 290H156M290 42V81" fill="none" stroke="#e0faff" stroke-width="1.5"/>
+</g><image href="crystal-shards.svg" x="164" y="212" width="151" height="94"/></symbol>
+</defs><use href="#corner-trim"/></svg>

@@ -45,4 +45,9 @@ button:active:not(:disabled){translate:0 1px}
 #advancedPage>pre{min-height:0;overflow:auto;flex:1}
 #promptScope{width:180px}#promptKind{width:160px}#promptPreview .check{min-height:0;flex-direction:row;align-items:center;white-space:nowrap}#promptPerson{border:0;margin:0;padding:0}#promptPreview #promptOutput{white-space:pre-wrap;overflow-wrap:anywhere}
 #promptBlockEditor .toolbar label{min-height:0;flex-direction:row;align-items:center;white-space:nowrap}#promptBlockEditor input[type=checkbox]{width:1rem;height:1rem;flex:none;margin:0}#promptBlockOrder{width:7rem;flex:none}
+.prompt-field { min-width:0 }
+.prompt-field-toggle,.book-prompt-title,#bookScopeName { display:none }
+.book-prompt-content { display:contents }
+:root:not([data-theme="book"]) #bookPromptPreview { display:none }
+:root:not([data-theme="book"]) #promptTasks .prompt-field:last-child { grid-column:1/-1 }
 .prompt-content{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.prompt-content[hidden]{display:none}.prompt-content label{display:flex;flex-direction:column;gap:6px;min-height:100px}.prompt-content textarea{min-height:70px;flex:1;resize:none}#promptPreview,#promptBlocks{display:flex;flex-direction:column}#promptPreview[hidden],#promptBlocks[hidden]{display:none}#promptOutput{width:100%;min-height:0;flex:1;white-space:pre;font-size:.82rem}#promptBlockEditor{display:flex;flex-direction:column;gap:10px;min-height:0;flex:1}#promptBlockEditor>label{min-height:0;flex-direction:row;align-items:center}#promptBlockEditor>textarea{width:100%;flex:1}#promptQuestion{flex:1;min-width:100px}#promptTabs{flex-wrap:wrap}#promptTasks label:last-child{grid-column:1/-1}

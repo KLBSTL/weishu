@@ -11,7 +11,8 @@ function install({ app, BrowserWindow, ipcMain, screen, hostRequest, hostReady =
   const firstLaunch=!hidden&&!existsSync(file);
   let position={};try{position=JSON.parse(readFileSync(file,'utf8'));}catch{/* first launch */}
   if(!position||typeof position!=='object'||Array.isArray(position))position={};
-  let prefs;try{prefs=config.settings(position.settings);}catch{prefs=config.settings();}
+  const restored=config.restoreSettings(position),petTheme=restored.petTheme;
+  let prefs=restored.prefs;
   const displays=()=>screen.getAllDisplays();
   let display=displays().find(d=>d.id===position.displayId)||screen.getPrimaryDisplay();
   let anchor=Number.isFinite(position.anchor)?position.anchor:Number.isFinite(position.x)?position.x+config.dockSize(prefs).width/2:undefined;
@@ -19,13 +20,19 @@ function install({ app, BrowserWindow, ipcMain, screen, hostRequest, hostReady =
   const petEntries=()=>[...petWindows.state.windows.entries()];
   const petIdFor=sender=>petEntries().find(([_id,w])=>w.webContents===sender)?.[0];
   const allowed=new Set(['overview','people','world','dialogue','status','settings']);
-  const persist=()=>{if(disposed)return;try{Object.assign(position,{settings:prefs,anchor:layout.bounds.x+layout.gemX,displayId:display.id});mkdirSync(join(file,'..'),{recursive:true});writeFileSync(file,JSON.stringify(position));}catch{/* optional geometry */}};
+  const persist=()=>{if(disposed)return;try{Object.assign(position,{settings:prefs,petTheme,anchor:layout.bounds.x+layout.gemX,displayId:display.id});mkdirSync(join(file,'..'),{recursive:true});writeFileSync(file,JSON.stringify(position));}catch{/* optional geometry */}};
   const shell=new BrowserWindow({...layout.bounds,frame:false,show:false,transparent:true,hasShadow:false,skipTaskbar:true,
     resizable:false,fullscreenable:false,focusable:false,alwaysOnTop:true,
     webPreferences:{preload:join(helperDir,'ark-roleplay-preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,backgroundThrottling:false,offscreen:hidden}});
   const trusted=sender=>sender===shell.webContents||petIdFor(sender)!==undefined;
   const send=(value)=>{if(!disposed&&!shell.isDestroyed())shell.webContents.send('ark:shell',value);};
-  const sendSettings=()=>{if(!disposed&&!shell.isDestroyed())shell.webContents.send('ark:settings',prefs);};
+  const petPreferences=()=>({...prefs,theme:petTheme});
+  const sendSettings=()=>{
+    if(disposed)return;
+    if(!shell.isDestroyed())shell.webContents.send('ark:settings',prefs);
+    const appearance=petPreferences();
+    for(const [,win] of petEntries())if(!win.isDestroyed())win.webContents.send('ark:settings',appearance);
+  };
   const show=()=>{if(hidden||shell.isDestroyed())return;if(panelOpen||position.visible!==false)shell.showInactive();else shell.hide();};
   function geometry(save=false) {
     layout=config.shellLayout(prefs,display,anchor);anchor=layout.bounds.x+layout.gemX;
@@ -76,9 +83,10 @@ function install({ app, BrowserWindow, ipcMain, screen, hostRequest, hostReady =
     state.pets[id]={roleplay:value.roleplay===true,game:value.game===true,round:Number(value.round)||null,phase:String(value.phase||'').slice(0,40)};
     const w=pending.get(value.requestId);if(w?.petId===id){clearTimeout(w.timer);pending.delete(value.requestId);w.resolve({ok:true});}
   };ipcMain.on('ark:report',onReport);
-  const snapshot=()=>({pets:state.pets,dock:layout.bounds,panel:{...layout.bounds,height:layout.panelHeight},layout,settings:prefs,
+  const snapshot=sender=>({pets:state.pets,dock:layout.bounds,panel:{...layout.bounds,height:layout.panelHeight},layout,
+    settings:sender===shell.webContents?prefs:petPreferences(),
     visible:position.visible!==false,panelOpen,animating,progress,hidden});
-  ipcMain.handle('ark:status',event=>{if(!trusted(event.sender))throw new Error('未知窗口');return snapshot();});
+  ipcMain.handle('ark:status',event=>{if(!trusted(event.sender))throw new Error('未知窗口');return snapshot(event.sender);});
   const ensureReady=async()=>{await ready.catch(()=>{});if(!loadedPet)await context(currentPet,'overview');};
   const openPanel=async(page='overview',pet=currentPet)=>{await ensureReady();await context(pet,page);if(!panelOpen||animating)return settle(true);show();if(!hidden)shell.focus();return {ok:true};};
   // New users need a visible setup entry. Existing window preferences keep the usual folded startup.
@@ -91,7 +99,11 @@ function install({ app, BrowserWindow, ipcMain, screen, hostRequest, hostReady =
     if(value.name==='settle'){if(event.sender!==shell.webContents)throw new Error('未知窗口操作');return settle(value.open===true);}
     if(value.name==='motion-grab'){if(event.sender!==shell.webContents)throw new Error('未知窗口操作');finish();animating=false;return {ok:true,panelOpen};}
     if(value.name==='panel-settings'){
-      prefs=config.settings({...prefs,...value.settings});geometry(true);sendSettings();return {ok:true,settings:prefs};
+      const next=config.settings({...prefs,...value.settings});
+      const sizeChanged=['width','height','gemSize','lineLength'].some(key=>next[key]!==prefs[key]);
+      prefs=next;
+      if(sizeChanged)geometry(true);else persist();
+      sendSettings();return {ok:true,settings:prefs};
     }
     if(value.name==='resize-start'){
       if(event.sender!==shell.webContents||!panelOpen||animating||!Number.isFinite(value.x)||!Number.isFinite(value.y)||!['n','s','e','w','ne','nw','se','sw'].includes(value.edge))throw new Error('无效缩放');

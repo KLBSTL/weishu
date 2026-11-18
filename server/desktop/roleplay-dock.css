@@ -8,6 +8,7 @@ body.native-shell{background:transparent;overflow:visible}
 .native-shell .charm{position:absolute;top:100%;left:calc(var(--anchor-x) - var(--gem)/2);width:var(--gem);display:flex;align-items:center;flex-direction:column;border:0;padding:0;background:transparent;color:#c5d8ee;cursor:grab;touch-action:none;transform-origin:50% 0;will-change:rotate;user-select:none}
 .native-shell .charm:active{cursor:grabbing}
 .native-shell .charm .cord{width:20px;height:var(--rope);flex:none;overflow:visible;pointer-events:none}
-.native-shell .charm .gem{width:var(--gem);height:calc(var(--gem)*1.2);overflow:visible;filter:drop-shadow(0 3px 6px #add8fa65);transform-origin:50% 8%;backface-visibility:hidden;flex:none}
-.native-shell .charm:hover .gem{filter:drop-shadow(0 0 10px #ecd8eb)}
+.native-shell .charm .cord path{stroke:var(--cord-color,#b9c6eb);stroke-dasharray:var(--cord-dash,3 4)}
+.native-shell .charm .gem{width:var(--gem);height:calc(var(--gem)*1.2);background:var(--pendant-art) center/contain no-repeat;filter:drop-shadow(0 3px 5px var(--pendant-shadow,#b4bded48));transform-origin:50% 8%;backface-visibility:hidden;flex:none}
+.native-shell .charm:hover .gem{filter:brightness(1.12) drop-shadow(0 0 6px var(--pendant-shadow,#b4bded48))}
 .native-shell .charm:focus-visible{outline:1px solid #ecdaff;outline-offset:3px}

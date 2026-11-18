@@ -17,7 +17,7 @@ function renderer(origin) {
   window.__dshPetDebug = {};
   window.toScreen = v => v;
   window.S = { pick: list => list[0] };
-  window.arkDesktop = { onCommand: callback => { window.panelCommand = callback; }, report: value => { window.panelReport = value; } };
+  window.arkDesktop = { onCommand: callback => { window.panelCommand = callback; }, onSettings: callback => { window.panelSettings = callback; }, report: value => { window.panelReport = value; } };
   document.body.innerHTML = '<div id="hit" style="position:absolute;left:300px;top:180px;width:180px;height:180px"></div>';
   window.PetSprite = class {
     pet = { id: 'main' };
@@ -53,6 +53,7 @@ async function electronMain() {
   const { decideWindowIgnore, pointerZone } = require(helper + '/pointer-target.js');
   let busy = false, regions, shown = 0, win, gameActive = true;
   const questions = [];
+  let bookShellLoads = 0;
   const dailyQuestions=[];let idleCalls=0,idleDeletes=0,idleReceipts=0,releaseIdle;
   const idleGate=new Promise(resolve=>{releaseIdle=resolve;});
   app.disableHardwareAcceleration();
@@ -63,6 +64,11 @@ async function electronMain() {
   ipcMain.on('pet:input-regions', (_e, value) => { regions = value; });
   // The test deliberately never focuses or shows the OS window.
   ipcMain.on('pet:request-keyboard-focus', () => {});
+  const {themes}=require(source + '/server/desktop/roleplay-themes.cjs');
+  const assets=new Map([['/dsh-pet-7340/stronghold/library-pet-theme.css','pet-theme.css']]);
+  for(const [id,theme] of Object.entries(themes))for(const filename of ['theme.css',...theme.assets]){
+    assets.set('/dsh-pet-7340/stronghold/library-themes/'+id+'/'+filename,id+'/'+filename);
+  }
   const server = http.createServer(async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', '*');
@@ -70,6 +76,13 @@ async function electronMain() {
     if (req.method === 'OPTIONS') { res.end(); return; }
     let body = ''; for await (const b of req) body += b;
     if (req.url === '/') { res.setHeader('Content-Type', 'text/html'); res.end('<!doctype html><html><head></head><body></body></html>'); return; }
+    const asset=assets.get(req.url);
+    if(asset){
+      if(asset==='book/shell.webp'||asset==='book/rail.webp')bookShellLoads++;
+      res.setHeader('Content-Type', asset.endsWith('.css')?'text/css':asset.endsWith('.svg')?'image/svg+xml':asset.endsWith('.webp')?'image/webp':'image/png');
+      res.end(fs.readFileSync(source+'/server/companion/'+asset));
+      return;
+    }
     if (req.url === '/playing.webm') { res.setHeader('Content-Type', 'video/webm'); res.end(fs.readFileSync(source + '/server/desktop/playing.webm')); return; }
     res.setHeader('Content-Type', 'application/json');
     if (req.url === '/pet/status') res.end(JSON.stringify({ active: gameActive, matchId: 'fixture', pet: 'main', phase: 'PREP' }));
@@ -99,8 +112,21 @@ async function electronMain() {
     };
     await win.webContents.executeJavaScript('(' + renderer.toString() + ')(' + JSON.stringify(origin) + ')');
     await win.webContents.executeJavaScript(fs.readFileSync(helper + '/sprite/input.js', 'utf8') + '\n;void 0;');
-    await win.webContents.executeJavaScript(fs.readFileSync(source + '/server/desktop/native.js', 'utf8') + '\n;void 0;');
+    const catalog=fs.readFileSync(source + '/server/desktop/roleplay-themes.cjs', 'utf8');
+    await win.webContents.executeJavaScript(catalog+'\n'+fs.readFileSync(source + '/server/desktop/native.js', 'utf8') + '\n;void 0;');
+    assert.equal(await win.webContents.executeJavaScript('document.documentElement.dataset.theme'),'crystal');
+    await win.webContents.executeJavaScript('window.panelSettings({theme:"book"})');
+    await until(()=>win.webContents.executeJavaScript('getComputedStyle(document.documentElement).getPropertyValue("--ink").trim()==="#442816"'));
+    assert.deepEqual(await win.webContents.executeJavaScript(`(()=>{
+      const body=getComputedStyle(document.body),root=getComputedStyle(document.documentElement);
+      const rail=getComputedStyle(document.body,'::after');
+      return [body.backgroundImage,body.backgroundColor,root.backgroundColor,rail.backgroundImage,body.containerType];
+    })()`),['none','rgba(0, 0, 0, 0)','rgba(0, 0, 0, 0)','none','normal']);
+    assert.equal(bookShellLoads,0,'a legacy book palette on the pet does not request a book or navigation background');
+    await win.webContents.executeJavaScript('window.panelSettings({theme:"parchment"})');
+    assert.equal(await win.webContents.executeJavaScript('document.documentElement.dataset.theme'),'parchment');
     await until(()=>win.webContents.executeJavaScript('!!document.querySelector(".stronghold-pet-chat")'));
+    await until(()=>win.webContents.executeJavaScript('getComputedStyle(document.querySelector(".stronghold-pet-chat")).borderImageSource.includes("/parchment/frame.svg")'));
     assert.equal(await win.webContents.executeJavaScript('document.querySelector(".stronghold-pet-chat").hidden'),true,'game startup does not open the input bar');
     await win.webContents.executeJavaScript('window.panelCommand({name:"composer",requestId:"game-open"})');
     await until(() => busy && regions?.rects?.length);

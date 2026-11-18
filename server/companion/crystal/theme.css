@@ -1,0 +1,22 @@
+:root[data-theme=crystal]{
+  --ink:#e8edf8;--muted:#a5b4cc;--accent:#b3dff3;--rose:#bcaee9;--line:#b5c9ee30;--surface:#192238;
+  --panel-base:#151d2f;--pet-surface:#172238f2;
+  --panel:url('/dsh-pet-7340/stronghold/library-themes/crystal/crystal-panel.svg');
+  --shards:url('/dsh-pet-7340/stronghold/library-themes/crystal/crystal-shards.svg');
+  --facet:url('/dsh-pet-7340/stronghold/library-themes/crystal/crystal-button.svg');
+  --selected-facet:url('/dsh-pet-7340/stronghold/library-themes/crystal/crystal-cat.svg');
+  --tip:url('/dsh-pet-7340/stronghold/library-themes/crystal/crystal-tip.svg');
+  --corner-art:url('/dsh-pet-7340/stronghold/library-themes/crystal/corner.svg');
+  --portrait-art:url('/dsh-pet-7340/stronghold/library-themes/crystal/portrait.svg');
+  --panel-backdrop:url('/dsh-pet-7340/stronghold/library-themes/crystal/background.png');
+  --backdrop-filter:blur(28px) saturate(.45);
+  --pendant-art:url('/dsh-pet-7340/stronghold/library-themes/crystal/pendant.svg');
+  --pendant-shadow:#b4bded48;--cord-color:#b9c6eb;--cord-dash:3 4;
+  --control-ink:#d6e1f1;--control-border:#abc6e14d;--control-gloss:#a8c2f013;--control-shade:#09142640;
+  --control-hover:#aebcfa16;--control-hover-border:#d3e9ffa6;
+  --selected-ink:#ecdeff;--selected-border:#c1b2ee7d;--selected-fill:#a5bded25;--selected-shade:#a992df13;--selected-hover:#bca5e42e;
+  --focus-ink:#d1e6ff;--input-fill:#0d172957;--input-border:#b0c7e24d;--checkbox-accent:#b1b8e8;
+  --nav-ink:#cfdaef;--nav-selected-ink:#f1edff;--glow:#b4a4ff50;
+}
+:root[data-theme=crystal][data-palette=dusk]{--panel-base:#221d32;--surface:#27213a;--accent:#d5c4ef}
+:root[data-theme=crystal][data-palette=mist]{--panel-base:#172931;--surface:#1b303a;--accent:#bde5e9}

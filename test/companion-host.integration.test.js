@@ -25,6 +25,7 @@ test('headless host manages materials, isolates two actors and commits bounded d
     const body = JSON.parse(raw); requests.push(body);
     const name = body.messages[0].content.includes('固定说话人物：小夏') ? '小夏' : '小雨';
     let content = `我是${name}，刚才想起书店门前的那场雨。`;
+    if(body.messages.at(-1)?.content?.includes('正式面板公开测试，你好。')) content='晚上好！我刚送完最后一单。要不要一起吃块苹果派？';
     if (body.messages[0].content.includes('只整理下列虚构人物资料')) {
       const facts = JSON.parse(body.messages.at(-1).content);
       content = JSON.stringify(facts.map(f => ({ factId: f.factId, quote: f.text.slice(0, 30), group: f.factId })));
@@ -119,6 +120,7 @@ test('headless host manages materials, isolates two actors and commits bounded d
       assert.equal(await page.evaluate(() => window.__escaped), undefined); assert.deepEqual(errors, []);
       await page.click('[data-page="world"]'); await page.click('[data-section="worldLibrary"]'); await page.click('[data-book="embedded:main"]'); await page.click('#editBook');
       await page.$eval('#entryContent', n => { n.value += '\n这封信只属于小雨。'; });
+      await page.type('#entryBroadcast','书店今天开门了。');
       await page.click('#saveBook'); await page.waitForSelector('#revisionDialog[open]'); await page.click('#revision-save');
       await page.waitForFunction(() => document.getElementById('notice').textContent.includes('世界书已保存'));
       await page.select('#entrySettingsPage', 'trigger'); await page.$eval('#ruleDepth', n => { n.value = '17'; n.dispatchEvent(new Event('input', { bubbles: true })); });
@@ -128,6 +130,7 @@ test('headless host manages materials, isolates two actors and commits bounded d
       await page.waitForFunction(() => document.getElementById('notice').textContent.includes('世界书已保存'));
       const rules = (await api('snapshot')).actors.find(row => row.id === a.id).embeddedBook.entries[0].extensions;
       assert.equal(rules.scanDepth, 17); assert.deepEqual(rules.ark_companion.tags, ['童年', '私人']);
+      assert.equal(rules.ark_companion.broadcastExcerpt,'书店今天开门了。');
       const originalText = await page.$eval('#entryContent', n => n.value);
       await page.$eval('#entryContent', n => { n.value += '\n这是还未保存的草稿。'; n.dispatchEvent(new Event('input', { bubbles: true })); });
       const draftSaved = page.waitForResponse(r => r.url().endsWith('/stronghold/library') && r.request().postData()?.includes('editor-draft'));
@@ -235,6 +238,9 @@ test('headless host manages materials, isolates two actors and commits bounded d
       await panel.goto(origin + '/dsh-pet-7340/stronghold/library-ui#token=' + token);
       await panel.waitForFunction(() => document.body.dataset.ready === 'true');
       assert.equal(await panel.$$eval('#mainNav [data-page]', nodes => nodes.length), 6);
+      assert.equal(await panel.$eval('.panel-corner',n=>getComputedStyle(n).pointerEvents),'none');
+      assert.equal((await request('/dsh-pet-7340/stronghold/library-themes/crystal/portrait.svg')).headers.get('content-type'),'image/svg+xml');
+      assert.equal(await panel.evaluate(()=>document.documentElement.dataset.theme),'crystal');
       if (process.env.SP_UI_CAPTURE) await panel.screenshot({ path: process.env.SP_UI_CAPTURE.replace(/\.png$/u, '-overview.png'), fullPage: true });
       await panel.click('[data-page="people"]'); await panel.click('[data-section="cast"]');
       await panel.waitForFunction(() => document.querySelectorAll('#castList button').length === 21);
@@ -257,7 +263,7 @@ test('headless host manages materials, isolates two actors and commits bounded d
       assert.equal(await panel.$$eval('#actorEditor select',nodes=>nodes.filter(n=>n.getClientRects().length).length),0,'editor does not repeat actor and card selectors');
       await panel.click('[data-page="world"]');
       await panel.waitForSelector('#revisionDialog[open]'); await panel.click('#revision-keep');
-      await panel.waitForSelector('#enabledBookList input', { visible: true });
+      await panel.waitForSelector('#enabledBookList input',{visible:true});
       await panel.click('#enabledBookList input'); await panel.click('#bookBindings button');
       await panel.waitForFunction(() => document.querySelector('#notice').textContent.includes('世界书选择已应用'));
       assert.ok((await api('snapshot')).actors.find(x => x.id === ensembleActor.id).bookIds.includes(book.id));
@@ -277,10 +283,11 @@ test('headless host manages materials, isolates two actors and commits bounded d
       await panel.waitForFunction(() => document.querySelector('#connectionStatus').textContent.includes('连接已保存并生效'));
       const connection = await call('/standalone-ai/settings'); assert.equal(connection.model, 'public-fixture-panel'); assert.equal(connection.hasKey, true, 'an empty new-key field preserves the configured key');
       await panel.click('[data-section="appearanceSettings"]');await panel.waitForFunction(()=>document.getElementById('optionBubble').value==='20');
-      await panel.$eval('#fontSize',n=>{n.value='22';});await panel.click('#appearanceForm button.primary');
+      await panel.$eval('#fontSize',n=>{n.value='22';});await panel.$eval('#backgroundOpacity',n=>{n.value='13';});await panel.click('#appearanceForm button.primary');
       await panel.waitForFunction(()=>getComputedStyle(document.documentElement).fontSize==='22px');
       await panel.reload();await panel.waitForFunction(()=>document.body.dataset.ready==='true');
       assert.equal(await panel.evaluate(()=>getComputedStyle(document.documentElement).fontSize),'22px','font preference survives reload');
+      assert.equal(await panel.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--panel-background-opacity').trim()),'0.13');
       await panel.click('[data-page="settings"]');
       await panel.click('[data-section="dialogueSettings"]');
       await panel.waitForFunction(() => document.querySelector('#optionChars').value === '60');
@@ -290,7 +297,7 @@ test('headless host manages materials, isolates two actors and commits bounded d
       const recentRows=Array.from({length:15},(_,i)=>({id:'recent-'+i,type:i%2?'user':'assistant',speakerName:'T',at:Date.now()-i*1000,text:'第'+i+'条：'+('下雨时，我喜欢和你聊聊街角的书店。👩🏽‍💻'+i+'。').repeat(i===2?100:2+i%4)}));
       await panel.setRequestInterception(true);panel.on('request',r=>{let body;try{body=JSON.parse(r.postData()||'null');}catch{/* non-JSON */}
         if(body?.action==='recent-history')void r.respond({status:200,contentType:'application/json',body:JSON.stringify({messages:recentRows})});else void r.continue();});
-      await panel.click('[data-page="dialogue"]');await panel.waitForFunction(()=>document.getElementById('historyCount').textContent==='最近 15 条');
+      await panel.click('[data-page="dialogue"]');await panel.click('[data-section="historyPage"]');await panel.waitForFunction(()=>document.getElementById('historyCount').textContent==='最近 15 条');
       async function collectPages(){
         await panel.waitForFunction(()=>Number(document.getElementById('chatHistory').dataset.pages)>0);
         const gathered={};let count=0;
@@ -307,13 +314,19 @@ test('headless host manages materials, isolates two actors and commits bounded d
       assert.ok(largePages<compactPages,'larger window fits more messages per page');
       await panel.click('#refreshHistory');await delay(150);
       if(process.env.SP_UI_CAPTURE)await panel.screenshot({path:process.env.SP_UI_CAPTURE.replace(/\.png$/u,'-history.png')});
+      await panel.click('[data-page="world"]');
+      await panel.click('[data-section="worldLibrary"]');
+      await panel.waitForSelector('#bookShelf button',{visible:true});
+      await panel.click('#bookShelf button');
+      await panel.click('#editBook');
+      await panel.waitForSelector('#books:not([hidden])',{visible:true});
       for(const [width,height]of [[960,640],[1200,800],[1440,900]]){
-        await panel.setViewport({width,height});await panel.click('[data-page="world"]');await panel.click('[data-section="worldLibrary"]');await panel.click('#bookShelf button');await panel.click('#editBook');
+        await panel.setViewport({width,height});
         assert.ok(await panel.evaluate(()=>{const panes=[...document.querySelectorAll('#books .book-editor> *')].map(n=>n.getBoundingClientRect()),button=document.getElementById('saveBook').getBoundingClientRect();return Math.max(...panes.map(r=>r.height))-Math.min(...panes.map(r=>r.height))<2&&button.bottom<innerHeight&&document.documentElement.scrollHeight<=innerHeight+1;}),'worldbook columns align and save remains visible');
       }
       await panel.setViewport({width:960,height:640});await panel.click('[data-page="settings"]');await panel.click('[data-section="appearanceSettings"]');
       await panel.$eval('#fontSize',n=>{n.value='28';});await panel.click('#appearanceForm button.primary');await panel.waitForFunction(()=>getComputedStyle(document.documentElement).fontSize==='28px');
-      await panel.click('[data-page="dialogue"]');await panel.waitForFunction(()=>document.getElementById('historyCount').textContent==='最近 15 条');await delay(120);await collectPages();
+      await panel.click('[data-page="dialogue"]');await panel.click('[data-section="historyPage"]');await panel.waitForFunction(()=>document.getElementById('historyCount').textContent==='最近 15 条');await delay(120);await collectPages();
       await panel.click('[data-page="people"]');await panel.click('[data-section="actorEditor"]');
       assert.ok(await panel.$eval('#saveActor',n=>n.getBoundingClientRect().bottom<innerHeight),'large-font editor keeps save reachable');
       await panel.click('[data-page="settings"]');await panel.click('[data-section="appearanceSettings"]');await panel.$eval('#fontSize',n=>{n.value='22';});await panel.click('#appearanceForm button.primary');await panel.waitForFunction(()=>getComputedStyle(document.documentElement).fontSize==='22px');
@@ -334,7 +347,512 @@ test('headless host manages materials, isolates two actors and commits bounded d
       await panel.click('#clearHistory');await panel.waitForSelector('#clearHistoryDialog[open]');await panel.click('#confirmClearHistory');
       await panel.waitForFunction(()=>document.getElementById('notice').textContent.includes('记忆和历史记录已清空'));
       assert.equal((await api('recent-history',{actorId:ensembleActor.id})).messages.length,0);
-      await panel.click('[data-page="dialogue"]');await panel.waitForFunction(()=>document.getElementById('historyCount').textContent==='最近 0 条');
+      await panel.click('[data-page="dialogue"]');await panel.click('[data-section="historyPage"]');await panel.waitForFunction(()=>document.getElementById('historyCount').textContent==='最近 0 条');
+
+      const coverFile=process.env.SP_UI_CARD;
+      const original=coverFile
+        ? (await readFile(coverFile)).toString('base64')
+        : (await api('export',{actorId:ensembleActor.id,format:'png',singleActor:true})).file;
+      await api('import-card',{file:original});
+      await panel.reload();
+      await panel.waitForFunction(()=>document.querySelector('#companionPortrait img')?.naturalWidth>0);
+      assert.equal(await panel.$eval('#companionPortrait img',img=>img.src.slice('data:image/png;base64,'.length)),original);
+      await panel.click('#companionPortrait');await panel.waitForSelector('#portraitDialog[open]');
+      await panel.click('#portraitClose');
+      async function checkPortraitRatios(){
+        const sizing=await panel.$eval('#companionPortrait',async frame=>{
+          const image=frame.querySelector('img'),src=image.src;
+          const measure=()=>[frame.offsetWidth,frame.offsetHeight];
+          const original=measure(),results=[];
+          try{
+            for(const [width,height]of [[96,640],[640,96],[250,250]]){
+              const preview=document.createElement('canvas');
+              preview.width=width;preview.height=height;
+              image.src=preview.toDataURL('image/png');
+              await image.decode();
+              results.push({frame:measure(),fits:image.offsetLeft>=0&&image.offsetTop>=0
+                &&image.offsetLeft+image.offsetWidth<=frame.clientWidth+1
+                &&image.offsetTop+image.offsetHeight<=frame.clientHeight+1
+                &&getComputedStyle(image).objectFit==='contain'});
+            }
+          }finally{image.src=src;await image.decode();}
+          return {original,results};
+        });
+        for(const {frame,fits}of sizing.results){assert.deepEqual(frame,sizing.original);assert.ok(fits);}
+      }
+      async function checkPanelTools(){
+        await panel.hover('#deskMore');
+        await panel.waitForSelector('#panelTooltip:popover-open');
+        assert.equal(await panel.$eval('#panelTooltip',n=>n.textContent),'面板工具');
+        assert.ok(await panel.$eval('#panelTooltip',n=>getComputedStyle(n).backgroundColor
+          ===getComputedStyle(document.querySelector('#notice')).backgroundColor),'tooltip uses the current theme surface');
+        await panel.click('#deskMore');
+        await panel.waitForSelector('#deskShortcuts:popover-open');
+        assert.ok(await panel.evaluate(()=>{
+          const anchor=document.querySelector('#deskMore').getBoundingClientRect();
+          const menu=document.querySelector('#deskShortcuts').getBoundingClientRect();
+          return menu.top>=anchor.bottom&&menu.top-anchor.bottom<=9&&menu.left>=0&&menu.right<=innerWidth
+            &&menu.bottom<=innerHeight&&!document.querySelector('dialog[open]');
+        }),'panel tools stay next to their trigger without a modal');
+        await panel.keyboard.press('ArrowDown');
+        assert.ok(await panel.evaluate(()=>document.activeElement===document.querySelectorAll('#deskShortcuts button')[1]));
+        await panel.keyboard.press('Escape');
+        assert.equal(await panel.$('#deskShortcuts:popover-open'),null);
+        assert.equal(await panel.evaluate(()=>document.activeElement.id),'deskMore');
+        await panel.click('#deskMore');
+        await panel.evaluate(()=>[...document.querySelectorAll('#deskShortcuts button')].find(n=>n.textContent==='外观与主题').click());
+        await panel.waitForSelector('#appearanceSettings:not([hidden]) #panelTheme',{visible:true});
+      }
+      await checkPortraitRatios();
+      await checkPanelTools();
+      await panel.click('[data-page="dialogue"]');
+      await panel.evaluate(()=>document.documentElement.style.setProperty('--panel-background-opacity','0.08'));
+      const message='正式面板公开测试，你好。';
+      await panel.type('#liveMessage',message);
+      await panel.click('#liveSend');
+      await panel.waitForFunction(()=>!!document.querySelector('#liveChat article[data-role="assistant"]'));
+      assert.match(await panel.$eval('#liveChat',n=>n.textContent),/苹果派/u);
+      await until(async()=>(await api('recent-history')).messages.some(row=>row.type==='assistant'),'visible panel acknowledges its reply');
+      assert.equal(await panel.$eval('#liveMessage',n=>n.value),'');
+      assert.equal((await api('recent-history')).messages.filter(row=>row.text===message).length,1);
+      if(process.env.SP_UI_CAPTURE)await panel.screenshot({path:process.env.SP_UI_CAPTURE.replace(/\.png$/u,'-dialogue.png')});
+
+      await panel.type('#liveMessage','换主题时保留这条草稿');
+      await panel.click('[data-page="settings"]');
+      await panel.click('[data-section="appearanceSettings"]');
+      await panel.select('#panelTheme','parchment');
+      await panel.waitForFunction(()=>getComputedStyle(document.documentElement).getPropertyValue('--pendant-art').includes('/parchment/'));
+      await checkPortraitRatios();
+      await checkPanelTools();
+      await panel.click('[data-page="dialogue"]');
+      assert.equal(await panel.$eval('#liveMessage',n=>n.value),'换主题时保留这条草稿');
+      await panel.waitForFunction(()=>document.querySelector('#liveChat').textContent.includes('苹果派'));
+      if(process.env.SP_UI_PARCHMENT_CAPTURE)await panel.screenshot({path:process.env.SP_UI_PARCHMENT_CAPTURE});
+      await panel.reload();
+      await panel.waitForFunction(()=>document.body.dataset.ready==='true'&&document.documentElement.dataset.theme==='parchment');
+      await panel.click('[data-page="dialogue"]');
+
+      await panel.click('[data-page="settings"]');
+      await panel.click('[data-section="appearanceSettings"]');
+      assert.deepEqual(await panel.$$eval('#panelTheme option',nodes=>nodes.map(n=>n.value)),['crystal','parchment','desk','book','broadcast']);
+      await panel.select('#panelTheme','broadcast');
+      const arc=selector=>'#broadcastPanel >>> '+selector;
+      await panel.waitForSelector(arc('.stage-card img'),{visible:true});
+      assert.equal(await panel.$eval(arc('.stage-card img'),img=>img.src.split(',')[1]),original);
+      await panel.click(arc('.choose-stage-card'));await panel.waitForSelector('#actors:not([hidden])');
+      const chosenAsset=await panel.$eval('#cardShelf [aria-current=true]',n=>n.dataset.asset);
+      const textAsset=a.assetId;
+      await panel.click('#cardShelf [data-asset="'+textAsset+'"]');
+      await panel.click(arc('.choose-stage-card'));
+      assert.equal(await panel.$eval('#cardShelf [aria-current=true]',n=>n.dataset.asset),chosenAsset);
+      await panel.waitForFunction(()=>document.querySelector('#cardPreview img')?.src===document.querySelector('#broadcastPanel').shadowRoot.querySelector('.stage-card img')?.src);
+      const tools=await panel.$$eval('.card-preview .actions button',nodes=>nodes.map(b=>({
+        name:b.getAttribute('aria-label'),visible:b.querySelector('svg')?.getBoundingClientRect().width>0,
+        compact:getComputedStyle(b.querySelector('.card-action-label')).display==='none'
+      })));
+      assert.equal(tools.length,6);assert.ok(tools.every(b=>b.name&&b.visible&&b.compact));
+      if(process.env.SP_UI_BROADCAST_CAPTURE)await panel.screenshot({path:process.env.SP_UI_BROADCAST_CAPTURE.replace(/\.png$/u,'-library.png')});
+      await panel.click('#cardShelf [data-asset="'+textAsset+'"]');await panel.click('#applyCard');
+      await panel.waitForFunction(()=>document.querySelector('#broadcastPanel').shadowRoot.querySelector('.stage-card').disabled);
+      assert.equal(await panel.$(arc('.stage-card img')),null);
+      await panel.click('#cardShelf [data-asset="'+chosenAsset+'"]');await panel.click('#applyCard');
+      await panel.waitForFunction(()=>document.querySelector('#broadcastPanel').shadowRoot.querySelector('.stage-card img')?.naturalWidth>0);
+      await panel.click(arc('[data-page="dialogue"]'));
+      await panel.waitForSelector('#chatPage:not([hidden])');
+      await panel.click(arc('#open-stage-card'));
+      await panel.waitForFunction(()=>document.querySelector('#portraitDialog[open] img')?.naturalWidth>0);
+      assert.equal(await panel.$eval('#portraitDialog img',img=>img.src.split(',')[1]),original);
+      await panel.keyboard.press('Escape');
+      await panel.click(arc('.stops [data-mode="listen"]'));
+      await panel.waitForSelector('#broadcastListen:not([hidden])');
+      if(coverFile?.includes('能天使')){
+        assert.equal(await panel.$eval('#broadcastListen h3',n=>n.textContent),'角色卡开场');
+        assert.match(await panel.$eval('#broadcastListen p',n=>n.textContent),/送完/u);
+      }
+      await panel.click(arc('.stops [data-mode="quiet"]'));
+      await panel.waitForFunction(()=>document.querySelector('#broadcastPanel').shadowRoot.querySelector('.shell').dataset.mode==='quiet'&&!document.querySelector('#chatPage').hidden);
+      assert.equal((await call('/dsh-pet-7340/stronghold/chat-options')).proactive,false);
+      await panel.type('#liveMessage','正式面板公开测试，你好。');await panel.click('#liveSend');
+      await panel.waitForFunction(()=>!document.querySelector('#liveMessage').value&&document.querySelector('#liveChat').textContent.includes('苹果派'));
+      await panel.setViewport({width:1360,height:900});
+      const stageSize=await panel.$eval(arc('.portrait'),n=>[n.clientWidth,n.clientHeight]);
+      const extent=await panel.$eval(arc('.shell'),n=>{const a=n.getBoundingClientRect(),b=n.getRootNode().host.getBoundingClientRect();return [b.width-a.width,b.height-a.height];});
+      assert.ok(extent.every(gap=>Math.abs(gap)<=2),'broadcast uses the available panel: '+extent);
+      assert.ok(stageSize[0]>=450&&stageSize[1]>=480,'responsive cover at 1360px: '+stageSize);
+      if(coverFile?.includes('能天使')){
+        const framing=await panel.$eval(arc('.portrait'),frame=>{
+          const stage=frame.querySelector('.stage-card'),art=stage.querySelector('img'),name=frame.querySelector('.artist-name strong');
+          return {fills:art.offsetWidth===stage.clientWidth&&art.offsetHeight===stage.clientHeight&&getComputedStyle(art).objectFit==='cover',
+            name:name.textContent,wholeName:name.scrollWidth<=name.clientWidth+1};
+        });
+        assert.deepEqual(framing,{fills:true,name:'能天使',wholeName:true});
+      }
+      if(process.env.SP_UI_BROADCAST_PORTRAIT)await (await panel.$(arc('.portrait'))).screenshot({path:process.env.SP_UI_BROADCAST_PORTRAIT});
+      assert.equal(await panel.$eval('#liveChat .chat-record',n=>getComputedStyle(n).borderImageSource),'none');
+      const platterLayout=await panel.$eval(arc('.tuner'),n=>{
+        const frame=n.getBoundingClientRect(),disc=n.querySelector('#platter img').getBoundingClientRect(),label=n.querySelector('#platter span').getBoundingClientRect();
+        return [label.top-disc.bottom,(disc.top-frame.top)-(frame.bottom-label.bottom)];
+      });
+      assert.ok(platterLayout[0]>=8&&Math.abs(platterLayout[1])<=1);
+      const cursorStyles=await panel.evaluate(()=>{
+        const root=document.querySelector('#broadcastPanel').shadowRoot;
+        return [root.querySelector('.desk'),document.querySelector('#liveMessage'),root.querySelector('.nav button'),root.querySelector('#platter'),root.querySelector('#tuning')].map(n=>getComputedStyle(n).cursor);
+      });
+      assert.ok(cursorStyles.every(cursor=>cursor.includes('url(')));
+      assert.match(cursorStyles[0],/%23fff46b/);
+      assert.equal(new Set(cursorStyles.slice(0,3)).size,1);
+      assert.equal(cursorStyles[3],cursorStyles[4]);assert.notEqual(cursorStyles[0],cursorStyles[3]);
+      if(process.env.SP_UI_BROADCAST_CAPTURE)await panel.screenshot({path:process.env.SP_UI_BROADCAST_CAPTURE});
+      await panel.setViewport({width:390,height:850});
+      assert.ok(await panel.$eval('#liveComposer',n=>n.getBoundingClientRect().bottom<=innerHeight),'composer fits on the first screen');
+      if(process.env.SP_UI_BROADCAST_CAPTURE)await panel.screenshot({path:process.env.SP_UI_BROADCAST_CAPTURE.replace(/\.png$/u,'-narrow.png')});
+      await panel.click(arc('[data-page="settings"]'));await panel.waitForSelector('#panelTheme',{visible:true});
+      assert.ok(await panel.$eval('#broadcastPanel',n=>n.scrollWidth<=n.clientWidth+1));
+      await panel.reload();await panel.waitForSelector(arc('.stage-card'),{visible:true});
+      await panel.click(arc('[data-page="settings"]'));
+      assert.equal(await panel.$eval('#panelTheme',n=>n.value),'broadcast');
+      await panel.setViewport({width:1100,height:850});
+      await panel.click(arc('[data-page="overview"]'));
+      const contained=await panel.$$eval('#overview > .summary-card',nodes=>nodes.every(n=>{
+        const b=n.querySelector('button').getBoundingClientRect(),r=n.getBoundingClientRect();
+        return b.height>0&&b.bottom<=r.bottom&&b.right<=r.right;
+      }));
+      assert.ok(contained,'overview actions stay inside their cards');
+      await panel.click(arc('[data-page="world"]'));await panel.click('#subNav [data-section="worldLibrary"]');
+      await panel.click('#bookShelf button');await panel.click('#editBook');
+      for(const [width,height] of [[1200,800],[860,650],[390,850]]){
+        await panel.setViewport({width,height});
+        const metrics=await panel.evaluate(()=>({
+          title:document.querySelector('#entryName').getBoundingClientRect().width,
+          body:document.querySelector('#entryContent').getBoundingClientRect().width,
+          overflow:document.querySelector('#books').scrollWidth-document.querySelector('#books').clientWidth
+        }));
+        assert.ok(metrics.title>=175&&metrics.body>=175&&metrics.overflow<=2,JSON.stringify({width,...metrics}));
+      }
+      await panel.setViewport({width:1100,height:850});
+      if(process.env.SP_UI_BROADCAST_CAPTURE)await panel.screenshot({path:process.env.SP_UI_BROADCAST_CAPTURE.replace(/\.png$/u,'-world.png')});
+      await panel.click(arc('[data-page="settings"]'));
+      await panel.select('#panelTheme','desk');
+      await panel.waitForFunction(()=>getComputedStyle(document.documentElement).getPropertyValue('--sheet').includes('/desk/'));
+      await panel.setViewport({width:1586,height:992});
+      await checkPortraitRatios();
+      await checkPanelTools();
+      await panel.click('[data-page="dialogue"]');
+      await panel.waitForFunction(()=>document.querySelector('#liveChat').textContent.includes('苹果派')&&document.querySelector('#liveChat').hasAttribute('data-speaker-art'));
+      await panel.evaluate(async()=>{
+        const image=new Image();
+        image.src='library-themes/desk/study.png';
+        await image.decode();
+        await document.fonts.ready;
+      });
+      const ledger=await panel.evaluate(()=>{
+        const page=document.querySelector('main').getBoundingClientRect();
+        const input=document.querySelector('#liveComposer').getBoundingClientRect();
+        return {left:page.left/innerWidth,top:page.top/innerHeight,bottom:page.bottom/innerHeight,below:input.top>page.bottom,visible:input.bottom<=innerHeight};
+      });
+      assert.ok(Math.abs(ledger.left-.365)<.015&&Math.abs(ledger.top-.06)<.018&&Math.abs(ledger.bottom-.778)<.015&&ledger.below&&ledger.visible,JSON.stringify(ledger));
+      if(process.env.SP_UI_DESK_CAPTURE)await panel.screenshot({path:process.env.SP_UI_DESK_CAPTURE});
+      await panel.click('#deskAdd');await panel.waitForSelector('#deskShortcuts:popover-open');
+      assert.ok(await panel.evaluate(()=>document.querySelector('#deskShortcuts').getBoundingClientRect().bottom
+        <document.querySelector('#deskAdd').getBoundingClientRect().top),'composer tools open above the button');
+      await panel.keyboard.press('Escape');
+      await panel.click('#deskMore');
+      await panel.evaluate(()=>[...document.querySelectorAll('#deskShortcuts button')].find(n=>n.textContent==='聊天回看').click());
+      await panel.waitForSelector('#historyPage:not([hidden])');
+      await panel.click('[data-page="dialogue"]');
+      if(coverFile){
+        const before=await panel.$eval('#deskExcerpt p',node=>node.textContent);
+        assert.ok(before);
+        await panel.click('#excerptLater');
+        assert.notEqual(await panel.$eval('#deskExcerpt p',node=>node.textContent),before);
+      }
+      await panel.reload();
+      await panel.waitForFunction(()=>document.body.dataset.ready==='true'&&document.documentElement.dataset.theme==='desk');
+      await panel.setViewport({width:1200,height:800});
+      await panel.click('[data-page="dialogue"]');
+
+      // Delay or fail the panel's own HTTP request without reaching the provider.
+      let chatRequest;
+      let intercept='failure';
+      await panel.setRequestInterception(true);
+      panel.on('request',r=>{
+        if(!r.url().includes('/dsh-pet-7340/chat?')||r.method()!=='POST')return void r.continue();
+        if(intercept==='failure')return void r.respond({status:503,contentType:'application/json',body:'{"ok":false}'});
+        chatRequest=r;
+      });
+      const draftMessage='失败或取消时保留这段输入。';
+      await panel.type('#liveMessage',draftMessage);
+      await panel.click('#liveSend');
+      await panel.waitForFunction(()=>document.querySelector('#liveFeedback').textContent.includes('输入已保留'));
+      assert.equal(await panel.$eval('#liveMessage',n=>n.value),draftMessage);
+      intercept='hold';
+      await panel.click('#liveSend');
+      await until(()=>chatRequest,'panel chat request intercepted');
+      await panel.click('[data-page="settings"]');
+      await panel.click('[data-section="appearanceSettings"]');
+      await panel.select('#panelTheme','crystal');
+      await panel.waitForFunction(()=>document.documentElement.dataset.theme==='crystal');
+      await panel.click('[data-page="dialogue"]');
+      assert.equal(await panel.$eval('#chatPage',n=>n.getAttribute('aria-busy')),'true');
+      await panel.click('#liveCancel');
+      await panel.waitForFunction(()=>document.querySelector('#liveCancel').hidden);
+      await chatRequest.respond({status:200,contentType:'application/json',body:JSON.stringify({ok:true,text:'取消后的迟到回复'})}).catch(()=>{});
+      assert.equal(await panel.$eval('#liveMessage',n=>n.value),draftMessage);
+      assert.ok(!(await panel.$eval('#liveChat',n=>n.textContent)).includes('迟到回复'));
+      chatRequest=null;
+      await panel.click('#liveSend');
+      await until(()=>chatRequest,'chat request held before switching characters');
+      await panel.evaluate(()=>{
+        const other=data.actors.find(a=>a.id!==actorId);
+        document.getElementById('actor').value=other.id;
+        document.getElementById('actor').dispatchEvent(new Event('change'));
+      });
+      await chatRequest.respond({status:200,contentType:'application/json',body:JSON.stringify({ok:true,text:'上一人物的迟到回复'})}).catch(()=>{});
+      await panel.waitForFunction(()=>document.querySelector('#liveCancel').hidden&&document.querySelector('#liveSend').disabled);
+      assert.ok(!(await panel.$eval('#liveChat',n=>n.textContent)).includes('迟到回复'));
+      panel.removeAllListeners('request');await panel.setRequestInterception(false);
+      await panel.click('[data-page="settings"]');
+      await panel.click('[data-section="appearanceSettings"]');
+      await panel.select('#panelTheme','desk');
+      await panel.waitForFunction(()=>document.documentElement.dataset.theme==='desk');
+      for(const [width,height] of [[1366,760],[960,520],[760,430],[390,680]]){
+        await panel.setViewport({width,height});
+        await panel.click('[data-page="dialogue"]');
+        assert.ok(await panel.$eval('#liveComposer',n=>{const r=n.getBoundingClientRect();return r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth;}));
+      }
+      await panel.mouse.move(2,2);
+      await panel.keyboard.press('Tab');
+      await panel.focus('#deskMore');
+      await panel.waitForSelector('#panelTooltip:popover-open');
+      assert.equal(await panel.$eval('#panelTooltip',n=>n.textContent),'面板工具');
+      await panel.keyboard.press('Escape');
+      assert.equal(await panel.$('#panelTooltip:popover-open'),null);
+      await checkPanelTools();
+      await panel.click('#deskMore');await panel.waitForSelector('#deskShortcuts:popover-open');
+      await panel.click('[data-page="overview"]');
+      assert.equal(await panel.$('#deskShortcuts:popover-open'),null);
+      await panel.setViewport({width:1200,height:800});
+      await panel.evaluate(()=>{
+        const selected=document.getElementById('actor');
+        selected.value=data.bindings.main;
+        selected.dispatchEvent(new Event('change'));
+      });
+      await panel.waitForFunction(()=>document.querySelector('#companionPortrait img')?.naturalWidth>0);
+      await panel.click('[data-page="settings"]');
+      await panel.select('#panelTheme','book');
+      await panel.waitForFunction(()=>getComputedStyle(document.documentElement).getPropertyValue('--book-frame').includes('frame-paper.svg'));
+      await panel.evaluate(async()=>{
+        for(const name of ['shell.webp','rail.webp','rim.webp','seal.webp','flowers.svg']){
+          const image=new Image();
+          image.src='library-themes/book/'+name;
+          await image.decode();
+        }
+      });
+      for(const [width,height] of [[1200,800],[390,680]]){
+        await panel.setViewport({width,height});
+        const rail=await panel.$$eval('#mainNav button',(buttons,wide)=>buttons.map((button,index)=>{
+          if(wide){
+            const left=29*innerWidth/1536, right=141*innerWidth/1536;
+            const y=[125,240,351,466,570,682][index]*innerHeight/1024;
+            const gapY=[190,302,414,522,628,745][index]*innerHeight/1024;
+            return [left,right].every(x=>document.elementFromPoint(x,y)?.closest('button')===button)
+              &&!document.elementFromPoint(left,gapY)?.closest('#mainNav button');
+          }
+          const box=button.getBoundingClientRect(),y=box.top+box.height/2;
+          return [box.left+4,box.right-4].every(x=>document.elementFromPoint(x,y)?.closest('button')===button);
+        }),width>760);
+        assert.deepEqual(rail,Array(6).fill(true),'the artwork is clickable and the gaps are inactive');
+        const checks=await panel.evaluate(async()=>{
+          const strip=document.querySelector('#subNav'),main=document.querySelector('main');
+          const sections=[];
+          for(const page of document.querySelectorAll('#mainNav button')){
+            page.click();
+            for(const tab of strip.querySelectorAll('button')){
+              tab.click();
+              const pane=main.querySelector('section:not([hidden])');
+              for(let frame=0;frame<2;frame++){
+                await new Promise(requestAnimationFrame);
+                const box=strip.getBoundingClientRect();
+                const animated=getComputedStyle(pane);
+                const dx=animated.transform==='none'?0:new DOMMatrix(animated.transform).m41;
+                if(dx!==0||animated.overflowX==='auto'||strip.offsetHeight-strip.clientHeight>1
+                  ||box.bottom>innerHeight||document.documentElement.scrollWidth>innerWidth+1){
+                  return {width:innerWidth,section:pane.id,dx,overflowX:animated.overflowX,stripHeight:strip.offsetHeight,stripClientHeight:strip.clientHeight,stripBottom:box.bottom,rootWidth:document.documentElement.scrollWidth};
+                }
+              }
+              sections.push(pane.id);
+            }
+          }
+          return sections;
+        });
+        assert.equal(checks.length,26,JSON.stringify(checks));
+      }
+      await panel.click('[data-page="people"]');
+      await panel.click('[data-section="actors"]');
+      await panel.evaluate(()=>{
+        const asset=data.actors.find(actor=>actor.id===data.bindings.main).assetId;
+        [...document.querySelectorAll('#cardShelf button')].find(button=>button.dataset.asset===asset).click();
+      });
+      await panel.waitForFunction(()=>document.querySelector('#cardPreview .card-cover')?.naturalWidth>0);
+      const selectedCard=await panel.$eval('#cardShelf [aria-current="true"]',button=>[
+        getComputedStyle(button).color,getComputedStyle(button,'::before').backgroundImage,
+      ]);
+      assert.equal(selectedCard[0],'rgb(255, 249, 233)');
+      assert.match(selectedCard[1],/rgb\(45, 97, 90\)/u);
+      for(const [width,height] of [[390,680],[1200,800]]){
+        await panel.setViewport({width,height});
+        const cardLayout=await panel.$eval('#cardPreview .card-cover',async image=>{
+          const original=image.src, results=[];
+          try{
+            for(const [w,h] of [[140,600],[600,140],[280,280]]){
+              const fixture=document.createElement('canvas');fixture.width=w;fixture.height=h;
+              image.src=fixture.toDataURL('image/png');await image.decode();
+              const cover=image.getBoundingClientRect(),frame=image.closest('article').getBoundingClientRect();
+              const title=image.closest('article').querySelector('h2').getBoundingClientRect();
+              const strip=document.querySelector('#subNav').getBoundingClientRect();
+              results.push(cover.height>90&&cover.top>=frame.top&&cover.bottom<=title.top&&cover.left>=frame.left
+                &&cover.right<=frame.right&&frame.bottom<strip.top&&getComputedStyle(image).objectFit==='contain');
+            }
+          }finally{image.src=original;await image.decode();}
+          return results;
+        });
+        assert.deepEqual(cardLayout,[true,true,true],width+'px covers fit the visible area');
+      }
+      const controls=await panel.$$eval('#actors .card-preview .actions button',buttons=>buttons.map(button=>({
+        width:button.offsetWidth,label:button.getAttribute('aria-label'),icon:!!button.querySelector('svg'),
+      })));
+      assert.equal(controls.length,6);
+      assert.ok(controls.every(button=>button.width<=39&&button.label&&button.icon));
+      await panel.hover('#applyCard');
+      await panel.waitForFunction(()=>document.querySelector('#panelTooltip:popover-open')?.textContent==='使用这张卡');
+      await panel.mouse.move(5,5);
+      if(process.env.SP_UI_CARD_CAPTURE)await panel.screenshot({path:process.env.SP_UI_CARD_CAPTURE});
+      await panel.click('#cardPreview .card-preview-zoom');
+      await panel.waitForSelector('#portraitDialog[open]');
+      assert.ok(await panel.evaluate(()=>document.querySelector('#portraitDialog img').src===document.querySelector('#cardPreview img').src));
+      await panel.keyboard.press('Escape');
+      await panel.click('[data-page="settings"]');
+      await panel.setViewport({width:1536,height:1024});
+      await panel.evaluate(()=>document.documentElement.style.setProperty('--book-font-scale','1'));
+      await panel.click('[data-section="promptSettings"]');
+      await panel.waitForSelector('.prompt-field-toggle',{visible:true});
+      const expanded=await panel.$eval('#promptVoice',voice=>{
+        const field=voice.querySelector('[aria-controls="promptVoice-register"]');
+        if(field.getAttribute('aria-expanded')==='true')voice.querySelector('button').click();
+        field.click();
+        return Array.from(voice.querySelectorAll('[aria-expanded=true]'),node=>node.getAttribute('aria-controls'));
+      });
+      assert.deepEqual(expanded,['promptVoice-register']);
+      await panel.waitForFunction(()=>!document.querySelector('#promptSettings').getAnimations().length);
+      if(process.env.SP_UI_BOOK_CAPTURE)await panel.screenshot({path:process.env.SP_UI_BOOK_CAPTURE});
+      const anchors=await panel.evaluate(()=>{
+        const position=selector=>{const r=document.querySelector(selector).getBoundingClientRect();return [r.x,r.y,r.width,r.height];};
+        return {main:position('main'),portrait:position('#companionPortrait'),
+          rail:position('#mainNav'),excerpt:position('#deskExcerpt'),tabs:position('#subNav')};
+      });
+      for(const [id,expected] of Object.entries({
+        main:[582,131,880,777],portrait:[188,47,372,474],rail:[0,0,172,1024],
+        excerpt:[242,631,268,138],tabs:[654,752,736,70],
+      })){
+        assert.ok(anchors[id].every((value,index)=>Math.abs(value-expected[index])<3),id+' '+anchors[id]);
+      }
+      const promptLayout=await panel.evaluate(()=>{
+        const rect=id=>document.getElementById(id).getBoundingClientRect();
+        return {fieldsEnd:rect('promptVoice').bottom,tabsTop:rect('subNav').top,tabsEnd:rect('subNav').bottom,
+          saveTop:rect('promptSave').top,nameLabel:getComputedStyle(document.getElementById('promptPerson')).display};
+      });
+      assert.ok(promptLayout.fieldsEnd<=promptLayout.tabsTop+1&&promptLayout.tabsEnd<=promptLayout.saveTop+12
+        &&promptLayout.nameLabel==='none',JSON.stringify(promptLayout));
+      await panel.click('#deskMore');
+      await panel.waitForSelector('#deskShortcuts:popover-open');
+      await panel.waitForFunction(()=>[...document.querySelectorAll('#deskShortcuts button')].some(button=>button.textContent==='导出提示预设'));
+      await panel.keyboard.press('Escape');
+      await panel.hover('#companionPortrait');
+      await panel.waitForFunction(()=>document.querySelector('#companionPortrait').style.getPropertyValue('--book-card-turn')==='-2.8deg');
+      await panel.mouse.move(5,5);
+      await panel.waitForFunction(()=>document.querySelector('#companionPortrait').style.getPropertyValue('--book-card-turn')==='0deg');
+      await panel.click('#companionPortrait');
+      await panel.waitForSelector('#portraitDialog[open]');
+      assert.ok(await panel.$eval('#portraitDialog',n=>{const r=n.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}));
+      await panel.keyboard.press('Escape');
+      await panel.click('[data-page="dialogue"]');
+      await panel.click('[data-section="chatPage"]');
+      await panel.waitForSelector('#liveChat [data-role="user"]');
+      assert.ok(await panel.$eval('#bookSceneTitle',title=>title.scrollWidth<=title.clientWidth));
+      assert.match(await panel.$eval('#liveChat [data-role="user"]',row=>getComputedStyle(row,'::after').backgroundImage),/rgb\(141, 128, 85\)/u);
+      await panel.click('#deskAdd');await panel.waitForSelector('#deskShortcuts:popover-open');
+      assert.equal(await panel.$$eval('#deskShortcuts button',nodes=>nodes.map(n=>n.textContent).join('、')),'插入摘录、清空输入');
+      await panel.keyboard.press('Escape');
+      if(process.env.SP_UI_BOOK_CAPTURE)await panel.screenshot({path:process.env.SP_UI_BOOK_CAPTURE.replace(/\.png$/u,'-chat.png')});
+      const excerptText='这里是用于验证滚动手感的长段文本。'.repeat(85);
+      await api('import-card',{file:Buffer.from(JSON.stringify({
+        name:'摘录滚动样例',personality:'回答简短。',
+        character_book:{entries:[{keys:['摘录'],content:excerptText,enabled:true,extensions:{ark_companion:{broadcastExcerpt:'书店今天开门了。'}}},
+          ...[{knowledge:'author_only'},{subject:'另一位人物'},{speakers:['另一位人物']},{conditions:[{path:'closed',value:true}]}]
+            .map(rule=>({keys:['备注'],content:'限定资料不能出现在阅读区。',extensions:{ark_companion:{...rule,broadcastExcerpt:'限定频道。'}}}))]},
+      })).toString('base64')});
+      await panel.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'no-preference'}]);
+      await panel.click('#mainNav [data-page="settings"]');
+      await panel.click('#subNav [data-section="appearanceSettings"]');
+      await panel.$eval('#appearanceForm',form=>{
+        form.querySelector('#reduceMotion').checked=false;
+        form.requestSubmit();
+      });
+      await panel.waitForFunction(()=>document.querySelector('#notice').textContent==='显示设置已保存');
+      await panel.reload();
+      await panel.waitForFunction(text=>document.querySelector('#deskExcerpt .excerpt-copy')?.textContent===text,{},excerptText);
+      const program=await panel.evaluate(()=>selectedActor().panelExcerpts);
+      assert.ok(program.reading.includes(excerptText)&&!program.reading.some(text=>text.includes('限定资料')));
+      assert.deepEqual(program.broadcast,['书店今天开门了。']);
+      assert.equal(await panel.evaluate(()=>window.ArkMotion.reduced()),false);
+      await panel.mouse.move(5,5);
+      try{
+        await panel.waitForFunction(()=>!document.querySelector('#deskExcerpt .excerpt-scroll-layer').hidden,{timeout:9000});
+      }catch(error){
+        const state=await panel.$eval('#deskExcerpt',excerpt=>{
+          const scroller=excerpt.querySelector('p'),rect=excerpt.getBoundingClientRect();
+          return {theme:document.documentElement.dataset.theme,hidden:document.hidden,reduced:window.ArkMotion.reduced(),
+            appReduced:document.body.classList.contains('reduce-motion'),systemReduced:matchMedia('(prefers-reduced-motion: reduce)').matches,
+            hover:excerpt.matches(':hover'),focused:excerpt.matches(':focus-within'),dialog:document.querySelector('#portraitDialog').open,
+            top:rect.top,height:rect.height,client:scroller.clientHeight,scroll:scroller.scrollHeight,
+            textLength:scroller.textContent.length,visibility:getComputedStyle(excerpt).display};
+        });
+        throw new Error('Excerpt did not start: '+JSON.stringify(state),{cause:error});
+      }
+      const scroll=await panel.$eval('#deskExcerpt .excerpt-scroll-layer > span',async copy=>{
+        const positions=[];
+        for(let i=0;i<12;i++){
+          await new Promise(requestAnimationFrame);
+          const transform=getComputedStyle(copy).transform;
+          positions.push(transform==='none'?null:-new DOMMatrix(transform).m42);
+        }
+        return positions;
+      });
+      assert.ok(scroll.every((value,i)=>value!==null&&(!i||value>=scroll[i-1])));
+      assert.ok(scroll.some(value=>Math.abs(value-Math.round(value))>.05),'the painted scroll follows fractional offsets');
+      assert.ok(scroll.at(-1)-scroll[0]>2,'the excerpt visibly advances across frames');
+      await panel.hover('#deskExcerpt');
+      const paused=await panel.$eval('#deskExcerpt p',excerpt=>excerpt.scrollTop);
+      await delay(220);
+      assert.equal(await panel.$eval('#deskExcerpt p',excerpt=>excerpt.scrollTop),paused);
+      assert.equal(await panel.$eval('#deskExcerpt .excerpt-scroll-layer',layer=>layer.hidden),true);
+      await panel.mouse.wheel({deltaY:180});
+      await panel.waitForFunction(top=>document.querySelector('#deskExcerpt p').scrollTop>top,{},paused);
+      await panel.mouse.move(5,5);
+      await panel.waitForFunction(()=>!document.querySelector('#deskExcerpt .excerpt-scroll-layer').hidden,{timeout:9000});
+      await panel.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}]);
+      await panel.waitForFunction(()=>window.ArkMotion.reduced()&&document.querySelector('#deskExcerpt .excerpt-scroll-layer').hidden);
+      await panel.reload();
+      await panel.waitForFunction(()=>document.body.dataset.ready==='true'&&document.documentElement.dataset.theme==='book');
+      assert.equal(await panel.$eval('#deskExcerpt .excerpt-scroll-layer',layer=>layer.hidden),true);
+      await panel.click('#mainNav [data-page="settings"]');
+      await panel.click('#subNav [data-section="appearanceSettings"]');
+      await panel.select('#panelTheme','broadcast');
+      await panel.waitForSelector(arc('.stops [data-mode="listen"]'),{visible:true});
+      await panel.click(arc('.stops [data-mode="listen"]'));
+      await panel.waitForSelector('#broadcastListen:not([hidden])');
+      assert.equal(await panel.$eval('#broadcastListen p',n=>n.textContent),'书店今天开门了。');
+      assert.equal(await panel.$eval('#broadcastListen button',n=>n.disabled),true);
       assert.deepEqual(panelErrors, []); await panel.close();
     }
   } finally {

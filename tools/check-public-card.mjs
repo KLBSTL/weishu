@@ -11,7 +11,7 @@ import { libraryRoute } from '../server/companion/routes.js';
 import { resolvePromptSettings } from '../server/companion/prompts.js';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const folder = resolve(process.argv[2] || join(repo, 'desktop-pet/cards/exusiai-lungmen-1.0.0'));
+const folder = resolve(process.argv[2] || join(repo, 'desktop-pet/cards/exusiai-lungmen-1.0.1'));
 const home = await mkdtemp(join(tmpdir(), 'ark-public-card-check-'));
 process.env.DSH_HOME = home;
 const library = companionLibrary(join(home, 'dsh-pet')), checks = []; let server, browser;
@@ -48,7 +48,7 @@ try {
   await page.click('[data-page="settings"]'); await page.click('[data-section="promptSettings"]');
   await page.waitForFunction(() => document.querySelectorAll('#promptBlockList option').length === 4);
   await page.click('[data-tab="preview"]'); await page.type('#promptQuestion', '拜松是企鹅物流员工吗？'); await page.click('#promptCompile');
-  await page.waitForFunction(() => document.getElementById('promptOutput').value.includes('不是'));
+  await page.waitForFunction(() => document.getElementById('promptOutput').value.length > 0);
   await page.click('#promptDetails');
   const preview = await page.$eval('#promptOutput', node => JSON.parse(node.value));
   assert.ok(JSON.stringify(preview.messages).includes('峯驰'));

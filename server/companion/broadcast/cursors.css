@@ -1,0 +1,10 @@
+:root.arc-preview, :root[data-theme="broadcast"], :host {
+  --arc-cursor:var(--point);
+  --point:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='30' viewBox='0 0 28 30'%3E%3Cpath d='M3 2 24 14l-9 2-4 10z' fill='%23fff46b' stroke='%23211341' stroke-width='2.4' stroke-linejoin='round'/%3E%3Cpath d='m7 8 10 6-6 1z' fill='%23ff4ba6'/%3E%3C/svg%3E") 3 2,pointer;
+  --grab:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Cpath d='m15 2 3 8 9 5-9 3-3 9-4-9-9-3 9-5z' fill='%2369f5e4' stroke='%23211341' stroke-width='2.5'/%3E%3Ccircle cx='15' cy='15' r='3' fill='%23ff4ba6'/%3E%3C/svg%3E") 15 15,grab;
+}
+:is(:root.arc-preview,:root[data-theme="broadcast"]),:is(:root.arc-preview,:root[data-theme="broadcast"]) :where(*),:host { cursor:var(--arc-cursor)!important }
+:is(:root.arc-preview,:root[data-theme="broadcast"]) :is(button,a[href],label.button,select,summary,input[type=checkbox],input[type=radio],button *,dialog .action) { cursor:var(--point)!important }
+:is(:root.arc-preview,:root[data-theme="broadcast"]) :is(input[type=range],.charm,.charm *,#platter,#platter *) { cursor:var(--grab)!important }
+:is(:root.arc-preview,:root[data-theme="broadcast"]) button:disabled,
+:is(:root.arc-preview,:root[data-theme="broadcast"]) dialog::backdrop { cursor:var(--arc-cursor)!important }

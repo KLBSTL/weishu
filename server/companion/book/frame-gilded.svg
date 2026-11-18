@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="72" viewBox="0 0 120 72" fill="none">
+  <defs>
+    <linearGradient id="metal" x2="112" y2="72" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a96837"/>
+      <stop offset=".17" stop-color="#f7c780"/>
+      <stop offset=".28" stop-color="#fff5d7"/>
+      <stop offset=".50" stop-color="#b07843"/>
+      <stop offset=".75" stop-color="#f4bd71"/>
+      <stop offset=".84" stop-color="#fff3c7"/>
+      <stop offset="1" stop-color="#906039"/>
+    </linearGradient>
+    <g id="corners" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M7 22v-3l7-4 1-5q3-1 5-4h6M11 17q6 0 7-5l4-3h5" stroke="#fff0c8" stroke-width="1.25"/>
+      <path d="m10 21 3 1 4-5 5-3 1-3" stroke="#b07b46" stroke-width=".85"/>
+    </g>
+  </defs>
+  <path d="M20 3h80l4 4 3 1 2 6 7 3v38l-7 3-2 6-3 1-4 4H20l-4-4-3-1-2-6-7-3V17l7-3 2-6 3-1Z" stroke="#734528" stroke-width="3.4"/>
+  <path d="M20 3h80l4 4 3 1 2 6 7 3v38l-7 3-2 6-3 1-4 4H20l-4-4-3-1-2-6-7-3V17l7-3 2-6 3-1Z" stroke="url(#metal)" stroke-width="2.7"/>
+  <path d="M21 7h78l4 4 3 5 7 3v34l-7 3-3 5-4 4H21l-4-4-3-5-7-3V19l7-3 3-5Z" stroke="#ffefc2" stroke-width="1.1"/>
+  <path d="M25 9h70M25 63h70" stroke="#b6874f" stroke-width=".75"/>
+  <use href="#corners"/>
+  <use href="#corners" transform="translate(120) scale(-1 1)"/>
+  <use href="#corners" transform="translate(0 72) scale(1 -1)"/>
+  <use href="#corners" transform="translate(120 72) scale(-1)"/>
+</svg>

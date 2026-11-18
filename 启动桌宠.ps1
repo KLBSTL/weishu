@@ -121,7 +121,8 @@ $settings = @{
     token = (Get-Content -LiteralPath $keyPath -Raw).Trim()
 } | ConvertTo-Json -Compress
 $source = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'server/desktop/native.js') -Raw
-[IO.File]::WriteAllText((Join-Path $helper 'stronghold-pet.js'), "const strongholdPetConfig = $settings;`n$source")
+$themeCatalog = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'server/desktop/roleplay-themes.cjs') -Raw
+[IO.File]::WriteAllText((Join-Path $helper 'stronghold-pet.js'), "const strongholdPetConfig = $settings;`n$themeCatalog`n$source")
 $indexPath = Join-Path $helper 'index.html'
 $index = Get-Content -LiteralPath $indexPath -Raw
 $tag = '<script src="./stronghold-pet.js"></script>'
@@ -130,7 +131,7 @@ if (-not $index.Contains($tag)) {
     [IO.File]::WriteAllText($indexPath, $index.Replace('</body>', "$tag`n  </body>"))
 }
 $roleSource = Join-Path $PSScriptRoot 'server/desktop'
-foreach ($item in @(@('roleplay-windows.cjs','ark-roleplay-windows.cjs'), @('roleplay-preload.cjs','ark-roleplay-preload.cjs'), @('roleplay-config.cjs','roleplay-config.cjs'), @('bridge-timeouts.cjs','ark-bridge-timeouts.cjs'))) {
+foreach ($item in @(@('roleplay-windows.cjs','ark-roleplay-windows.cjs'), @('roleplay-preload.cjs','ark-roleplay-preload.cjs'), @('roleplay-config.cjs','roleplay-config.cjs'), @('roleplay-themes.cjs','roleplay-themes.cjs'), @('bridge-timeouts.cjs','ark-bridge-timeouts.cjs'))) {
     Copy-Item -LiteralPath (Join-Path $roleSource $item[0]) -Destination (Join-Path $helper $item[1])
 }
 $bridgePath = Join-Path $helper 'main/bridge.js'

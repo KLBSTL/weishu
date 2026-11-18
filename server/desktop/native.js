@@ -127,6 +127,18 @@
     .stronghold-pet-actions button { flex: 1; min-width: 0; white-space: nowrap; }
   `;
   document.head.append(style);
+  const themeStyle=document.createElement('link');
+  themeStyle.rel='stylesheet';
+  themeStyle.href=BASE+'/stronghold/library-pet-theme.css';
+  document.head.append(themeStyle);
+  const themeCatalog=globalThis.ArkPanelThemes;
+  if(themeCatalog){
+    themeCatalog.loadStyles(document,BASE+'/stronghold/library-themes');
+    const applyTheme=prefs=>{document.documentElement.dataset.theme=themeCatalog.normalizeTheme(prefs?.theme);};
+    applyTheme();
+    window.arkDesktop?.onSettings?.(applyTheme);
+    window.arkDesktop?.status?.().then(status=>applyTheme(status.settings)).catch(()=>{});
+  }
 
   const cardFile = document.createElement('input');
   const dailyControls = new window.MutationObserver(() => {

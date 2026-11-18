@@ -183,6 +183,18 @@
     let image; if (cover.files[0]) image = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1]); reader.onerror = reject; reader.readAsDataURL(cover.files[0]); });
     const r = await api('export', { actorId, format: 'png', cover: image, singleActor: scope.value === 'single' }); download(r.name, r.file, true, 'png');
   }), button('选择封面', 'chooseExportCover', () => cover.click()), cover); $('exportCard').textContent = '当前JSON';
+  const cardActions = { applyCard:'check', exportCard:'code', originalCard:'download',
+    resetPersona:'refresh', exportPng:'image', chooseExportCover:'frame' };
+  for (const [id, symbol] of Object.entries(cardActions)) {
+    const control=$(id), name=control.textContent;
+    const mark=node('span'), label=node('span',name);
+    mark.className='card-action-icon';mark.setAttribute('aria-hidden','true');
+    mark.innerHTML=window.ArkPanelUI.icon(symbol);
+    label.className='card-action-label';
+    control.setAttribute('aria-label',name);
+    control.dataset.tooltip=name;
+    control.replaceChildren(mark,label);
+  }
 
   const memoryTools = node('div'); memoryTools.className = 'toolbar';
   memoryTools.append(button('待确认', 'pendingMemories', async () => {

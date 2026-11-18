@@ -1,0 +1,291 @@
+:root[data-theme="parchment"] {
+  color-scheme: light;
+  --ink: #34271d;
+  --muted: #645139;
+  --accent: #75512d;
+  --rose: #98593d;
+  --line: #91663d59;
+  --surface: #f4e0c2;
+  --panel-base: #49352a;
+  --pet-surface: #f4dfc1;
+  --control-ink: #503722;
+  --control-border: #a9825c;
+  --control-gloss: #f8e4c5;
+  --control-shade: #dbc09c;
+  --control-hover: #f8e9ce;
+  --control-hover-border: #775236;
+  --selected-ink: #fcf0d3;
+  --selected-border: #8d7948;
+  --selected-fill: #696948;
+  --selected-shade: #525738;
+  --selected-hover: #626a4e;
+  --focus-ink: #914827;
+  --input-fill: #ffefd69e;
+  --input-border: #ad8c69;
+  --checkbox-accent: #666b43;
+  --nav-ink: #67472d;
+  --nav-selected-ink: #fff0cf;
+  --glow: #5c3a221e;
+  --paper: #f0dcc0;
+  --nav-surface: url('/dsh-pet-7340/stronghold/library-themes/parchment/paper.svg'), linear-gradient(115deg, #36281f, #553d30 50%, #35271f);
+  --panel-backdrop: url('/dsh-pet-7340/stronghold/library-themes/parchment/paper.svg');
+  --corner-art: url('/dsh-pet-7340/stronghold/library-themes/parchment/corner.svg');
+  --portrait-art: url('/dsh-pet-7340/stronghold/library-themes/parchment/portrait.svg');
+  --panel: url('/dsh-pet-7340/stronghold/library-themes/parchment/frame.svg');
+  --facet: url('/dsh-pet-7340/stronghold/library-themes/parchment/plaque.svg');
+  --selected-facet: var(--facet);
+  --tip: none;
+  --shards: none;
+  --pendant-art: url('/dsh-pet-7340/stronghold/library-themes/parchment/pendant.svg');
+  --pendant-shadow: #39241980;
+  --cord-color: #b88f5b;
+  --cord-dash: 1 2;
+}
+
+:root[data-theme="parchment"][data-palette="dusk"] {
+  --panel-base: #52312b;
+  --paper: #eed6bc;
+  --surface: #efd8bd;
+}
+
+:root[data-theme="parchment"][data-palette="mist"] {
+  --panel-base: #403e2d;
+  --paper: #e8dfc3;
+  --surface: #ede5cd;
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] #mainNav {
+  border-right: 4px double #bd9664;
+  box-shadow: inset 0 0 0 4px #2d2119, inset 0 0 0 5px #9c764d;
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] #mainNav button {
+  width: min(100%, 104px);
+  min-height: 43px;
+  border: 0;
+  background: none;
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] #mainNav button::before {
+  opacity: 1;
+  filter: drop-shadow(0 3px 2px #20150d8c);
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] #mainNav button[aria-current="true"]::before {
+  inset: 0;
+  filter: sepia(.45) hue-rotate(21deg) brightness(.62) saturate(.85);
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] #mainNav button:hover::before {
+  filter: brightness(1.09) drop-shadow(0 2px 3px #22150c80);
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] #mainNav button[aria-current="true"]:hover::before {
+  filter: sepia(.45) hue-rotate(21deg) brightness(.72);
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] #mainNav svg { stroke-width: 1.7; }
+
+:root:where(.roleplay-panel)[data-theme="parchment"] #currentCompanion {
+  margin: 15px 5px 15px 11px;
+  padding-top: 48px;
+  border: 4px double #aa8055;
+  border-radius: 12px 9px 10px 12px;
+  background: url('paper.svg'), linear-gradient(115deg, #ead0aa, var(--paper) 48%, #e4c8a1);
+  box-shadow: 0 3px 7px #2a1b14a0, inset 0 0 0 3px #fbebcf7a;
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] .companion-portrait {
+  --portrait-inset: 8px;
+  border-color: #bd9871;
+  background: #f8e6c9;
+  box-shadow: 0 4px 6px #58412557, 5px 6px 0 #e1c6a2, -4px -3px 0 #f4e3c7;
+  rotate: -3deg;
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] .companion-portrait:hover { rotate: 0deg; }
+:root:where(.roleplay-panel)[data-theme="parchment"] .companion-portrait:active { translate: 0 1px; }
+:root:where(.roleplay-panel)[data-theme="parchment"] .companion-portrait > span { color: var(--accent); }
+:root:where(.roleplay-panel)[data-theme="parchment"] .companion-portrait::after { inset: -27px -13px -19px; }
+:root:where(.roleplay-panel)[data-theme="parchment"] .companion-tools .panel-icon::before { inset: -2px; }
+:root:where(.roleplay-panel)[data-theme="parchment"] .companion-bottom .panel-icon {
+  background: var(--control-gloss);
+  border-color: var(--control-border);
+  color: var(--control-ink);
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] .companion-bottom .panel-icon::before {
+  border-color: #b89168;
+  background: none;
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] .panel-speech {
+  background: url('botanical.svg') right -8px bottom -8px / 86px auto no-repeat;
+  filter: drop-shadow(1px 2px 2px #593a272c);
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] .window-tools::before {
+  height: 3px;
+  background: repeating-linear-gradient(90deg,#a98358 0 3px, transparent 3px 7px);
+  opacity: .82;
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] .window-tools::after {
+  content: "";
+  position: absolute;
+  top: -15px;
+  right: 222px;
+  width: 25px;
+  height: 47px;
+  pointer-events: none;
+  background: linear-gradient(90deg,#985033,#ba744e 18%,#ac6344 83%,#824229);
+  clip-path: polygon(0 0,100% 0,100% 100%,50% 83%,0 100%);
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] #subNav { gap: 8px; }
+:root:where(.roleplay-panel)[data-theme="parchment"] #subNav button::before { opacity: 1; }
+:root:where(.roleplay-panel)[data-theme="parchment"] #subNav button[aria-current="true"]::before {
+  filter: sepia(.5) hue-rotate(22deg) brightness(.66);
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] main {
+  position: relative;
+  isolation: isolate;
+  margin: 0 16px 14px 8px;
+  padding: 20px 24px 15px;
+  border: 5px double #a48059;
+  border-radius: 9px 10px 12px 9px;
+  background: url('paper.svg'), radial-gradient(ellipse at 37% 32%,#f8e7ce76,transparent 67%),var(--paper);
+  box-shadow: 1px 4px 0 #754d35, 3px 8px 9px #261b14a0;
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] main::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  z-index: -1;
+  pointer-events: none;
+  border: 1px dashed #9f774e6c;
+  border-radius: 4px;
+  background:
+    url('corner.svg') left top / 34px no-repeat,
+    url('botanical.svg') right 1% bottom 13% / clamp(104px, 19vw, 252px) auto no-repeat;
+  opacity: .57;
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] main > section { scrollbar-color: #a47e54 #eddbc1; }
+:root:where(.roleplay-panel)[data-theme="parchment"] .cast-biography,
+:root:where(.roleplay-panel)[data-theme="parchment"] .pager span,
+:root:where(.roleplay-panel)[data-theme="parchment"] .chat-record small,
+:root:where(.roleplay-panel)[data-theme="parchment"] .empty,
+:root:where(.roleplay-panel)[data-theme="parchment"] #historyPage .page-footer { color: var(--muted); }
+
+:root:where(.roleplay-panel)[data-theme="parchment"] .portrait {
+  border-color: #ad865f;
+  background: #dec3a0;
+  color: var(--control-ink);
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] .chat-record {
+  filter: drop-shadow(0 2px 1px #5b37212f);
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] .chat-record:before {
+  width: 9px;
+  height: 13px;
+  background: #95643f;
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] #liveChat .chat-record[data-role="user"],
+:root:where(.roleplay-panel)[data-theme="parchment"] #chatHistory .chat-record[data-role="user"] {
+  border-image-source: url('user-frame.svg');
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] #liveChat[data-speaker-art] .chat-record[data-role="assistant"] {
+  margin-left: 58px;
+  max-width: calc(100% - 58px);
+  padding-left: 25px;
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] #liveChat[data-speaker-art] .chat-record[data-role="assistant"]::before {
+  left: -55px;
+  top: 10px;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 3px double #96734a;
+  background: var(--speaker-art) center / cover;
+  box-shadow: 0 2px 3px #63452c59;
+  clip-path: none;
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] .chat-record[data-role="user"]::after { background: none; }
+:root:where(.roleplay-panel)[data-theme="parchment"] .chat-record::after {
+  background: url('botanical.svg') right -3px bottom -4px / 49px no-repeat;
+  opacity: .62;
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] #liveComposer {
+  padding: 7px 12px;
+  filter: drop-shadow(0 2px 0 #997350) drop-shadow(0 3px 2px #5b39255c);
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] #liveComposer:focus-within {
+  outline: 2px solid #a7764f;
+  outline-offset: 1px;
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] #liveMessage {
+  border: 1px solid #bc977167;
+  border-radius: 22px;
+  margin-left: 4px;
+  padding-inline: 15px;
+  background: #fff0d34a;
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] #liveSend { color: #fff2d3; }
+:root:where(.roleplay-panel)[data-theme="parchment"] #liveSend::before {
+  filter: sepia(.5) saturate(2.4) hue-rotate(338deg) brightness(.64);
+}
+
+:root:where(.roleplay-panel)[data-theme="parchment"] #liveFeedback { color: var(--ink); }
+:root:where(.roleplay-panel)[data-theme="parchment"] select option { background: var(--surface); }
+:root:where(.roleplay-panel)[data-theme="parchment"] .context-name { color: var(--muted); }
+:root:where(.roleplay-panel)[data-theme="parchment"] #notice[data-error="true"] { color: #772e22; }
+:root:where(.roleplay-panel)[data-theme="parchment"] #notice { color: var(--ink); }
+
+@media (min-width: 1101px) {
+  :root:where(.roleplay-panel)[data-theme="parchment"] body {
+    grid-template-columns: clamp(112px, 11vw, 162px) clamp(220px, 22vw, 326px) minmax(0, 1fr);
+  }
+  :root:where(.roleplay-panel)[data-theme="parchment"] #mainNav button { height: clamp(51px, 7vh, 76px); }
+  :root:where(.roleplay-panel)[data-theme="parchment"] #mainNav { gap: 15px; }
+  :root:where(.roleplay-panel)[data-theme="parchment"] #mainNav svg { width: 31px; height: 31px; }
+  :root:where(.roleplay-panel)[data-theme="parchment"] #currentCompanion { padding-inline: 24px; }
+}
+
+@media (max-width: 850px) {
+  :root:where(.roleplay-panel)[data-theme="parchment"] #currentCompanion {
+    margin: 5px 6px 2px;
+    padding-block: 8px;
+  }
+  :root:where(.roleplay-panel)[data-theme="parchment"] .companion-portrait::after { inset: -10px -6px -7px; }
+  :root:where(.roleplay-panel)[data-theme="parchment"] main { margin: 0 7px 9px 5px; padding: 12px; }
+  :root:where(.roleplay-panel)[data-theme="parchment"] .window-tools::after { display: none; }
+}
+
+@media (max-width: 560px) {
+  :root:where(.roleplay-panel)[data-theme="parchment"] #mainNav button { width: 42px; height: 42px; }
+  :root:where(.roleplay-panel)[data-theme="parchment"] #mainNav { border-right: 0; }
+  :root:where(.roleplay-panel)[data-theme="parchment"] .chat-record { filter: none; }
+  :root:where(.roleplay-panel)[data-theme="parchment"] #liveChat[data-speaker-art] .chat-record[data-role="assistant"] {
+    margin-left: 40px;
+    max-width: calc(100% - 40px);
+    padding-left: 17px;
+  }
+  :root:where(.roleplay-panel)[data-theme="parchment"] #liveChat[data-speaker-art] .chat-record[data-role="assistant"]::before {
+    left: -38px;
+    width: 33px;
+    height: 33px;
+  }
+}

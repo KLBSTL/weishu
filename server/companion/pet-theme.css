@@ -1,0 +1,13 @@
+/* Native pet bubble and composer: preserve the upstream hit regions and visibility classes. */
+.pet-bubble.is-whisper{color:var(--ink,#e7edf9);background:var(--pet-surface,#172238f2);border:1px solid transparent;border-image:var(--panel) 24 fill/16px/0 stretch;border-radius:0;box-shadow:none;text-shadow:none}
+.pet-bubble.is-whisper:before{background:transparent;border:0}
+.pet-bubble.is-whisper:after{pointer-events:none}
+.stronghold-pet-chat{border:1px solid transparent;border-image:var(--panel) 24 fill/16px/0 stretch;border-radius:0;background:var(--pet-surface,#182238f5);color:var(--ink,#e6edf9);box-shadow:0 4px 14px #080d2340;padding:10px}
+.stronghold-pet-chat input{background:var(--input-fill,#0c182c70);border-color:var(--input-border,#b8d3f15e);color:var(--ink,#e7eefb);border-radius:3px}
+.stronghold-pet-chat input::placeholder{color:var(--muted,#a7b5ce)}
+.stronghold-pet-chat button{background:linear-gradient(135deg,var(--control-gloss,#bdc9ff22),var(--control-shade,#729cce12));border-color:var(--control-border,#b2c5e980);color:var(--control-ink,#e7e3fc);border-radius:4px}
+.stronghold-pet-chat button:hover{border-color:var(--control-hover-border,#e0eaff);background:var(--control-hover,#b9c5ff29)}
+.stronghold-pet-chat button:disabled{opacity:.42}
+.stronghold-pet-chat button:focus-visible,.stronghold-pet-chat input:focus-visible{outline:2px solid var(--focus-ink,#bcdfff);outline-offset:2px}
+.stronghold-pet-chat output{color:var(--muted,#c7d2e9)}
+@media(prefers-reduced-motion:reduce){.stronghold-pet-chat *{transition:none!important;animation:none!important}}

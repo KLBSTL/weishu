@@ -4,7 +4,7 @@ const fragment = new URLSearchParams(location.hash.slice(1));
 const token = fragment.get('token') || '';
 let pet = fragment.get('pet') || 'main', data, actorId, bookId, bookDraft, entryIndex = -1, roomId;
 let candidates = [], candidateInfo = {}, candidateRequest = 0;
-history.replaceState(null, '', location.pathname);
+history.replaceState(null, '', location.pathname + location.search);
 let noticeTimer;
 const notice = (message, error = false) => {
   clearTimeout(noticeTimer);
@@ -69,6 +69,8 @@ function storeEntry() {
   const ext = entry.extensions.ark_companion, knowledge = $('entryKnowledge').value, subject = $('entrySubject').value.trim();
   if (knowledge === 'auto') { if (['self', 'world', 'author_only'].includes(ext.knowledge)) delete ext.knowledge; } else ext.knowledge = knowledge;
   if (subject && knowledge !== 'world') ext.subject = subject; else delete ext.subject;
+  const excerpt = $('entryBroadcast').value.trim();
+  if (excerpt) ext.broadcastExcerpt = excerpt; else delete ext.broadcastExcerpt;
 }
 function showEntry(index) {
   entryIndex = Number(index); const entry = bookDraft?.entries?.[entryIndex] || {};
@@ -76,6 +78,7 @@ function showEntry(index) {
   $('entryKeys').value = (entry.keys || entry.key || []).join(', '); $('entryContent').value = entry.content || '';
   $('entryConstant').checked = !!entry.constant; $('entryEnabled').checked = entry.enabled !== false && !entry.disable;
   const ext = entry.extensions?.ark_companion || {};
+  $('entryBroadcast').value = typeof ext.broadcastExcerpt === 'string' ? ext.broadcastExcerpt : '';
   $('entryKnowledge').value = ['self', 'world', 'author_only'].includes(ext.knowledge) ? ext.knowledge : 'auto'; $('entrySubject').value = ext.subject || '';
   document.dispatchEvent(new Event('companion:entry'));
 }

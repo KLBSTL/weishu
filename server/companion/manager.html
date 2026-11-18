@@ -1,7 +1,7 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>角色面板</title><link rel="stylesheet" href="library-style.css"><link rel="stylesheet" href="library-shell.css"><script src="library-client.js" defer></script><script src="library-motion.js" defer></script><script src="library-pagination.js" defer></script><script src="library-panel.js" defer></script><script src="library-shell.js" defer></script></head>
+<html lang="zh-CN" class="roleplay-panel"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>角色面板</title><link rel="stylesheet" href="library-style.css"><link rel="stylesheet" href="library-shell.css"><link rel="stylesheet" href="library-panel-theme.css"><script src="library-client.js" defer></script><script src="library-motion.js" defer></script><script src="library-pagination.js" defer></script><script src="library-themes.js" defer></script><script src="library-panel-ui.js" defer></script><script src="library-panel.js" defer></script><script src="library-shell.js" defer></script></head>
 <body>
-<header id="panelHeader"><nav id="mainNav" aria-label="主导航"></nav><div class="window-tools"><button id="reload" title="刷新" aria-label="刷新">↻</button><button id="toggleRole" title="角色扮演" aria-label="角色扮演">◇</button><button id="collapsePanel" title="收起" aria-label="收起">⌃</button><button id="closePanel" title="关闭" aria-label="关闭">×</button></div></header>
+<header id="panelHeader"><nav id="mainNav" aria-label="主导航"></nav><div class="window-tools"><button id="reload" aria-label="刷新">↻</button><button id="toggleRole" aria-label="角色扮演">◇</button><button id="collapsePanel" aria-label="收起">⌃</button><button id="closePanel" aria-label="关闭">×</button></div></header>
 <div id="notice" role="status" aria-live="polite"></div>
 <nav id="subNav" aria-label="二级导航"></nav>
 <main>
@@ -21,6 +21,7 @@
 <section id="books" hidden><div class="context-name" id="bookContext"></div><div class="book-editor"><div class="entry-browser"><div id="entryList" class="item-list"></div><button id="newEntry">新条目</button></div><div class="entry-meta">
  <label>标题<input id="entryName"></label><label>关键词<input id="entryKeys"></label><div class="checks"><label class="check"><input id="entryConstant" type="checkbox">常驻</label><label class="check"><input id="entryEnabled" type="checkbox" checked>启用</label></div>
  <label>归属<select id="entryKnowledge"><option value="auto">按原文识别</option><option value="self">人物经历</option><option value="world">公共资料</option><option value="author_only">不向人物公开</option></select></label><label id="entrySubjectLabel">所属人物<input id="entrySubject" maxlength="80"></label>
+ <label><span id="entryBroadcastLabel">公开播出的摘录</span><textarea id="entryBroadcast" rows="2" placeholder="填写收听台可以展示的文字"></textarea></label>
  </div><label class="entry-body">正文<textarea id="entryContent"></textarea></label></div><div class="actions"><button id="saveBook" class="primary">保存</button></div></section>
 <section id="worldInspect" hidden><div class="toolbar"><input id="probe" placeholder="输入要测试的问题"><button id="inspect">检查</button></div><pre id="inspection"></pre></section>
 <section id="memories" hidden><div class="toolbar"><input id="memoryQuery" maxlength="2000" placeholder="搜索记忆"><button id="searchMemory">查找</button></div><div id="memoryRows" class="memory-layout"></div><label class="check"><input id="deleteMemorySource" type="checkbox">同时删除原对话</label></section>

@@ -15,9 +15,20 @@ const soakCycles=Number(process.env.SP_UI_SOAK_CYCLES||0);
 assert.ok(Number.isInteger(soakCycles)&&soakCycles>=0&&soakCycles<=300,'SP_UI_SOAK_CYCLES must be 0..300');
 const nativeTimeout=40000+soakCycles*6000;
 test('curtain layout reserves a complete pendant and anchors to the real top on small or offset displays',()=>{
-  const {settings,shellLayout}=createRequire(import.meta.url)('../../server/desktop/roleplay-config.cjs');
+  const {settings,restoreSettings,shellLayout}=createRequire(import.meta.url)('../../server/desktop/roleplay-config.cjs');
   const prefs=settings({width:2400,height:1600,lineLength:160,gemSize:104});assert.equal(prefs.moveEnabled,false);
+  assert.equal(prefs.theme,'book');
+  assert.equal(settings({theme:'removed-theme',width:960}).theme,'book');
+  assert.equal(settings({theme:'removed-theme',width:960}).width,960);
   assert.throws(()=>settings({moveEnabled:'yes'}));
+  const migrated=restoreSettings({settings:{theme:'parchment',width:960,moveEnabled:true}});
+  assert.equal(migrated.prefs.theme,'book');
+  assert.equal(migrated.prefs.width,960);
+  assert.equal(migrated.prefs.moveEnabled,true);
+  assert.equal(migrated.petTheme,'parchment');
+  const restored=restoreSettings({settings:{...migrated.prefs,theme:'desk'},petTheme:migrated.petTheme});
+  assert.equal(restored.prefs.theme,'desk');
+  assert.equal(restored.petTheme,'parchment');
   for(const display of [{bounds:{x:0,y:0,width:1366,height:768},workArea:{x:0,y:32,width:1366,height:696}},
     {bounds:{x:-1920,y:-1080,width:1920,height:1080},workArea:{x:-1920,y:-1080,width:1920,height:1040}}]){
     const l=shellLayout(prefs,display,-100000);
@@ -37,15 +48,24 @@ async function hiddenMain(){
   app.disableHardwareAcceleration();app.setPath('userData',path.join(__dirname,'profile'));app.setPath('sessionData',path.join(__dirname,'profile'));
   await app.whenReady();let shown=0;app.on('browser-window-created',(_event,w)=>w.on('show',()=>shown++));
   const profile={name:'小雨',description:'我在河边经营一家书店，喜欢听雨和收集旧书。'};
+  if(process.env.SP_UI_CARD)profile.portrait='data:image/png;base64,'+fs.readFileSync(process.env.SP_UI_CARD).toString('base64');
   const data={revision:1,actors:[{id:'main',name:'小雨',assetId:'public-card',characterId:'public-person',resolvedSpeaker:profile,speaker:profile}],
     assets:[{id:'public-card',kind:'card',name:'小雨',card:profile}],bindings:{main:'main'},petIds:['main'],embeddedBooks:[],events:[],states:{},rooms:[],
     userPersona:{name:'你',description:''},preset:{style:''},group:{running:false}};
   const files={'library-ui':[companion,'manager.html'],'library-client.js':[companion,'manager.js'],'library-panel.js':[companion,'panel.js'],'library-prompts.js':[companion,'prompt-editor.js'],
     'library-prompt-transfer.js':[companion,'prompt-transfer.js'],'i18n.js':[source,'../../shared/i18n.js'],'i18nPacks.js':[source,'../../shared/i18nPacks.js'],
     'library-motion.js':[companion,'motion.js'],'library-pagination.js':[companion,'pagination.js'],'library-style.css':[companion,'manager.css'],'library-shell.js':[source,'roleplay-dock.js'],'library-shell.css':[source,'roleplay-dock.css']};
+  Object.assign(files,{'library-panel-ui.js':[companion,'panel-ui.js'],'library-panel-theme.css':[companion,'panel-theme.css'],'library-themes.js':[source,'roleplay-themes.cjs']});
+  const {themes}=require(path.join(source,'roleplay-themes.cjs'));
+  files['library-broadcast.js']=[companion,'broadcast-panel.js'];
+  files['library-broadcast-view.js']=[companion,'broadcast-view.js'];
+  for(const [id,theme] of Object.entries(themes))for(const name of ['theme.css',...theme.assets]){
+    files['library-themes/'+id+'/'+name]=[companion,id,name];
+  }
   const server=http.createServer(async(req,res)=>{
-    const name=new URL(req.url,'http://localhost').pathname.split('/').at(-1),file=files[name];
-    if(file){res.setHeader('Content-Type',name.endsWith('.css')?'text/css':name.endsWith('.js')?'text/javascript':'text/html');res.end(fs.readFileSync(path.join(...file)));return;}
+    const pathname=new URL(req.url,'http://localhost').pathname;
+    const name=pathname.split('/').at(-1),file=files[pathname.split('/stronghold/').at(-1)]||files[name];
+    if(file){res.setHeader('Content-Type',name.endsWith('.svg')?'image/svg+xml':name.endsWith('.png')?'image/png':name.endsWith('.webp')?'image/webp':name.endsWith('.css')?'text/css':name.endsWith('.js')?'text/javascript':'text/html');res.end(fs.readFileSync(path.join(...file)));return;}
     let raw='';for await(const b of req)raw+=b;let body={};try{body=JSON.parse(raw||'{}');}catch{/* no body */}
     let result={};if(name==='library'){
       if(body.action==='snapshot')result=data;
@@ -58,8 +78,8 @@ async function hiddenMain(){
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
   const pet=new BrowserWindow({show:false,webPreferences:{preload:path.join(helper,'ark-roleplay-preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
   await pet.loadURL('data:text/html,<title>pet</title>');
-  await pet.webContents.executeJavaScript('window.arkDesktop.onCommand(v=>window.arkDesktop.report({requestId:v.requestId,roleplay:v.enabled,game:false}));');
-  const privateDir=path.join(process.env.DSH_HOME,'dsh-pet');fs.mkdirSync(privateDir,{recursive:true});fs.writeFileSync(path.join(privateDir,'ark-roleplay-window.json'),JSON.stringify({y:80}));
+  await pet.webContents.executeJavaScript('window.arkDesktop.onCommand(v=>window.arkDesktop.report({requestId:v.requestId,roleplay:v.enabled,game:false}));window.arkDesktop.onSettings(v=>document.documentElement.dataset.theme=v.theme);');
+  const privateDir=path.join(process.env.DSH_HOME,'dsh-pet');fs.mkdirSync(privateDir,{recursive:true});fs.writeFileSync(path.join(privateDir,'ark-roleplay-window.json'),JSON.stringify({y:80,settings:{theme:'parchment'}}));
   const {install}=require(path.join(source,'roleplay-windows.cjs'));
   const {createBridge}=require(path.join(source,'../../desktop-pet/node_modules/dsh-pet/runtime/electron-helper/main/bridge.js'));
   const bridge=createBridge({isBridge:true,prefix:'PUBLIC-BRIDGE:',origin,token:'public-fixture'});
@@ -88,6 +108,78 @@ async function hiddenMain(){
     assert.equal(emptyCallbacks,0,'the first bridge request must already have a response channel');assert.equal(bridgeCalls,2,'startup retries a transient local host response');
     await ui.panel.webContents.capturePage();ui.panel.webContents.debugger.attach('1.3');
     let s=await status();assert.equal(s.settings.moveEnabled,false);assert.equal(ui.panel,ui.dock);assert.equal(await js('document.querySelectorAll(".move").length'),0);
+    assert.equal(s.settings.theme,'book');
+    await until(()=>js('document.documentElement.dataset.theme==="book"&&!!getComputedStyle(document.documentElement).getPropertyValue("--book-shell")'),'upgraded drop-down loads the book theme by default');
+    assert.equal(await pet.webContents.executeJavaScript('window.arkDesktop.status().then(s=>s.settings.theme)'),'parchment');
+    const beforePetMove=ui.panel.getBounds(),[petX,petY]=pet.getPosition();
+    pet.setPosition(petX+20,petY+20);
+    assert.deepEqual(ui.panel.getBounds(),beforePetMove,'panel remains anchored when the pet window moves');
+    await command({name:'panel-settings',settings:{theme:'parchment'}});
+    await until(()=>js('getComputedStyle(document.querySelector(".charm .gem")).backgroundImage.includes("/parchment/pendant.svg")'),'pendant adopts selected theme');
+    assert.equal(await pet.webContents.executeJavaScript('document.documentElement.dataset.theme'),'parchment');
+    const persistedTheme=JSON.parse(fs.readFileSync(path.join(privateDir,'ark-roleplay-window.json'),'utf8')).settings.theme;
+    assert.equal(persistedTheme,'parchment');
+    assert.deepEqual((await status()).layout,s.layout);
+    await command({name:'panel-settings',settings:{theme:'desk'}});
+    await until(()=>js('getComputedStyle(document.querySelector(".charm .gem")).backgroundImage.includes("/desk/tassel.svg")'),'desk tassel adopts selected theme');
+    assert.equal(await pet.webContents.executeJavaScript('document.documentElement.dataset.theme'),'parchment');
+    await ui.openPanel('dialogue','main');
+    await ended(true);
+    assert.ok(await js('(()=>{const composer=document.querySelector("#liveComposer").getBoundingClientRect(),panel=document.querySelector("#panelMotion").getBoundingClientRect();return composer.top>=0&&composer.bottom<=panel.bottom&&composer.left>=0&&composer.right<=panel.right})()'),'desk composer fits within the native mouse hit region');
+    const more=await js('(()=>{const r=document.querySelector("#deskMore").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()');
+    await mouse('mouseMoved',more);
+    await until(()=>js('!!document.querySelector("#panelTooltip:popover-open")'),'native toolbar shows a themed tooltip');
+    await mouse('mousePressed',more,{buttons:1});await mouse('mouseReleased',more);
+    await until(()=>js('!!document.querySelector("#deskShortcuts:popover-open")'),'native toolbar opens the anchored menu');
+    assert.ok(await js(`(()=>{
+      const menu=document.querySelector('#deskShortcuts').getBoundingClientRect();
+      const panel=document.querySelector('#panelMotion').getBoundingClientRect();
+      return menu.bottom<=panel.bottom&&menu.right<=panel.right&&!document.querySelector('dialog[open]');
+    })()`),'menu stays inside the native input region');
+    await ui.panel.webContents.debugger.sendCommand('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+    await until(()=>js('!document.querySelector("#deskShortcuts:popover-open")'),'Escape dismisses the menu');
+    assert.equal((await status()).panelOpen,true);
+    await command({name:'panel-settings',settings:{theme:'book'}});
+    await until(()=>js('getComputedStyle(document.documentElement).getPropertyValue("--book-frame").includes("frame-paper.svg")'),'the book theme loads in Electron');
+    assert.equal(await pet.webContents.executeJavaScript('document.documentElement.dataset.theme'),'parchment');
+    assert.ok(await js(`(()=>{
+      const rect=id=>document.getElementById(id).getBoundingClientRect();
+      const log=rect('liveChat'),strip=rect('subNav'),composer=rect('liveComposer'),panel=rect('panelMotion');
+      return log.bottom<=strip.top&&strip.bottom<=composer.top+10&&composer.bottom<=panel.bottom;
+    })()`),'bottom tabs and composer fit the native panel, above the pendant');
+    await capture('-book');
+    await command({name:'panel-settings',settings:{theme:'broadcast'}});
+    await until(()=>js('document.querySelector("#broadcastPanel")?.shadowRoot.querySelector(".artist-name strong")?.textContent==="小雨"'),'native broadcast displays the selected person');
+    if(profile.portrait)await until(()=>js('!!document.querySelector("#broadcastPanel").shadowRoot.querySelector(".stage-card img")?.naturalWidth'),'native card image loads');
+    await until(()=>js('getComputedStyle(document.querySelector("#broadcastPanel").shadowRoot.querySelector(".desk")).display==="flex"'),'native broadcast skin loaded');
+    await js('Promise.all([...document.querySelector("#broadcastPanel").shadowRoot.querySelectorAll("img")].map(img=>img.decode())).then(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))');
+    assert.equal(await js(`(async()=>{const src=getComputedStyle(document.querySelector('.charm .gem')).backgroundImage.slice(5,-2);const img=new Image();img.src=src;await img.decode();return img.src.endsWith('/library-themes/broadcast/arc-cherry-vinyl.webp');})()`),true);
+    assert.equal(await js('document.querySelector("main").assignedSlot.name'),'content');
+    assert.ok(await js('document.querySelector("#liveComposer").getBoundingClientRect().bottom<=document.querySelector("#panelMotion").getBoundingClientRect().bottom'));
+    // capturePage can return the previous compositor surface immediately after a theme switch.
+    await until(async()=>{
+      const image=await ui.panel.webContents.capturePage();
+      const {width,height}=image.getSize();
+      const pixel=image.crop({x:Math.floor(width*.55),y:Math.floor(height*.07),width:1,height:1}).toBitmap();
+      const paper=image.crop({x:Math.floor(width*.88),y:Math.floor(height*.45),width:1,height:1}).toBitmap();
+      if(pixel[0]<85||pixel[0]-pixel[2]<32||Math.min(...paper.subarray(0,3))<212)return false;
+      const cover=image.crop({x:Math.floor(width*.16),y:Math.floor(height*.24),width:Math.floor(width*.18),height:Math.floor(height*.23)}).resize({width:24,height:24}).toBitmap();
+      const colors=new Set();
+      for(let i=0;i<cover.length;i+=4)colors.add([cover[i]>>4,cover[i+1]>>4,cover[i+2]>>4].join(':'));
+      if(colors.size<35)return false;
+      if(process.env.SP_UI_CAPTURE)fs.writeFileSync(process.env.SP_UI_CAPTURE.replace(/\.png$/u,'-broadcast.png'),image.toPNG());
+      return true;
+    },'Electron compositor displays the purple broadcast header');
+    const stageHit=await js('(()=>{const root=document.querySelector("#broadcastPanel").shadowRoot;const b=root.querySelector(root.querySelector(".stage-card").disabled?".choose-stage-card":".stage-card").getBoundingClientRect();return {x:b.x+b.width/2,y:b.y+b.height/2};})()');
+    await mouse('mousePressed',stageHit,{buttons:1});await mouse('mouseReleased',stageHit);
+    if(profile.portrait){
+      await until(()=>js('document.querySelector("#portraitDialog[open] img")?.src===document.querySelector("#companionPortrait img")?.src'),'native press opens the active character cover');
+      await ui.panel.webContents.debugger.sendCommand('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+      await until(()=>js('!document.querySelector("#portraitDialog").open'),'native escape closes the cover');
+    }else await until(()=>js('!document.querySelector("#actors").hidden'),'native text-only character can choose a card');
+    await command({name:'panel-settings',settings:{theme:'book'}});
+    await until(()=>js('!document.querySelector("#broadcastPanel")&&document.querySelector("main").isConnected'),'native controls restored');
+    await command({name:'close'});await ended(false);
     assert.equal(s.layout.bounds.y,screen.getDisplayMatching(s.layout.bounds).bounds.y,'old y offset cannot leave the cord floating');
     await until(()=>js('Math.abs(document.getElementById("panelMotion").getBoundingClientRect().bottom)<1'),'closed cord starts at screen edge');
     await capture('-dock',{x:Math.floor(s.layout.gemX-s.layout.margin),y:0,width:Math.ceil(s.layout.margin*2),height:s.layout.tail});
@@ -97,10 +189,12 @@ async function hiddenMain(){
     const drag=await js('(()=>{const m=document.getElementById("panelMotion"),g=document.querySelector(".charm .gem");return {offset:Number(m.dataset.offset),bottom:g.getBoundingClientRect().bottom,inner:innerHeight,edge:m.getBoundingClientRect().bottom};})()');
     assert.ok(drag.offset>80&&drag.offset<100,'entire panel follows the pull');assert.ok(drag.bottom<drag.inner-4,'pendant is never clipped while pulling');assert.ok(Math.abs(drag.edge-drag.offset)<1);
     await capture('-pull');await mouse('mouseReleased',{x:start.x,y:start.y+90});await ended(true);
+    assert.equal(await js('document.documentElement.dataset.theme'),'book','drag opens the restored book');
     const firstId=ui.panel.id;
     s=await status();
     assert.ok(await js('(()=>{const m=document.getElementById("panelMotion").getBoundingClientRect(),g=document.querySelector(".charm").getBoundingClientRect();return m.top===0&&g.bottom<=innerHeight;})()'),'open panel and pendant remain on screen');
     await capture('-hanging');
+    await command({name:'panel-settings',settings:{theme:'parchment'}});
     const up=await point();await mouse('mousePressed',up,{buttons:1});await mouse('mouseMoved',{x:up.x,y:up.y-70},{buttons:1});await mouse('mouseReleased',{x:up.x,y:up.y-70});await ended(false);
     await click();await ended(true);
     await command({name:'roleplay',pet:'main',enabled:true});assert.equal((await status()).pets.main.roleplay,true);

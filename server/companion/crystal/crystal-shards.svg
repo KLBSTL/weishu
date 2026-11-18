@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="100" viewBox="0 0 160 100">
+  <defs>
+    <linearGradient id="ice" x2=".85" y2="1"><stop stop-color="#f0fcff"/><stop offset=".25" stop-color="#7babc7" stop-opacity=".25"/><stop offset=".51" stop-color="#252c52" stop-opacity=".12"/><stop offset=".8" stop-color="#b6b0ff" stop-opacity=".8"/><stop offset="1" stop-color="#d4faff"/></linearGradient>
+    <linearGradient id="blue" x2=".2" y2="1"><stop stop-color="#eefcff"/><stop offset=".36" stop-color="#a6e7ff" stop-opacity=".7"/><stop offset=".5" stop-color="#487ca5" stop-opacity=".15"/><stop offset="1" stop-color="#bab5ff" stop-opacity=".85"/></linearGradient>
+  </defs>
+  <g stroke="#ccedff" stroke-opacity=".72" stroke-width=".7" stroke-linejoin="round">
+    <path d="M5 95 34 66 49 28 82 42 130 8 112 59 151 42 131 85 106 96Z" fill="url(#ice)"/>
+    <path d="m5 95 65-19 12-34 24 54-36-20-21-48M82 42l30 17 18-51M112 59l-6 37 45-54M34 66l36 10-23 20M70 76l42-17 19 26-25 11" fill="none"/>
+    <path d="m5 95 65-19-23 20Z" fill="#d5d1ff" fill-opacity=".64"/>
+    <path d="m82 42 48-34-18 51Z" fill="url(#blue)"/>
+    <path d="m70 76 36 20-1-25Z" fill="#8ee4ff" fill-opacity=".5"/>
+    <path d="m112 59 39-17-20 43Z" fill="url(#blue)"/>
+    <path d="m34 66 15-38-6 40Z" fill="#e0f5ff" fill-opacity=".7"/>
+    <path d="m134 96 10-4-6 7Z" fill="#c6d1ff"/><path d="m146 23 3-10 6 6Z" fill="url(#blue)"/>
+  </g>
+</svg>

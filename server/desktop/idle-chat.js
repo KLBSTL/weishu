@@ -96,8 +96,9 @@ export class IdleChat {
     const local = packets.find(p => ['local', 'model-cache'].includes(p.origin) && p.plan?.memoryEpoch === input.cacheEpoch
       && p.plan.cardRevision === input.plan?.cardRevision && p.plan.promptRevision === input.plan?.promptRevision && p.plan.characterId === input.plan?.characterId && p.expires > this.now());
     if (local) { this.localReady = { ...local, stamp: this.stamp(), input }; return; }
-    const row = packets.find(p => p.batch && p.selected && p.plan?.memoryEpoch === input.cacheEpoch && p.plan.cardRevision === input.plan?.cardRevision
+    const eligible = packets.filter(p => p.batch && p.selected && p.plan?.memoryEpoch === input.cacheEpoch && p.plan.cardRevision === input.plan?.cardRevision
       && p.plan.promptRevision === input.plan?.promptRevision && p.plan.characterId === input.plan?.characterId && p.expires > this.now());
+    const row = eligible.find(p => p.deliveryCount) || eligible[0];
     if (!row) return;
     const card = input.storyCard, catalog = new StoryPlanner().catalog(card, storyCatalog(extractStorySeeds(card)), input.knowledge);
     const entry = this.stories.entry(input.personaKey, catalog, this.read()); this.stories.reconcile(entry, catalog, input.history);
@@ -105,7 +106,7 @@ export class IdleChat {
     reconcileFactProgress(entry, catalog);
     const previous = row.batch.segments.slice(0, row.index);
     if (previous.some(p => !entry.progress?.[row.topicId]?.ids.includes(p.id))) return;
-    this.ready = { id: row.id, index: row.index, text: row.text, deliveryCount: row.deliveryCount, batch: row.batch, selected: row.selected, entry, catalog,
+    this.ready = { id: row.id, index: row.index, text: row.text, deliveryCount: row.deliveryCount, requestedAction: row.requestedAction, batch: row.batch, selected: row.selected, entry, catalog,
       stamp: this.stamp(), notBefore: 0, expires: row.expires, onDisplayed: input.onDisplayed, cacheInput: input };
   }
   warmPacket(input, { manual, prepare }) {
@@ -151,7 +152,7 @@ export class IdleChat {
     if (this.ready && (this.ready.stamp !== this.stamp() || this.ready.expires < this.now())) this.ready = null;
     if (this.nextReady && (this.nextReady.stamp !== this.stamp() || this.nextReady.expires < this.now())) this.nextReady = null;
     const coverage = this.inventory();
-    const refill = !!this.ready?.batch && coverage.coverageMs <= coverage.refillThresholdMs;
+    const refill = !!this.ready?.batch && (this.ready.index > 0 || coverage.coverageMs <= coverage.refillThresholdMs);
     if (this.pending || this.prefetching || this.nextReady || this.ready && !refill || this.now() < this.retryAt) return;
     this.prefetching = true;
     try {
@@ -197,14 +198,14 @@ export class IdleChat {
     const parts = ready.batch.segments.slice(ready.index, ready.index + count), text = parts.map(p => p.text).join('');
     if (!ready.deliveryCount) {
       ready.deliveryCount = count;
-      if (count > 1) await ready.cacheInput?.onPrepared?.([{ ...parts[0], text, deliveryCount: count, consumedIds: parts.map(p => p.id),
+      if (count > 1 || ready.requestedAction) await ready.cacheInput?.onPrepared?.([{ ...parts[0], text, deliveryCount: count, requestedAction: ready.requestedAction, consumedIds: parts.map(p => p.id),
         sourceRange: parts[0].sourceRange && { start: parts[0].sourceRange.start, end: parts.at(-1).sourceRange.end },
         taskId: ready.batch.taskId, batch: ready.batch, selected: ready.selected, topicId: ready.selected.topic,
         plan: ready.cacheInput.plan, expires: ready.expires, revalidated: true }]);
     }
     return { text, taskId: ready.batch.taskId, deliveryId: ready.id, batchId: ready.batch.id, segmentIndex: ready.index, consumedIds: parts.map(p => p.id),
       generationKind: ready.batch.generationKind || (ready.batch.grounded ? 'background-story' : 'creative-idle'),
-      deliveryTrigger: manual ? 'manual-click' : 'automatic-timer', requestedAction: 'continue',
+      deliveryTrigger: manual ? 'manual-click' : 'automatic-timer', requestedAction: ready.requestedAction || 'continue',
       segmentsTotal: ready.batch.segments.length, sourceId: ready.selected.id, grounded: ready.batch.grounded, target: parts[0].target, cacheHit };
   }
   async commitBatch(ready) {
@@ -225,7 +226,7 @@ export class IdleChat {
       if (this.ready === ready) {
         this.lastActivity = this.now();
         const next = ready.batch.segments[ready.index + count];
-        this.ready = !final && ready.stamp === this.stamp() ? { ...ready, deliveryCount: undefined, committing: false, index: next.index, id: next.id, text: next.text,
+        this.ready = !final && ready.stamp === this.stamp() ? { ...ready, deliveryCount: undefined, requestedAction: undefined, committing: false, index: next.index, id: next.id, text: next.text,
           notBefore: this.now() + (this.options().idleSeconds || 30) * 1000 } : this.nextReady && this.nextReady.stamp === this.stamp() && this.nextReady.expires >= this.now()
           ? { ...this.nextReady, notBefore: this.now() + (this.options().idleSeconds || 30) * 1000 } : null;
         if (final) this.nextReady = null;
@@ -350,8 +351,26 @@ export class IdleChat {
   async run(getInput, generate, signal, { manual = false, prepare = false, prefetch = false, refill = false } = {}) {
     if (!generationJob()) return runGenerationJob(manual ? 'manual' : 'automatic', () => this.run(getInput, generate, signal, { manual, prepare, prefetch, refill }));
     const options = this.options();
-    if (!refill && this.ready && this.ready.stamp === this.stamp() && this.ready.expires >= this.now()) return !manual && this.ready.notBefore > this.now()
-      ? { prepared: true } : this.ready.batch ? this.packet(this.ready, true, manual) : { text: this.ready.text, deliveryId: this.ready.id };
+    if (!refill && this.ready && this.ready.stamp === this.stamp() && this.ready.expires >= this.now()) {
+      const current = this.ready;
+      if (!manual && current.notBefore > this.now()) return { prepared: true };
+      if (!current.batch) return { text: current.text, deliveryId: current.id };
+      let cacheHit = true;
+      if (manual && current.index > 0 && !current.deliveryCount && !current.committing) {
+        if (this.nextReady && (this.nextReady.stamp !== current.stamp || this.nextReady.expires < this.now())) this.nextReady = null;
+        if (!this.nextReady && !this.pending && !this.prefetching && this.now() >= this.retryAt) {
+          const alternative = await this.run(getInput, generate, signal, { manual: true, refill: true });
+          if (alternative.prepared && this.nextReady) cacheHit = false;
+        }
+        if (signal?.aborted || this.ready !== current || current.stamp !== this.stamp() || current.expires < this.now()) return { skipped: true, reason: 'interrupted' };
+        if (!current.deliveryCount && this.nextReady && this.nextReady.selected.topic !== current.selected.topic) {
+          // Keep the unheard continuation available. Issued packets always keep their ID until acknowledged.
+          this.ready = this.nextReady; this.nextReady = current;
+          this.ready.requestedAction = 'change-topic';
+        }
+      }
+      return this.packet(this.ready, this.ready === current || cacheHit, manual);
+    }
     if (this.pending) { if (manual && this.pending.job) { this.pending.manual = true; Object.assign(this.pending.job, { kind: 'manual', priority: 1, limit: 3 }); } return { skipped: true, reason: 'busy' }; }
     if (!refill) this.ready = null;
     if (!prefetch && manual && this.now() - this.lastManual < 1000) return { skipped: true, reason: 'cooldown', retryAfterMs: 1000 - (this.now() - this.lastManual) };
@@ -528,7 +547,7 @@ async function handleIdleChatRoute(method, raw, signal, getInput, generate) {
           source: body.manual ? 'manual-delivery' : 'automatic-delivery', startedAt: receivedAt - previousMs,
           elapsedMs: previousMs + performance.now() - receivedMono, finishedAt: Date.now(), attempts: 0,
           status: obj.deliveryId ? 'delivered' : obj.error ? 'failed' : 'pending',
-          generationKind: obj.generationKind, deliveryTrigger: body.manual ? 'manual-click' : 'automatic-timer',
+          generationKind: obj.generationKind, requestedAction: obj.requestedAction, deliveryTrigger: body.manual ? 'manual-click' : 'automatic-timer',
           buffer: idleFor(body.pet).inventory(), events: [{ id: randomUUID(), at: Date.now(), stage: obj.deliveryId ? 'delivered' : 'waiting' }] });
       } catch { /* Telemetry cannot break delivery. */ }
     }
@@ -574,7 +593,10 @@ async function handleIdleChatRoute(method, raw, signal, getInput, generate) {
     const metrics = { characterId, id: body.deliveryId, renderedAt: body.renderedAt, displayMs: body.displayMs };
     if ((await library.store.call('display-metrics', metrics)).ok) return result(200, { ok: true, duplicate: true });
     const input = await build();
-    if (input) idle.restore(input, await library.store.call('pending-deliveries', { characterId }));
+    if (input) {
+      const packets = await library.store.call('pending-deliveries', { characterId });
+      idle.restore(input, packets.filter(packet => packet.id === body.deliveryId));
+    }
     const ack = await idle.acknowledge(body.deliveryId);
     if (ack.ok) await library.store.call('display-metrics', metrics);
     if (ack.ok && body.warmStart) void idle.prefetch(build, generate);

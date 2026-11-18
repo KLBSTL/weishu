@@ -3,23 +3,44 @@
   const initial = new URLSearchParams(window.location.search), main = document.querySelector('main'), nav = $('mainNav'), subnav = $('subNav');
   const gem = '<svg viewBox="0 0 40 52" aria-hidden="true"><path class="chain" d="M20 0v10m-5 6v-4a5 5 0 0110 0v4"/><path class="gem-body" d="M20 13L6 24v9l14 16 14-16v-9z"/><path class="facets" d="M6 24l14 7 14-7M20 13v36M6 33l14-2 14 2"/></svg>';
   const pages = {
-    overview:['总览',[['overview','人物摘要']]],
+    overview:['总览',[['overview','人物摘要'],['overviewActor','选择人物'],['overviewHistory','聊天回看']]],
     people:['人物',[['actors','角色卡'],['cast','卡内角色'],['actorEditor','人设编辑'],['persona','我的身份']]],
     world:['世界书',[['worldBindings','已启用'],['worldLibrary','世界书库'],['books','条目编辑'],['worldInspect','触发预览']]],
-    dialogue:['对话',[['historyPage','聊天回看'],['memories','记忆管理'],['sourcePage','引用来源']]],
+    dialogue:['对话',[['chatPage','对话'],['historyPage','聊天回看'],['memories','记忆管理'],['sourcePage','引用来源']]],
     status:['状态',[['runtimePage','运行状态'],['gamePage','卫戍信息']]],
-    settings:['设置',[['roleSettings','角色扮演'],['dialogueSettings','对话与碎碎念'],['promptSettings','提示词'],['appearanceSettings','字体与气泡'],['windowSettings','窗口大小'],['dockSettings','吊坠'],['apiSettings','API连接'],['dataSettings','记忆与历史'],['advancedPage','其他工具']]],
+    settings:['设置',[['appearanceSettings','外观与主题'],['roleSettings','角色扮演'],['dialogueSettings','对话与碎碎念'],['promptSettings','提示词'],['windowSettings','窗口大小'],['dockSettings','吊坠'],['apiSettings','API连接'],['dataSettings','记忆与历史'],['advancedPage','其他工具']]],
   };
   const bridge=()=>window.arkDesktop;
   const node=(tag,value,cls)=>{const n=document.createElement(tag);n.textContent=value||'';if(cls)n.className=cls;return n;};
   const section=(id,html)=>{const s=document.createElement('section');s.id=id;s.hidden=true;s.innerHTML=html;main.append(s);return s;};
-  let currentSection='overview', inspectedName='', inspectedPerson, previewAsset, historyRows=[], nativeState={}, historyBusy=false, cardRequest=0;
+  let currentSection='overview', inspectedName='', inspectedPerson, previewAsset, previewActor, appliedAsset, historyRows=[], nativeState={}, historyBusy=false, cardRequest=0;
   let prefs={width:1200,height:800,fontFamily:'Microsoft YaHei',fontSize:18,gemSize:80,lineLength:72,sway:true,reducedMotion:false,moveEnabled:false};
-  try{prefs={...prefs,...JSON.parse(window.localStorage.getItem('ark-panel-prefs')||'{}')};}catch{/* defaults */}
-  for(const [key,[label]] of Object.entries(pages)){const b=node('button');b.dataset.page=key;b.innerHTML=gem;b.append(node('span',label));b.onclick=()=>open(key);nav.append(b);}
-  section('overview','<article id="profileSummary" class="character-frame"></article><article class="summary-card"><h3>当前人物</h3><dl id="configSummary" class="card-facts"></dl><button data-open="people">选择人物</button></article><article class="summary-card"><h3>最近的对话</h3><p id="latestSpeech"></p><button data-open="dialogue">回看</button></article>');
+  if(bridge())prefs.theme=window.ArkPanelThemes.defaultPanelTheme;
+  else try{prefs={...prefs,...JSON.parse(window.localStorage.getItem('ark-panel-prefs')||'{}')};}catch{/* defaults */}
+  for(const [key,[label]] of Object.entries(pages)){const b=node('button');b.dataset.page=key;b.innerHTML=window.ArkPanelUI?.icon(key)||gem;b.setAttribute('aria-label',label);b.onclick=()=>open(key);nav.append(b);}
+  section('overview',`
+    <article id="profileSummary" class="character-frame"></article>
+    <article class="summary-card"><h3>当前人物</h3><dl id="configSummary" class="card-facts"></dl><button data-open="people">选择人物</button></article>
+    <article class="summary-card"><h3>最近的对话</h3><p id="latestSpeech"></p><button data-open="dialogue">回看</button></article>
+    <div class="book-overview">
+      <article class="summary-card"><div id="bookOverviewActorHeading" class="profile-heading"></div><button class="primary" data-open="dialogue" data-open-section="chatPage">继续对话</button></article>
+      <article class="summary-card"><h3>最近对话</h3><p id="bookOverviewLatestSpeech"></p><button data-open="dialogue" data-open-section="historyPage">回看</button></article>
+      <article class="summary-card"><h3>世界书</h3><p id="bookOverviewCount"></p><button data-open="world" data-open-section="worldBindings">查看</button></article>
+    </div>`);
+  section('overviewActor','<article class="summary-card"><div id="overviewActorHeading" class="profile-heading"></div><button data-open="people" data-open-section="actors">查看角色卡</button></article>');
+  section('overviewHistory','<article class="summary-card"><p id="overviewLatestSpeech"></p><button class="primary" data-open="dialogue" data-open-section="historyPage">查看记录</button></article>');
   section('cast','<div class="cast-layout"><nav id="castList" class="item-list" aria-label="卡内角色"></nav><article id="castDetail" class="character-frame cast-detail"><div id="castHeading" class="profile-heading"></div><div id="castBiography" class="paged-body"></div><div class="actions"><div id="castPager"></div><button id="applyCast" class="primary">使用这个角色</button></div></article></div>');
   section('historyPage','<div class="toolbar"><input id="historyFilter" placeholder="搜索最近对话"><button id="refreshHistory" title="刷新" aria-label="刷新对话">↻</button></div><div id="chatHistory" class="paged-body"></div><div class="page-footer"><span id="historyCount"></span><div id="historyPager"></div></div>');
+  const liveChat=window.ArkPanelUI?.install({main,savePreferences,getPreferences:()=>prefs});
+  let broadcast, broadcastLoading;
+  function syncBroadcast(){
+    if(broadcast){broadcast.sync();return;}
+    if(prefs.theme!=='broadcast'||broadcastLoading)return;
+    broadcastLoading=import('./library-broadcast.js').then(module=>{
+      broadcast=module.createBroadcastPanel({main,open,request,notice,liveChat,petName:()=>data&&(selectedActor()?.resolvedSpeaker?.name||selectedActor()?.name)});
+      broadcast.sync();
+    }).catch(e=>{broadcastLoading=null;error(e);});
+  }
   section('sourcePage','<div id="sourceList"></div>');
   section('runtimePage','<div id="runtimeView"></div><button id="refreshRuntime" title="刷新状态">刷新</button>');
   section('gamePage','<p id="gameInfo"></p>');
@@ -51,21 +72,62 @@
   const chatPages=new window.FittedPages($('chatHistory'),$('historyPager'),renderChat);
   function avatar(p){const a=node('span','','portrait');if(typeof p.portrait==='string'&&p.portrait.length<350000&&/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/u.test(p.portrait)){const i=document.createElement('img');i.src=p.portrait;i.alt=p.name;a.append(i);}else{a.textContent=Array.from(p.name||'未')[0];a.title='暂无独立头像';}return a;}
   function heading(target,p){target.replaceChildren(avatar(p),node('h2',p.name));}
-  function showSection(id){const previous=currentSection;for(const s of document.querySelectorAll('main>section'))s.hidden=s.id!==id;currentSection=id;for(const b of subnav.querySelectorAll('button'))b.setAttribute('aria-current',String(b.dataset.section===id));if(previous!==id)window.ArkMotion?.enter($(id));bioPages.refresh();chatPages.refresh();}
-  function open(key,target){
-    if(!pages[key])key='overview';document.body.classList.toggle('overview-page',key==='overview');
-    for(const b of nav.querySelectorAll('button'))b.setAttribute('aria-current',String(b.dataset.page===key));
-    subnav.replaceChildren();for(const [id,label] of pages[key][1]){const b=node('button',label);b.dataset.section=id;b.onclick=()=>navigate(id);subnav.append(b);}
-    navigate(target||pages[key][1][0][0]);
+  const recentSections=new Map();
+  const bookTheme=()=>document.documentElement.dataset.theme==='book';
+  function showSection(id){
+    const previous=currentSection;
+    for(const s of main.querySelectorAll(':scope > section'))s.hidden=s.id!==id;
+    currentSection=id;
+    document.body.dataset.section=id;
+    liveChat?.section(id);
+    for(const b of subnav.querySelectorAll('button'))b.setAttribute('aria-current',String(b.dataset.section===id));
+    if(previous!==id){
+      const pane=$(id);
+      const animated=bookTheme()?pane.querySelector('#liveChat,.book-prompt-content')||pane:pane;
+      window.ArkMotion?.enter(animated,0);
+    }
+    bioPages.refresh();chatPages.refresh();
   }
+  function open(key,target){
+    if(!pages[key])key='overview';document.body.classList.toggle('overview-page',key==='overview');document.body.dataset.page=key;
+    for(const b of nav.querySelectorAll('button'))b.setAttribute('aria-current',String(b.dataset.page===key));
+    subnav.replaceChildren();
+    for(const [id,label] of pages[key][1]){
+      const b=node('button');b.dataset.section=id;b.setAttribute('aria-label',label);
+      if(window.ArkPanelUI)b.innerHTML=window.ArkPanelUI.icon(id)+'<i aria-hidden="true" class="book-tab-icon">'+window.ArkPanelUI.bookIcon(id)+'</i>';
+      if(id==='appearanceSettings'||!window.ArkPanelUI)b.append(node('span',label));
+      if(key==='overview'&&id!=='overview')b.classList.add('book-only-tab');
+      b.onclick=()=>navigate(id);subnav.append(b);
+    }
+    navigate(target||(bookTheme()&&(recentSections.get(key)||(key==='settings'?'promptSettings':null)))||pages[key][1][0][0]);
+  }
+  subnav.addEventListener('keydown',event=>{
+    if(!bookTheme()||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+    const buttons=Array.from(subnav.querySelectorAll('button'));
+    const index=buttons.indexOf(document.activeElement);
+    if(index===-1)return;
+    const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:
+      (index+(event.key==='ArrowLeft'?-1:1)+buttons.length)%buttons.length;
+    event.preventDefault();
+    buttons[next].focus();
+    buttons[next].click();
+  });
   function navigate(id){
+    if(id==='actors'&&data&&document.documentElement.dataset.theme==='broadcast'&&previewAsset!==selectedActor()?.assetId){
+      previewAsset=selectedActor()?.assetId;
+      renderCards();
+    }
     showSection(id);
+    const page=document.body.dataset.page;
+    const label=pages[page]?.[1].find(([key])=>key===id)?.[1];
+    if(label)recentSections.set(page,id);
+    liveChat?.title(id,label,pages[page]?.[0]);
     if(id==='promptSettings')document.dispatchEvent(new Event('companion:prompts'));
     if(id==='cast')renderCast();
     if(id==='historyPage')void loadHistory().catch(error);
     if(id==='sourcePage')void sources().catch(error);
     if(['runtimePage','gamePage','roleSettings'].includes(id))void runtime();
-    if(['dialogueSettings','appearanceSettings'].includes(id))void loadOptions().catch(error);
+    if(['dialogueSettings','appearanceSettings'].includes(id))void loadOptions(id).catch(error);
     if(id==='apiSettings')void loadApi().catch(error);
     if(['windowSettings','dockSettings','appearanceSettings'].includes(id))paintPreferences();
   }
@@ -81,14 +143,17 @@
     const root=document.documentElement;
     root.style.setProperty('--font-family','"'+prefs.fontFamily.replace(/["\\]/gu,'')+'",system-ui,sans-serif');root.style.setProperty('--font-size',prefs.fontSize+'px');
     document.body.classList.toggle('reduce-motion',prefs.reducedMotion);if(prefs.reducedMotion)window.ArkMotion?.cancelAll();bioPages.refresh();chatPages.refresh();
+    window.ArkPanelUI?.preferences(prefs);
+    syncBroadcast();
   }
   async function savePreferences(patch){
     const next={...prefs,...patch};
     if(bridge()){const r=await command('panel-settings',{settings:next});prefs={...prefs,...r.settings};}
-    else prefs=next;
-    window.localStorage.setItem('ark-panel-prefs',JSON.stringify(prefs));applyPreferences();paintPreferences();
+    else{prefs=next;window.localStorage.setItem('ark-panel-prefs',JSON.stringify(prefs));}
+    applyPreferences();paintPreferences();
   }
   function paintPreferences(){
+    if($('backgroundOpacity'))$('backgroundOpacity').value=prefs.backgroundOpacity??8;
     $('fontSize').value=prefs.fontSize;$('gemSize').value=prefs.gemSize;$('lineLength').value=prefs.lineLength;$('dockSway').checked=prefs.sway;$('dockMove').checked=prefs.moveEnabled;$('reduceMotion').checked=prefs.reducedMotion;
     const known=[...$('fontFamily').options].some(o=>o.value===prefs.fontFamily);
     $('fontFamily').value=known?prefs.fontFamily:'custom';$('customFont').value=known?'':prefs.fontFamily;$('customFontLabel').hidden=known;
@@ -96,7 +161,7 @@
     const size=prefs.width+'x'+prefs.height;$('windowPreset').value=[...$('windowPreset').options].some(o=>o.value===size)?size:'custom';
   }
   async function runtime(){
-    try{nativeState=await bridge()?.status()||{};const info=nativeState.pets?.[pet];$('toggleRole').setAttribute('aria-pressed',String(!!info?.roleplay));$('toggleRole').title=info?.roleplay?'停止角色扮演':'开启角色扮演';
+    try{nativeState=await bridge()?.status()||{};const info=nativeState.pets?.[pet];$('toggleRole').setAttribute('aria-pressed',String(!!info?.roleplay));$('toggleRole').setAttribute('aria-label',info?.roleplay?'停止角色扮演':'开启角色扮演');
       const pending=await request('idle-status?pet='+encodeURIComponent(pet));$('runtimeView').replaceChildren(node('p',pending.pending?'正在准备话题':'空闲'));
       const recent=(await api('metrics')).jobs.find(row=>row.petId===pet&&Number.isFinite(row.elapsedMs));
       if(recent){const facts=node('dl','','card-facts');for(const [label,value] of [['上次准备',((recent.contextMs||0)+recent.elapsedMs)/1000+' 秒'],['展示',recent.status==='displayed'?'已显示':recent.status==='failed'?'未完成':'尚未显示'],['模型请求',recent.attempts===undefined?'未记录':recent.attempts+' 次']])facts.append(node('dt',label),node('dd',value));$('runtimeView').append(facts);}
@@ -106,26 +171,63 @@
   function fill(){
     if(!data)return;document.body.dataset.ready='true';
     const actor=selectedActor(), p=actor?.resolvedSpeaker||actor?.speaker||{name:actor?.name||'默认人物'}, raw=data.assets.find(a=>a.id===actor?.assetId)?.card||{},card=raw.data||raw;
+    liveChat?.fill(actor,p);
     for(const n of document.querySelectorAll('[data-person-name]'))n.textContent=p.name;
     const summary=$('profileSummary');summary.replaceChildren();const top=node('div','','profile-heading');heading(top,p);summary.append(top,node('p',cleanBiography(p.description||card.personality||'',p.name).slice(0,220)));
-    $('configSummary').replaceChildren(node('dt','角色卡'),node('dd',card.name||'默认'),node('dt','世界书'),node('dd',String((actor?.bookIds?.length||0)+(card.character_book?1:0))));
-    $('latestSpeech').textContent=data.events.filter(e=>e.characterId===actor?.characterId&&e.type==='assistant'&&e.deliveryState==='displayed').at(-1)?.text||'暂无对话';
-    if(!previewAsset||!data.assets.some(a=>a.id===previewAsset))previewAsset=actor?.assetId;
+    heading($('overviewActorHeading'),p);
+    heading($('bookOverviewActorHeading'),p);
+    const bookCount=(actor?.bookIds?.length||0)+(card.character_book?1:0);
+    $('configSummary').replaceChildren(node('dt','角色卡'),node('dd',card.name||'默认'),node('dt','世界书'),node('dd',String(bookCount)));
+    $('bookOverviewCount').textContent=String(bookCount);
+    const latest=data.events.filter(e=>e.characterId===actor?.characterId&&e.type==='assistant'&&e.deliveryState==='displayed').at(-1)?.text||'暂无对话';
+    $('latestSpeech').textContent=latest;
+    $('overviewLatestSpeech').textContent=latest;
+    $('bookOverviewLatestSpeech').textContent=latest;
+    if(previewActor!==actor?.id||appliedAsset!==actor?.assetId||!data.assets.some(a=>a.id===previewAsset)){
+      previewAsset=actor?.assetId;
+    }
+    previewActor=actor?.id;
+    appliedAsset=actor?.assetId;
     renderCards();renderBooks();renderBindings();renderCast();if(currentSection==='historyPage')void loadHistory().catch(error);
     $('createActorDialog').close();
   }
   function renderCards(){
     const shelf=$('cardShelf');shelf.replaceChildren();
-    for(const card of data.assets.filter(a=>a.kind==='card')){const b=node('button',card.name);b.dataset.asset=card.id;b.setAttribute('aria-current',String(card.id===previewAsset));b.onclick=()=>{previewAsset=card.id;renderCards();};shelf.append(b);}
+    for(const card of data.assets.filter(a=>a.kind==='card')){
+      const b=node('button',card.name);b.dataset.asset=card.id;b.setAttribute('aria-current',String(card.id===previewAsset));
+      b.onclick=()=>{
+        if(previewAsset===card.id)return;
+        previewAsset=card.id;
+        for(const item of shelf.children)item.setAttribute('aria-current',String(item===b));
+        void previewCard();
+      };
+      shelf.append(b);
+    }
     void previewCard();
   }
   async function previewCard(){
     const asset=data.assets.find(a=>a.id===previewAsset),target=$('cardPreview'),seq=++cardRequest;
     if(!asset){target.replaceChildren(node('p','导入一张角色卡'));return;}
-    const raw=asset.card.data||asset.card;target.replaceChildren(node('h2',raw.name||asset.name));
+    const raw=asset.card.data||asset.card,name=raw.name||asset.name;
+    const title=node('h2',name);title.title=name;
+    target.replaceChildren(title);
+    target.scrollTop=0;
+    void window.ArkPanelUI?.cover(asset).then(src=>{
+      if(seq!==cardRequest||!src)return;
+      const image=document.createElement('img');image.src=src;image.alt=name;image.className='card-cover';
+      const viewer=node('button','','card-preview-zoom');
+      viewer.type='button';
+      viewer.setAttribute('aria-label','查看完整卡面');
+      viewer.setAttribute('aria-haspopup','dialog');
+      viewer.onclick=()=>liveChat.showCover(image);
+      viewer.append(image);target.prepend(viewer);
+    }).catch(()=>{});
     const info=await api('analyze-card',{assetId:asset.id}).catch(()=>null);if(seq!==cardRequest||!info)return;
     const facts=node('dl','','card-facts');facts.append(node('dt','人物'),node('dd',info.candidates.length?info.candidates.map(c=>c.name).join('、'):info.speaker?.name||'我'),node('dt','世界书'),node('dd',String(raw.character_book?.entries?.length||0)+' 条'));
-    target.append(facts);
+    const details=node('details','','card-preview-details');
+    details.open=!bookTheme()&&prefs.theme!=='broadcast';
+    details.append(node('summary','详情'),facts);
+    target.append(details);
   }
   function people(){
     if(candidateInfo.assetId!==selectedActor()?.assetId)return[];
@@ -177,7 +279,7 @@
     finally{historyBusy=false;}
   }
   function renderChat(r){
-    const article=node('article','','chat-record');article.dataset.messageId=r.id;article.dataset.part=String(r.part||0);
+    const article=node('article','','chat-record');article.dataset.messageId=r.id;article.dataset.part=String(r.part||0);article.dataset.role=r.type;
     article.append(node('small',(r.type==='user'?data.userPersona.name:r.speakerName||'角色')+' · '+new Date(r.at).toLocaleString()+(r.part?' · 续':'')),node('p',r.text));return article;
   }
   function renderHistory(){
@@ -185,8 +287,16 @@
     $('historyCount').textContent='最近 '+historyRows.length+' 条';chatPages.set(rows);
   }
   async function sources(){const r=await request('sources?pet='+encodeURIComponent(pet));$('sourceList').replaceChildren(...(r.sources||[]).map(s=>node('p',s.title||s.url)));if(!r.sources?.length)$('sourceList').append(node('p','暂无引用','empty'));}
-  async function loadOptions(){
-    const o=await request('chat-options');for(const[id,value]of Object.entries({optionMode:o.mode,optionEffort:o.effort,optionChars:o.maxChars,optionProactive:String(o.proactive),optionIdle:o.idleSeconds,optionBubble:o.bubbleSeconds}))$(id).value=value;
+  let optionsSerial=0;
+  async function loadOptions(sectionId){
+    const serial=++optionsSerial,options=await request('chat-options');
+    if(serial!==optionsSerial||sectionId!==currentSection)return;
+    const values=sectionId==='appearanceSettings'?{optionBubble:options.bubbleSeconds}:{
+      optionMode:options.mode,optionEffort:options.effort,optionChars:options.maxChars,
+      optionProactive:String(options.proactive),optionIdle:options.idleSeconds,
+    };
+    for(const [id,value] of Object.entries(values))$(id).value=value;
+    broadcast?.setProactive(options.proactive);
   }
   let connectionUi;
   async function loadApi(){connectionUi??=import('./library-ai-settings.js').then(m=>m.installAiSettings($('apiSettings'),{request,notice}));await (await connectionUi).load();}
@@ -199,11 +309,11 @@
   action('editBook',async()=>open('world','books'));
   action('refreshHistory',loadHistory);$('historyFilter').addEventListener('input',renderHistory);
   action('refreshRuntime',runtime);
-  submit('chatSettingsForm',async()=>{await request('chat-options',{mode:$('optionMode').value,effort:$('optionEffort').value,maxChars:Number($('optionChars').value),proactive:$('optionProactive').value==='true',idleSeconds:Number($('optionIdle').value)});notice('对话设置已保存');});
+  submit('chatSettingsForm',async()=>{const saved=await request('chat-options',{mode:$('optionMode').value,effort:$('optionEffort').value,maxChars:Number($('optionChars').value),proactive:$('optionProactive').value==='true',idleSeconds:Number($('optionIdle').value)});broadcast?.setProactive(saved.proactive);notice('对话设置已保存');});
   submit('appearanceForm',async()=>{
     const font=$('fontFamily').value==='custom'?$('customFont').value.trim():$('fontFamily').value,size=Number($('fontSize').value);
     if(!/^[\p{L}\p{N} _-]{1,64}$/u.test(font)||!Number.isInteger(size)||size<14||size>28)throw new Error('请检查字体和字号');
-    await savePreferences({fontFamily:font,fontSize:size,reducedMotion:$('reduceMotion').checked});await request('chat-options',{bubbleSeconds:Number($('optionBubble').value)});notice('显示设置已保存');
+    await savePreferences({fontFamily:font,fontSize:size,reducedMotion:$('reduceMotion').checked,backgroundOpacity:Number($('backgroundOpacity')?.value??8)});await request('chat-options',{bubbleSeconds:Number($('optionBubble').value)});notice('显示设置已保存');
   });
   $('fontFamily').onchange=()=>{$('customFontLabel').hidden=$('fontFamily').value!=='custom';};
   $('windowPreset').onchange=()=>{if($('windowPreset').value!=='custom'){const[w,h]=$('windowPreset').value.split('x');$('windowWidth').value=w;$('windowHeight').value=h;}};
@@ -218,11 +328,11 @@
   action('createActorConfirm',async()=>{$('saveActor').click();});
   const cancelCreate=()=>{void reload().catch(error);};
   $('createActorCancel').onclick=()=>{$('createActorDialog').close();cancelCreate();};$('createActorDialog').addEventListener('cancel',cancelCreate);
-  document.addEventListener('click',e=>{const b=e.target.closest('[data-open],[data-legacy],[data-field]');if(b?.dataset.open)open(b.dataset.open);else if(b?.dataset.legacy)showSection(b.dataset.legacy);else if(b?.dataset.field){for(const n of document.querySelectorAll('[data-field-box]'))n.hidden=n.dataset.fieldBox!==b.dataset.field;for(const n of document.querySelectorAll('[data-field]'))n.setAttribute('aria-current',String(n===b));}});
+  document.addEventListener('click',e=>{const b=e.target.closest('[data-open],[data-legacy],[data-field]');if(b?.dataset.open)open(b.dataset.open,b.dataset.openSection);else if(b?.dataset.legacy)showSection(b.dataset.legacy);else if(b?.dataset.field){for(const n of document.querySelectorAll('[data-field-box]'))n.hidden=n.dataset.fieldBox!==b.dataset.field;for(const n of document.querySelectorAll('[data-field]'))n.setAttribute('aria-current',String(n===b));}});
   document.querySelector('[data-field=description]').setAttribute('aria-current','true');
   document.addEventListener('companion:loaded',fill);document.addEventListener('companion:candidates',()=>{if(previewAsset===selectedActor()?.assetId)renderCast();});document.addEventListener('companion:book',renderBooks);document.addEventListener('companion:entry',renderEntries);
   $('actor').addEventListener('change',()=>{inspectedName='';fill();});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!document.querySelector('dialog[open]'))void bridge()?.close();});
+  document.addEventListener('keydown',e=>{if(!e.defaultPrevented&&e.key==='Escape'&&!document.querySelector('dialog[open]'))void bridge()?.close();});
   bridge()?.onNavigate(({page})=>open(page));
   bridge()?.onSettings?.(value=>{prefs={...prefs,...value};applyPreferences();paintPreferences();});
   if(bridge())for(const edge of ['n','s','w','e','nw','ne','sw','se']){
@@ -232,7 +342,7 @@
     handle.onpointermove=e=>{if(dragging)void command('resize-move',{x:e.screenX,y:e.screenY}).catch(error);};
     const end=()=>{if(dragging){dragging=false;void command('resize-end').catch(error);}};handle.onpointerup=end;handle.onpointercancel=end;
   }
-  applyPreferences();paintPreferences();open(initial.get('page')||'overview');if(typeof data!=='undefined')fill();
+  liveChat?.ready();applyPreferences();paintPreferences();open(initial.get('page')||'overview');if(typeof data!=='undefined')fill();
   if(bridge())void bridge().status().then(v=>{nativeState=v;if(v.settings){prefs={...prefs,...v.settings};applyPreferences();paintPreferences();}}).catch(()=>{});
   void document.fonts?.ready.then(()=>{bioPages.refresh();chatPages.refresh();});
   new ResizeObserver(()=>{if(document.body.dataset.transition!=='active'){bioPages.refresh();chatPages.refresh();}}).observe(main);
